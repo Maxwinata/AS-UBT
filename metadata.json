@@ -1,0 +1,10 @@
+{
+  "name": "Sistem Informasi Asrama UBT (Roemah 54)",
+  "description": "Portal Informasi \u0026 Manajemen Asrama UBT - Alur Penerimaan PMB/SSO, Billing Kode Unik, e-KYC, Room Plotting, Kontrak Digital OTP WA, e-Ticket Barcode, dan Simulasi Mesin SOP Operasional Asrama.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

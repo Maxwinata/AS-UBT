@@ -1,0 +1,257 @@
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, Check, X, DollarSign } from 'lucide-react';
+import { TariffItem, PaymentScheme } from '../../types/asrama';
+
+interface TariffManagerProps {
+  tariffs: TariffItem[];
+  setTariffs: (tariffs: TariffItem[]) => void;
+  paymentSchemes?: PaymentScheme[];
+  setPaymentSchemes?: (schemes: PaymentScheme[]) => void;
+}
+
+export const TariffManager: React.FC<TariffManagerProps> = ({ tariffs, setTariffs, paymentSchemes = [], setPaymentSchemes = () => {} }) => {
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<TariffItem>>({});
+  
+  const [isAdding, setIsAdding] = useState(false);
+  const [addForm, setAddForm] = useState<Partial<TariffItem>>({
+    category: 'SEWA',
+    target: 'ALL',
+    amount: 0
+  });
+
+  const formatRupiah = (val: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+  };
+
+  const handleSaveEdit = () => {
+    if (isEditing && editForm.name && editForm.amount !== undefined) {
+      setTariffs(tariffs.map(t => t.id === isEditing ? { ...t, ...editForm } as TariffItem : t));
+      setIsEditing(null);
+      setEditForm({});
+    }
+  };
+
+  const handleSaveAdd = () => {
+    if (addForm.name && addForm.amount !== undefined) {
+      const newTariff: TariffItem = {
+        id: `t${Date.now()}`,
+        name: addForm.name,
+        amount: addForm.amount,
+        category: addForm.category as any,
+        target: addForm.target as any
+      };
+      setTariffs([...tariffs, newTariff]);
+      setIsAdding(false);
+      setAddForm({ category: 'SEWA', target: 'ALL', amount: 0 });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Yakin ingin menghapus komponen tarif ini?')) {
+      setTariffs(tariffs.filter(t => t.id !== id));
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+      <div className="border-b border-slate-200 pb-4 flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <DollarSign className="w-5 h-5 text-blue-700" />
+            <span>Manajemen Master Tarif & Biaya</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">Daftar komponen biaya yang digunakan untuk kalkulasi invoice Maba dan Mahasiswa Eksisting.</p>
+        </div>
+        {!isAdding && (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" /> Tambah Tarif
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider font-bold">
+              <th className="p-3 rounded-tl-xl">Nama Komponen</th>
+              <th className="p-3">Kategori</th>
+              <th className="p-3">Target / Tipe</th>
+              <th className="p-3 text-right">Nominal (Rp)</th>
+              <th className="p-3 text-center rounded-tr-xl">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="text-sm divide-y divide-slate-100">
+            {isAdding && (
+              <tr className="bg-blue-50/50">
+                <td className="p-3">
+                  <input type="text" placeholder="Nama Komponen..." value={addForm.name || ''} onChange={e => setAddForm({...addForm, name: e.target.value})} className="w-full text-xs px-2 py-1.5 border border-blue-300 rounded focus:outline-none" />
+                </td>
+                <td className="p-3">
+                  <select value={addForm.category} onChange={e => setAddForm({...addForm, category: e.target.value as any})} className="text-xs px-2 py-1.5 border border-blue-300 rounded w-full">
+                    <option value="SEWA">Sewa Bulanan</option>
+                    <option value="DEPOSIT">Deposit Jaminan</option>
+                    <option value="PERLENGKAPAN">Perlengkapan Awal</option>
+                    <option value="ADMIN">Biaya Admin</option>
+                    <option value="CICILAN">Biaya Layanan Cicilan</option>
+                    <option value="PENGATURAN">Pengaturan Sistem</option>
+                    <option value="LAINNYA">Lain-lain</option>
+                  </select>
+                </td>
+                <td className="p-3">
+                  <select value={addForm.target} onChange={e => setAddForm({...addForm, target: e.target.value as any})} className="text-xs px-2 py-1.5 border border-blue-300 rounded w-full">
+                    <option value="ALL">Semua Jalur</option>
+                    <option value="REGULER">Reguler (Non-KIP)</option>
+                    <option value="KIP">KIP-Kuliah</option>
+                  </select>
+                </td>
+                <td className="p-3 text-right">
+                  <input type="number" value={addForm.amount || 0} onChange={e => setAddForm({...addForm, amount: Number(e.target.value)})} className="w-full text-xs px-2 py-1.5 border border-blue-300 rounded text-right font-mono focus:outline-none" />
+                </td>
+                <td className="p-3">
+                  <div className="flex justify-center gap-2">
+                    <button onClick={handleSaveAdd} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Simpan"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setIsAdding(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg" title="Batal"><X className="w-4 h-4" /></button>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {tariffs.map((tariff) => {
+              const editingThis = isEditing === tariff.id;
+              return (
+                <tr key={tariff.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-3">
+                    {editingThis ? (
+                      <input type="text" value={editForm.name || ''} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full text-xs px-2 py-1.5 border border-blue-300 rounded focus:outline-none" />
+                    ) : (
+                      <span className="font-medium text-slate-800">{tariff.name}</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {editingThis ? (
+                      <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value as any})} className="text-xs px-2 py-1.5 border border-blue-300 rounded w-full">
+                        <option value="SEWA">Sewa Bulanan</option>
+                        <option value="DEPOSIT">Deposit Jaminan</option>
+                        <option value="PERLENGKAPAN">Perlengkapan Awal</option>
+                        <option value="ADMIN">Biaya Admin</option>
+                    <option value="CICILAN">Biaya Layanan Cicilan</option>
+                        <option value="LAINNYA">Lain-lain</option>
+                      </select>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-md \${
+                        tariff.category === 'SEWA' ? 'bg-blue-100 text-blue-800' :
+                        tariff.category === 'DEPOSIT' ? 'bg-purple-100 text-purple-800' :
+                        tariff.category === 'PERLENGKAPAN' ? 'bg-amber-100 text-amber-800' :
+                        tariff.category === 'CICILAN' ? 'bg-rose-100 text-rose-800' :
+                        tariff.category === 'PENGATURAN' ? 'bg-slate-800 text-slate-100' :
+                        'bg-slate-100 text-slate-800'
+                      }`}>
+                        {tariff.category}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {editingThis ? (
+                      <select value={editForm.target} onChange={e => setEditForm({...editForm, target: e.target.value as any})} className="text-xs px-2 py-1.5 border border-blue-300 rounded w-full">
+                        <option value="ALL">Semua Jalur</option>
+                        <option value="REGULER">Reguler (Non-KIP)</option>
+                        <option value="KIP">KIP-Kuliah</option>
+                      </select>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-md \${
+                        tariff.target === 'KIP' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                        tariff.target === 'REGULER' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {tariff.target === 'ALL' ? 'SEMUA JALUR' : tariff.target}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-3 text-right">
+                    {editingThis ? (
+                      <input type="number" value={editForm.amount ?? 0} onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})} className="w-full text-xs px-2 py-1.5 border border-blue-300 rounded text-right font-mono focus:outline-none" />
+                    ) : (
+                      <>{tariff.category === 'PENGATURAN' ? <span className="font-mono font-bold text-slate-900">{tariff.amount} {tariff.name.includes('Bulan') || tariff.name.includes('Tenor') || tariff.name.includes('Cicilan') ? 'Bulan / Kali' : ''}</span> : <span className="font-mono font-bold text-slate-900">{formatRupiah(tariff.amount)}</span>}</>
+                    )}
+                  </td>
+                  <td className="p-3 text-center">
+                    {editingThis ? (
+                      <div className="flex justify-center gap-2">
+                        <button onClick={handleSaveEdit} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Simpan"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setIsEditing(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg" title="Batal"><X className="w-4 h-4" /></button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => { setIsEditing(tariff.id); setEditForm(tariff); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDelete(tariff.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <div className="border-b border-slate-200 pb-4 mb-4">
+          <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <span>Konfigurasi Skema Pembayaran (Payment Scheme)</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">Atur jumlah maksimal cicilan (tenor) dan pengali (multiplier) nominal deposit untuk masing-masing target mahasiswa.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider font-bold">
+                <th className="p-3 rounded-tl-xl">Target Mahasiswa</th>
+                <th className="p-3 text-center">Maks Cicilan (Tenor)</th>
+                <th className="p-3 text-center">Pengali Deposit (Cicilan)</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm divide-y divide-slate-100">
+              {paymentSchemes.map(scheme => (
+                <tr key={scheme.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-3 font-bold text-slate-800">{scheme.target === 'ALL' ? 'SEMUA JALUR' : scheme.target}</td>
+                  <td className="p-3 text-center">
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="12" 
+                      value={scheme.maxInstallments} 
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if(val > 0) setPaymentSchemes(paymentSchemes.map(s => s.id === scheme.id ? {...s, maxInstallments: val} : s));
+                      }}
+                      className="w-20 text-center text-xs px-2 py-1.5 border border-blue-300 rounded focus:outline-none" 
+                    />
+                  </td>
+                  <td className="p-3 text-center flex justify-center items-center gap-2">
+                    <input 
+                      type="number" 
+                      step="0.1" 
+                      min="1.0"
+                      value={scheme.installmentMultiplier} 
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if(val >= 1) setPaymentSchemes(paymentSchemes.map(s => s.id === scheme.id ? {...s, installmentMultiplier: val} : s));
+                      }}
+                      className="w-24 text-center text-xs px-2 py-1.5 border border-blue-300 rounded focus:outline-none" 
+                    />
+                    <span className="text-xs font-bold text-slate-500">x</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+  
+    </div>
+  );
+};

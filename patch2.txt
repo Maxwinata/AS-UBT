@@ -1,0 +1,7 @@
+      <SidebarGuide 
+        currentRole={currentRole} 
+        onSelectRole={(role) => {
+          setCurrentRole(role);
+          if (!isLoggedIn) setIsLoggedIn(true);
+        }} 
+      />

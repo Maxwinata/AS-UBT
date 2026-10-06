@@ -1,0 +1,5 @@
+1. Acknowledge user's observation.
+2. Point out where the simple "cicilan" setting currently resides (at the bottom of TariffManager: "Konfigurasi Skema Pembayaran").
+3. Explain how it currently works (Deposit Multiplier).
+4. Address the "Optimal" question: No, it is a frontend simulation.
+5. Explain the Database Relationship (Schema).

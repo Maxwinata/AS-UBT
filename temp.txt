@@ -1,0 +1,11 @@
+  FileEdit,
+  Unlock,
+  PenTool,
+  Ticket,
+  Calculator,
+, AlertCircle} from 'lucide-react';
+
+import { AddressForm } from './AddressForm';
+import { useFormValidation } from '../../hooks/useFormValidation';
+import { CaptureComponent } from '../shared/CaptureComponent';
+import { VerifikasiTrail, VerificationAttempt } from './VerifikasiTrail';
