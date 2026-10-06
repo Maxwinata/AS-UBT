@@ -1,5 +1,5 @@
 import React from 'react';
-import { SsoLogin } from '../../../src/components/SsoLogin';
+import { LoginDualTab } from '../../../src/components/auth/LoginDualTab';
 import { Head, router } from '@inertiajs/react';
 
 export default function Login() {
@@ -17,7 +17,7 @@ export default function Login() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <Head title="Gerbang SSO Masuk SI-GABUNG 54" />
       <div className="w-full max-w-4xl">
-        <SsoLogin onLoginSuccess={handleLoginSuccess} />
+        <LoginDualTab onLoginSuccess={handleLoginSuccess} />
       </div>
     </div>
   );

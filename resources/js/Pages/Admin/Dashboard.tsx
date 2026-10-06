@@ -3,7 +3,7 @@ import { BillingInvoice, RoomPlot, DelinquencyRecord, TariffItem, PaymentScheme,
 import { INITIAL_INVOICE, INITIAL_ROOMS, initialTariffs, initialPaymentSchemes } from '../../../src/data/initialData';
 import { AdminAsrama } from '../../../src/components/admin/AdminAsrama';
 import { Header } from '../../../src/components/Header';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 
 interface AdminPageProps {
   invoices?: BillingInvoice[];
@@ -38,6 +38,11 @@ export default function Dashboard(props: AdminPageProps) {
         return inv;
       })
     );
+
+    // Sync ke Laravel Controller via Inertia
+    if (typeof window !== 'undefined' && (window as any).route) {
+      router.post(`/admin/invoice/${invoiceId}/verify`, { action }, { preserveScroll: true });
+    }
   };
 
   return (

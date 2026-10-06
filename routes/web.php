@@ -29,10 +29,16 @@ Route::prefix('maba')->group(function () {
     Route::get('/dashboard', [MabaDashboardController::class, 'index'])->name('maba.dashboard');
     Route::post('/profile', [MabaDashboardController::class, 'updateProfile'])->name('maba.profile.update');
     Route::post('/kyc', [KycVerificationController::class, 'store'])->name('maba.kyc.store');
+    Route::get('/kyc/signed-url/{type}', [KycVerificationController::class, 'getSignedUrl'])->name('maba.kyc.signed_url');
     Route::post('/invoice/configure', [InvoiceController::class, 'configure'])->name('maba.invoice.configure');
     Route::post('/invoice/{id}/upload-proof', [InvoiceController::class, 'uploadTransferProof'])->name('maba.invoice.upload');
     Route::post('/contract/sign', [MabaDashboardController::class, 'signContract'])->name('maba.contract.sign');
 });
+
+// Route Akses Dokumen Privat e-KYC (Wajib Memiliki Tanda Tangan Digital URL yang Sah)
+Route::get('/kyc/view/{id}/{type}', [KycVerificationController::class, 'showPrivateDocument'])
+    ->name('kyc.document.view')
+    ->middleware('signed');
 
 // Route Admin Asrama & Keuangan
 Route::prefix('admin')->group(function () {
