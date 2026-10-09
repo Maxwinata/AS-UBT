@@ -1,6 +1,8 @@
 # Product & Technical Requirements Document (PRD & SAS)
 **Sistem Informasi Portal Asrama Universitas Bunda Thamrin (UBT)**
 
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md)
+
 ---
 
 ## 1. Visi & Objektif Produk
@@ -30,63 +32,70 @@ Menyediakan platform digital terpadu untuk memfasilitasi proses admisi, pembayar
 
 ## 3. Arsitektur Sistem & Tech Stack
 ### A. Teknologi
-- **Frontend (UI/UX):** React.js + Tailwind CSS (di production di-render via Inertia.js).
-- **Backend:** Laravel (PHP 8.x+).
-- **Database:** MySQL / MariaDB.
-- **Ikon & Tipografi:** Lucide Icons, Google Fonts (Inter).
+- **Frontend (UI/UX):** React 19 + Tailwind CSS v4 (dirender sebagai Single Page Application melalui adapter Inertia.js).
+- **Backend:** Laravel 11 (PHP 8.2+).
+- **Bridge Monolit:** Inertia.js 2.0 (`@inertiajs/react` dan `inertiajs/inertia-laravel`).
+- **Database:** MySQL / MariaDB (dikelola via Laravel Eloquent ORM & Migrations terkalibrasi).
+- **Ikon & Tipografi:** Lucide Icons, Plus Jakarta Sans / Inter.
 
 ### B. Komunikasi & Keamanan
-- **Protokol:** Frontend berinteraksi dengan backend menggunakan **RESTful API** (JSON) melalui AJAX/Axios (atau via Inertia).
-- **Autentikasi:** Laravel Sanctum (Token API) atau Session-based Auth.
-- **Keamanan File:** Dokumen sensitif (e-KYC KTP/Selfie) disimpan di folder `storage/app/private` (tidak publik) dan diakses via Signed URL.
+- **Protokol:** Frontend dan Backend berkomunikasi melalui **Inertia Protocol** (Props Injection saat `Inertia::render` dan pengiriman form melalui `router.post`). Aplikasi bebas dari keharusan membuat boilerplate REST API manual dan token handling terpisah untuk tampilan UI.
+- **Pure REST API & Webhooks:** REST API murni hanya dipertahankan secara terbatas untuk integrasi pihak ketiga di latar belakang:
+  - `POST /api/webhooks/bsi-mutation` (Rekonsiliasi mutasi bank transfer manual)
+  - `POST /api/webhooks/bni-va-callback` (Callback otomatis Virtual Account)
+  - `GET /api/health` (Health check endpoint)
+- **Autentikasi & Session:** Laravel Session-based Auth & Middleware Role (`EnsureUserRole`, `HandleInertiaRequests`).
+- **Keamanan Dokumen KYC:** Sesuai pedoman `AGENTS.md`, seluruh berkas KTP dan swafoto biometrik disimpan pada disk privat (`storage/app/private_kyc`), penamaan berkas menggunakan format *versioning* UUID/timestamp (tidak pernah menimpa file lama), dan akses berkas dilindungi oleh **Temporary Signed URLs** (TTL 15 menit).
 
 ---
 
 ## 4. Alur Autentikasi & Login (Dual Tab)
-Halaman login menggunakan antarmuka *Dual Tab* untuk memisahkan jalur masuk:
+Halaman login menggunakan antarmuka *Dual Tab* (`resources/js/Pages/Auth/Login.tsx` / `LoginDualTab.tsx`):
 
 ### A. Tab Login Maba
 - **Target:** Mahasiswa baru yang belum memiliki akses SSO penuh.
 - **Kredensial:** Nomor Registrasi PMB & Tanggal Lahir.
-- **Logika:** Jika valid, diarahkan ke **Dashboard Pendaftaran Maba (Langkah 1: e-KYC)**. Terhubung dengan `POST /api/auth/maba-login`.
+- **Logika:** Jika valid, diarahkan ke **Dashboard Pendaftaran Maba (`GET /maba/dashboard`)**.
 
 ### B. Tab Login SSO (Mahasiswa Eksisting)
 - **Target:** Mahasiswa dengan akun SIAKAD aktif.
 - **Kredensial:** Username / NIM & Password SSO SIAKAD.
 - **Logika Multi-Tahap:**
-  1. **SSO Auth:** Validasi ke gateway SIAKAD UBT.
-  2. **Query DB_ASRAMA:** Cek status aktif di database asrama.
+  1. **SSO Auth:** Validasi kredensial ke gateway SIAKAD UBT.
+  2. **Query DB_ASRAMA:** Cek status aktif di tabel `penyewa` / `users`.
   3. **Evaluasi Status:**
-     - *Active Resident:* Diarahkan ke Dashboard Mahasiswa Eksisting.
-     - *Non-Active Resident:* Memunculkan **Modal Redirect** menuju proses Pendaftaran 6-Langkah. Terhubung dengan `POST /api/auth/sso-login`.
+     - *Active Resident:* Diarahkan ke Dashboard Mahasiswa Eksisting (`GET /eksisting/dashboard`).
+     - *Non-Active Resident:* Memunculkan **Modal Redirect** menuju alur Pendaftaran Asrama (`GET /maba/dashboard`).
 
 ---
 
-## 5. Fitur Utama & Ruang Lingkup (Modul & CRUD)
+## 5. Fitur Utama & Ruang Lingkup (Inertia Controller Actions)
+
+Seluruh logika bisnis dikelola oleh controller Laravel resmi dan dipetakan di `routes/web.php`:
 
 ### A. Modul Pendaftaran & e-KYC (Langkah 1)
-Mahasiswa mengisi form dan mengunggah dokumen identitas.
-- **API Create:** `POST /api/admissions/register` -> validasi & simpan ke tabel `users` dan pindah file ke `storage/app/private/ekyc`.
-- **API Read:** `GET /api/admissions/status`.
-- **API Update:** `POST /api/admissions/ekyc/update` (Jika ditolak Admin).
+- **Render View:** `GET /maba/dashboard` (`MabaDashboardController@index`) menyuntikkan props `profile`, `invoice`, `rooms`, `tariffs`.
+- **Update Profil:** `POST /maba/profile` (`MabaDashboardController@updateProfile`) memvalidasi biodata, alamat berjenjang, dan kontak darurat.
+- **Upload e-KYC:** `POST /maba/kyc` (`KycVerificationController@store`) menyimpan KTP & swafoto ke disk `private_kyc` dengan penomoran versi.
+- **Akses Dokumen:** `GET /kyc/signed-url/{type}` (`KycVerificationController@getSignedUrl`) menerbitkan link sementara bertanda tangan digital.
+- **Streaming Aman:** `GET /kyc/view/{id}/{type}` (`KycVerificationController@showPrivateDocument`) diverifikasi dengan middleware `signed`.
 
 ### B. Modul Keuangan & Pembayaran (Langkah 2 & 3)
-- **API Create (Upload Bukti):** `POST /api/payments/manual-transfer`. Data path gambar & kode unik 3 digit disimpan.
-- **API Read:** `GET /api/bills/my-bill` (Maba) dan `GET /api/admin/payments/pending` (Admin).
-- **API Update:** `PUT /api/admin/payments/{id}/verify` (Admin Setuju).
+- **Konfigurasi Tagihan:** `POST /maba/invoice/configure` (`InvoiceController@configure`) mengkalkulasi durasi sewa, skema cicilan deposit, biaya administrasi acuan (Rp 100.000), dan 3-digit kode unik.
+- **Upload Bukti Bayar:** `POST /maba/invoice/{id}/upload-proof` (`InvoiceController@uploadTransferProof`) mengunggah struk transfer bank BSI.
+- **Verifikasi Admin:** `POST /admin/invoice/{id}/verify` (`AdminAsramaController@verifyInvoice`) memproses persetujuan tagihan, approval booking, atau penolakan.
 
 ### C. Modul Penetapan Kamar / Plotting (Langkah 4)
-- **API Read:** `GET /api/admin/rooms/availability` (Admin memantau kuota).
-- **API Create:** `POST /api/admin/rooms/plot` (Menetapkan kamar).
-- **API Update/Delete:** `PUT /api/admin/rooms/move/{id}` atau `DELETE /api/admin/rooms/plot/{id}`.
+- **Alokasi & Pemilihan:** Ditangani pada `MabaDashboardController@index` dan `AdminAsramaController@index` dengan logika ketersediaan kapasitas ranjang (`rooms.capacity` vs transaksi aktif).
 
 ### D. Modul Kontrak Digital & OTP WhatsApp (Langkah 5)
-- **API Create (Request):** `POST /api/contracts/request-otp` (trigger webhook WA).
-- **API Create (Verify):** `POST /api/contracts/verify-otp`. Jika valid, generate barcode string.
+- **Penandatanganan Kontrak:** `POST /maba/contract/sign` (`MabaDashboardController@signContract`) memvalidasi 6-digit OTP WA mahasiswa & wali serta mencatat jejak audit SHA-256 (JUKLAK-02).
+- **Ratifikasi Kolektif F-22:** Data penandatangan digabungkan ke antrean batch lembar ratifikasi kolektif bermeterai tunggal (JUKLAK-03).
 
-### E. Modul Aktivasi / Check-In (Langkah 6)
-- **API Read:** `GET /api/tickets/active` (Maba melihat QR Code).
-- **API Update:** `POST /api/admin/checkin/scan/{ticket_code}` (Security scan QR).
+### E. Modul SOP Delinquency & Eksekusi Toleransi 5+5 Hari
+- **Monitor Dashboard:** `GET /sop/cron-monitor` (`CronSopController@index`).
+- **Eksekusi Penegakan:** `POST /sop/cron/run-enforcement` (`CronSopController@runDailyEnforcement`) memproses otomatis pemotongan deposit sewa (D+6 s/d D+10) dan penalti wanprestasi akut Rp 500.000 / terminasi sewa (> D+10).
+- **Tindakan Penegakan Admin:** `POST /admin/delinquency/{id}/action` (`AdminAsramaController@handleDelinquencyAction`).
 
 ---
 

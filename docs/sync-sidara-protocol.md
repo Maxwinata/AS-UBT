@@ -1,56 +1,55 @@
-# SIDARA Synchronization & Booking Migration Protocol
+# Protokol Sinkronisasi SIDARA & Migrasi Status Booking
 
-## 1. System Architecture Boundaries
-* **SIDARA**: The university's central academic information system. This acts as the external **Source of Truth** for the official student database and valid NIMs.
-* **Asrama SQL Database**: The dormitory's internal, localized operational database (accessed via the Web Admin at `http://asrama.ubtsu.ac.id`). This system manages `penyewa` (tenants), billing, and room allocations.
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](sync-sidara-protocol.en.md)
 
-## 2. State Machine Transition: BOOKING -> PENYEWA
+---
 
-The dormitory admission process utilizes a state machine to handle students who register on the Asrama platform before their official Student Identification Number (NIM) is issued by SIDARA.
+## 1. Batasan Arsitektur Sistem
+* **SIDARA**: Sistem informasi akademik pusat universitas. Bertindak sebagai **Sumber Kebenaran Tunggal (*Source of Truth*)** eksternal untuk basis data kemahasiswaan dan keabsahan Nomor Induk Mahasiswa (NIM).
+* **Basis Data Operasional Asrama**: Basis data internal pengelolaan asrama kampus. Sistem ini mengelola data penghuni (`penyewa`), tagihan, penempatan kamar, dan inventaris.
 
-### State: `BOOKING`
-* **Condition**: A student registers using a temporary registration number (e.g., `PMB2026-xxx` or `REG-xxx`) and completes the deposit payment.
-* **Trigger**: Finance Admin approves the payment via the "Approve Booking (Tanpa NIM)" action.
-* **System State**: 
-  * Invoice `status` = `PAID`.
-  * Invoice `isMigrated` = `false`.
-  * Student Dashboard is locked at Step 4, displaying a generic "Menunggu Sinkronisasi Data Akademik" message.
+---
 
-### State: `PENYEWA` (Migrated)
-* **Condition**: The official NIM is issued by SIDARA and mapped to the student's profile.
-* **Trigger**: Finance Admin executes the "Sync NIM & Migrate" action, providing the valid NIM.
-* **System State**:
-  * Invoice `isMigrated` = `true`.
-  * Student Dashboard unlocks Step 5 (Digital Contract Execution).
-  * Staging data is fully migrated to master tables.
+## 2. Mesin Status Transisi: BOOKING -> PENYEWA
 
-## 3. Database Migration Procedure
+Alur pendaftaran asrama menerapkan mesin status (*state machine*) untuk mengelola calon penghuni yang mendaftar di sistem asrama sebelum NIM resmi mereka diterbitkan oleh SIDARA:
 
-Upon a successful "Sync NIM & Migrate" action (where the Admin inputs the valid NIM sourced from SIDARA), the backend must execute the following operations within a single atomic database transaction on the **Asrama SQL database** (`http://asrama.ubtsu.ac.id`):
+### Status: `BOOKING` (Pemesanan Tertahan)
+* **Kondisi:** Mahasiswa mendaftar menggunakan nomor pendaftaran sementara (contoh: `PMB2026-08942` atau `REG-xxx`) dan telah melunasi tagihan awal.
+* **Pemicu:** Admin Keuangan menyetujui pembayaran melalui aksi "Setujui Booking (Tanpa NIM)".
+* **Status Sistem:**
+  * Tagihan `status` = `PAID`.
+  * Tagihan `isMigrated` = `false`.
+  * Dashboard Mahasiswa terkunci pada Langkah 4 dengan status menanti sinkronisasi data akademik resmi kampus.
 
-1. **Staging Update**: Replace the temporary registration number with the official SIDARA NIM in the temporary staging profile.
-2. **Master `penyewa` Insertion**: Create a formal tenant record in the Asrama's `penyewa` master table using the official NIM as the primary key. Map the allocated room, faculty, and biodata.
-3. **Master `pembayaran` Insertion**: Record the approved deposit payment in the Asrama's `pembayaran` ledger, linked to the new NIM.
-4. **SSO `users` Creation**: Provision a Single Sign-On (SSO) account in the Asrama's `users` table bound to the official NIM.
-5. **Finalize Invoice**: Update the original staging invoice record to set `isMigrated = true`.
+### Status: `PENYEWA` (Resmi Terdaftar di Master)
+* **Kondisi:** NIM resmi telah diterbitkan oleh SIDARA dan dipetakan ke profil mahasiswa.
+* **Pemicu:** Admin Keuangan menjalankan aksi "Sinkronisasi NIM & Migrasi" dengan memasukkan NIM resmi dari SIDARA.
+* **Status Sistem:**
+  * Tagihan `isMigrated` = `true`.
+  * Dashboard Mahasiswa membuka Langkah 5 (Penandatanganan Kontrak Digital).
+  * Data pada tabel penampungan sementara (*staging*) dipromosikan penuh ke tabel master asrama.
 
-## 4. Required Audit Log Entries
+---
 
-To maintain strict accountability and historical tracking, every execution of the manual NIM sync MUST generate an immutable audit log entry in the `audit_logs` table.
+## 3. Prosedur Eksekusi Migrasi Basis Data
 
-The audit log entry must capture the following payload:
+Saat aksi "Sinkronisasi NIM & Migrasi" dijalankan, backend Laravel mengeksekusi transaksi basis data tunggal yang bersifat atomik:
 
+1. **Pembaruan Staging:** Mengganti nomor registrasi sementara dengan NIM resmi SIDARA pada profil pendaftar (`maba_profiles`).
+2. **Penyisipan Master `penyewa`:** Membuat rekord penghuni definitif pada tabel `penyewa` menggunakan NIM sebagai identifier utama. Memetakan kamar yang dialokasikan, fakultas, dan biodata.
+3. **Penyisipan Master `pembayaran`:** Mencatat pembayaran sewa dan deposit yang telah diverifikasi ke buku besar pembayaran permanen.
+4. **Penyediaan Akun SSO `users`:** Menyediakan akun Single Sign-On (SSO) asrama yang terikat pada NIM resmi mahasiswa.
+5. **Finalisasi Tagihan:** Memperbarui status tagihan menjadi `isMigrated = true`.
+
+---
+
+## 4. Pencatatan Jejak Audit Wajib (*Audit Log*)
+
+Demi menjaga akuntabilitas, setiap eksekusi sinkronisasi NIM manual WAJIB menghasilkan entri log audit permanen di tabel `modification_logs` yang merekam:
 * **`action`**: `SIDARA_MANUAL_NIM_SYNC`
-* **`timestamp`**: ISO 8601 UTC timestamp of the execution.
-* **`admin_user_id`**: The UUID or username of the Finance Admin who performed the action.
-* **`invoice_id`**: The ID of the billing invoice tied to the booking.
-* **`old_identifier`**: The temporary registration number (e.g., `PMB2026-08942`).
-* **`new_nim`**: The official SIDARA NIM mapped to the student.
-* **`ip_address`**: The IP address of the admin initiating the request.
-* **`status`**: `SUCCESS` (or `FAILED` if the transaction rolled back).
-
-*Note: This log is critical for resolving disputes if a payment is linked to the wrong student NIM during the manual input process.*
-
-## 5. UI & Security Considerations
-* The term "SIDARA" is for internal administrative use only. Client-side UI for students must abstract this as "Sistem Akademik Universitas" to prevent end-user confusion.
-* The UI must block input of temporary prefixes (`PMB`, `REG`) during the manual sync prompt to prevent recursive booking states.
+* **`timestamp`**: Waktu stempel UTC ISO 8601.
+* **`actor`**: Nama/ID Admin Keuangan yang mengeksekusi sinkronisasi.
+* **`invoice_id`**: Nomor tagihan terkait.
+* **`old_identifier`**: Nomor registrasi sementara (misal: `PMB2026-08942`).
+* **`new_nim`**: NIM resmi universitas yang dipetakan.

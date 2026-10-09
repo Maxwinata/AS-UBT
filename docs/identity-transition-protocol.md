@@ -1,51 +1,51 @@
-# Identity Transition & Communication Protocol
-## From PMB Registration to Official SSO/NIM (Booking -> Penyewa)
+# Protokol Transisi Identitas & Komunikasi
+## Dari Nomor Registrasi PMB Menuju NIM / SSO Resmi (Booking -> Penyewa)
 
-## 1. Overview & Purpose
-This document outlines the standard operating procedure and communication protocol for transitioning a new student (Maba) from their temporary registration identity (No. Reg PMB) to their official university identity (NIM & SSO). 
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](identity-transition-protocol.en.md)
 
-This transition is structurally critical because **all legal dormitory contracts (Step 5) MUST be signed using a valid NIM**, not a temporary registration number.
+---
 
-## 2. Transition Timeline & Trigger Points
+## 1. Ikhtisar & Tujuan
+Dokumen ini menguraikan prosedur operasional standar (SOP) dan protokol komunikasi untuk mentransisikan mahasiswa baru (Maba) dari identitas pendaftaran sementara (No. Registrasi PMB) menuju identitas resmi universitas (NIM & akun SSO).
 
-| Phase | System State | Authentication Method | Action/Trigger |
+Transisi ini sangat krusial secara struktural karena **seluruh kontrak perjanjian hunian asrama (Langkah 5) WAJIB ditandatangani menggunakan NIM resmi yang sah**, bukan nomor registrasi pendaftaran sementara.
+
+---
+
+## 2. Lini Masa Transisi & Titik Pemicu
+
+| Fase | Status Sistem | Metode Masuk | Aksi / Pemicu Transisi |
 | :--- | :--- | :--- | :--- |
-| **Phase 1: Onboarding** | `STAGING` (Step 1 to Step 3) | Temporary (`PMB-XXX`) | Student completes KYC and pays deposit. |
-| **Phase 2: Holding Room** | `BOOKING` (Step 4) | Temporary (`PMB-XXX`) | Finance Admin approves payment. Wait for SIDARA. |
-| **Phase 3: The Migration** | `SYNC_IN_PROGRESS` | **Transition Occurs** | Admin clicks "Sync NIM & Migrate". Backend maps NIM and provisions SSO email. |
-| **Phase 4: Official Tenant** | `PENYEWA` (Step 5+) | **University SSO (NIM)** | Student logs in via SSO, signs contract, becomes active tenant. |
+| **Fase 1: Pendaftaran Awal** | `STAGING` (Langkah 1 - 3) | Akun Sementara (`PMB-XXX`) | Maba melengkapi e-KYC dan membayar tagihan awal. |
+| **Fase 2: Pemesanan Kamar** | `BOOKING` (Langkah 4) | Akun Sementara (`PMB-XXX`) | Admin Keuangan menyetujui pembayaran. Menunggu terbitnya NIM dari sistem akademik (SIDARA). |
+| **Fase 3: Eksekusi Migrasi** | `SYNC_IN_PROGRESS` | **Transisi Berlangsung** | Admin mengklik "Sinkronisasi NIM & Migrasi". Backend memetakan NIM dan membuat akun SSO. |
+| **Fase 4: Penyewa Resmi** | `PENYEWA` (Langkah 5+) | **SSO Universitas (NIM)** | Mahasiswa masuk via SSO, menandatangani kontrak digital, dan resmi menjadi penghuni aktif. |
 
-## 3. Communication Strategy (3-Layered Approach)
+---
 
-To prevent user confusion when their temporary `PMB-XXX` credentials suddenly stop working, the system employs a 3-layered communication strategy.
+## 3. Strategi Komunikasi 3 Lapis (3-Layered Approach)
 
-### Layer A: Expectation Setting (In-App UI - Step 4)
-While the student is waiting in Step 4, the UI must explicitly state the impending identity transition.
-* **Message:** "Pembayaran deposit Anda telah diverifikasi. Kami sedang menunggu Nomor Induk Mahasiswa (NIM) resmi Anda diterbitkan oleh Universitas."
-* **Disclaimer Add-on:** *"Penting: Setelah NIM diterbitkan, sesi login pendaftaran ini akan diakhiri. Anda akan diminta untuk Login Ulang menggunakan SSO Universitas (NIM) untuk menandatangani kontrak."*
+Untuk mencegah kebingungan pengguna saat kredensial pendaftaran sementara (`PMB-XXX`) mereka dinonaktifkan, sistem menerapkan strategi komunikasi 3 lapis:
 
-### Layer B: Active Notification (Email / WhatsApp)
-**Trigger:** Executed synchronously when the Finance Admin clicks "Sync NIM & Migrate".
-**Action:** The backend invalidates the PMB login credentials and dispatches an automated message to the student's personal email (collected during KYC).
+### Lapis A: Pengkondisian Informasi (Antarmuka Langkah 4)
+Saat mahasiswa berada di Langkah 4 menunggu penerbitan NIM, sistem menampilkan pemberitahuan proaktif:
+* **Pesan UI:** *"Pembayaran deposit Anda telah diverifikasi. Kami sedang menunggu Nomor Induk Mahasiswa (NIM) resmi Anda diterbitkan oleh Universitas."*
+* **Catatan Penting:** *"Setelah NIM resmi diterbitkan, sesi pendaftaran ini akan diakhiri secara otomatis. Anda akan diminta untuk masuk kembali menggunakan SSO Universitas (NIM) untuk menandatangani kontrak."*
 
-**Notification Template:**
-> **Subject:** [Asrama UBTSU] NIM Anda Telah Terbit! Akses Kontrak Asrama
-> 
-> Halo [Nama Mahasiswa],
-> 
-> Nomor Induk Mahasiswa (NIM) resmi Anda **[NIM_BARU]** telah terbit dan berhasil disinkronisasi dengan Sistem Asrama UBTSU.
-> 
-> Mulai saat ini, akses login menggunakan Nomor Pendaftaran (PMB) telah **dinonaktifkan**. 
-> 
-> Silakan login kembali ke portal Asrama (http://asrama.ubtsu.ac.id) menggunakan tombol **"Login with SSO"** dengan kredensial email universitas Anda yang baru untuk menyelesaikan penandatanganan kontrak kamar.
+### Lapis B: Notifikasi Otomatis (Email / WhatsApp)
+* **Pemicu:** Dieksekusi seketika (*synchronously*) saat Admin Keuangan menekan tombol "Sinkronisasi NIM & Migrasi".
+* **Aksi:** Sistem menonaktifkan login PMB dan mengirimkan notifikasi resmi ke nomor kontak dan email pribadi mahasiswa.
+* **Isi Pesan:** Memberitahukan bahwa NIM resmi telah terbit dan menginstruksikan mahasiswa untuk masuk ke portal melalui tombol "Login SSO" guna menyelesaikan penandatanganan kontrak kamar.
 
-### Layer C: Graceful Interception (Live Session Handling)
-If a student happens to be actively logged into the Asrama dashboard using their PMB credentials at the exact moment the Admin executes the sync:
-1. The frontend (via polling or WebSocket) detects `isMigrated = true`.
-2. The UI renders a blocking modal overlay.
-3. **Modal Content:** *"Selamat! NIM resmi Anda telah diterbitkan. Demi keamanan dan legalitas penandatanganan kontrak, silakan masuk kembali menggunakan akun SSO Universitas Anda."*
-4. **Action:** A single button labeled **"Logout & Pergi ke Halaman SSO"** forces the session to clear and redirects the user to the SSO login gateway.
+### Lapis C: Intersepsi Sesi Aktif (*Graceful Live Interception*)
+Jika mahasiswa sedang membuka antarmuka portal asrama saat Admin menjalankan migrasi:
+1. Sisi antarmuka mendeteksi perubahan status `isMigrated = true`.
+2. Sistem memunculkan jendela modal pemblokir (*blocking overlay*).
+3. **Pesan Modal:** *"Selamat! NIM resmi Anda telah diterbitkan. Demi keamanan dan legalitas penandatanganan kontrak, silakan masuk kembali menggunakan akun SSO Universitas Anda."*
+4. **Tindakan Pengguna:** Tombol **"Keluar & Menuju Portal SSO"** menghapus sesi sementara dan mengarahkan mahasiswa ke gerbang login SSO kampus.
 
-## 4. Why SSO is Mandatory Before Step 5
-1. **Legal Non-Repudiation:** A digital contract requires verified identity. The PMB number is provisional; the NIM is the legally binding university identifier.
-2. **Security & Ownership:** Forcing SSO login proves the student has successfully claimed their official university email address and possesses the credentials, adding a layer of Multi-Factor Authentication (MFA) before signing a financial liability document.
+---
+
+## 4. Mengapa SSO Diwajibkan Sebelum Langkah 5?
+1. **Keabsahan Hukum (*Non-Repudiation*):** Kontrak hunian asrama adalah perjanjian finansial dan legal yang mengikat. Nomor registrasi PMB bersifat sementara, sedangkan NIM adalah identitas hukum resmi di lingkungan universitas.
+2. **Keamanan & Kepemilikan Akun:** Mewajibkan login SSO membuktikan bahwa mahasiswa telah mengklaim akun email resmi kampus dan memegang kredensialnya sendiri, menambahkan lapisan verifikasi identitas sebelum menandatangani pakta tanggung jawab sewa.

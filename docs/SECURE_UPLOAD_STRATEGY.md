@@ -1,43 +1,53 @@
-# Secure File Upload Management Strategy (e-KYC)
+# Strategi Pengelolaan Unggah Berkas Aman (e-KYC)
 
-This document outlines the architectural guidelines and best practices for securely managing sensitive user file uploads, specifically National ID cards (KTP) and selfies, within the Asrama Admission System. It focuses on the handling of these files during initial submission and subsequent partial correction flows.
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](SECURE_UPLOAD_STRATEGY.en.md)
 
-## 1. Storage & Encryption (Data Security)
+Dokumen ini memuat panduan arsitektur dan praktik terbaik untuk mengelola berkas unggahan sensitif pengguna secara aman, khususnya Kartu Tanda Penduduk (KTP) dan swafoto biometrik pada Sistem Admisi Asrama UBT. Dokumen ini berfokus pada penanganan berkas saat pendaftaran awal serta alur perbaikan berkas parsial.
 
-Sensitive documents like KTPs contain highly confidential Personally Identifiable Information (PII). They must never be exposed publicly.
+---
 
-*   **Private Buckets Only:** All e-KYC files must be stored in strictly private cloud storage buckets (e.g., Google Cloud Storage, AWS S3, or Firebase Storage). Public read access must be completely disabled at the bucket level.
-*   **Encryption at Rest:** Ensure the cloud provider is configured to encrypt all objects at rest (e.g., using AES-256). 
-*   **Encryption in Transit:** All uploads and downloads must be forced over HTTPS/TLS 1.2+.
-*   **Access Mechanism (Signed URLs):** 
-    *   Direct object URLs (e.g., `https://storage.../ktp.jpg`) must return a `403 Forbidden` error.
-    *   To allow Admins to verify documents or Users to preview their own uploaded files, the backend API must generate **Short-lived Signed URLs**. 
-    *   These Signed URLs should have a strict expiration time (e.g., 5 to 15 minutes max) to prevent unauthorized link sharing.
+## 1. Penyimpanan & Enkripsi (Keamanan Data)
 
-## 2. Versioning Strategy (Audit Trail Integrity)
+Dokumen identitas seperti KTP memuat Data Pribadi Sensitif (PII - *Personally Identifiable Information*). Berkas ini dilarang keras dapat diakses secara publik.
 
-During the **Partial Correction Flow**, a user may be asked to re-upload a blurry or invalid KTP. 
+*   **Penyimpanan Privat Penuh:** Seluruh berkas e-KYC wajib disimpan dalam disk/repositori penyimpanan terisolasi yang bersifat *strictly private* (misalnya `storage/app/private_kyc`, Google Cloud Storage, AWS S3, atau Firebase Storage Private Bucket). Izin baca publik (`public-read`) dinonaktifkan total di tingkat direktori/bucket.
+*   **Enkripsi saat Tersimpan (*Encryption at Rest*):** Memastikan disk/bucket menerapkan enkripsi standar industri (misalnya AES-256).
+*   **Enkripsi saat Transit (*Encryption in Transit*):** Seluruh proses unggah dan unduh dipaksa menggunakan protokol HTTPS/TLS 1.2+.
+*   **Mekanisme Akses (Signed URLs):**
+    *   Tautan berkas statis langsung (misal: `https://.../ktp.jpg`) harus menghasilkan galat `403 Forbidden`.
+    *   Agar Admin Keuangan dapat memverifikasi berkas atau Mahasiswa dapat mempratinjau dokumennya sendiri, API Backend menerbitkan **Short-lived Signed URLs** (URL bertanda tangan digital dengan batas kedaluwarsa singkat).
+    *   Masa aktif Signed URL dibatasi ketat (TTL 15 menit sesuai `.env` `KYC_SIGNED_URL_TTL_MINUTES`) guna mencegah penyebaran tautan tanpa izin.
 
-*   **Rule: NEVER Overwrite Files.** Overwriting a file named `ktp_12345.jpg` with a new upload permanently destroys the historical context. If an admin reviews the audit trail to see why the previous submission was rejected, they will only see the new file, breaking the logical continuity.
-*   **Unique Naming Convention:** File uploads must use unique identifiers (UUIDs) or timestamps in their file paths.
-    *   *Bad:* `/uploads/ktp/123456.jpg`
-    *   *Good:* `/uploads/ktp/123456_v1_169456789.jpg`
-    *   *Good:* `/uploads/ktp/123456_550e8400-e29b-41d4-a716-446655440000.jpg`
-*   **Database Mapping:** The primary user record (`MabaProfile`) should always point to the *latest/active* file URL. The historical file URLs must be preserved inside the `ModificationLog` payload, ensuring the exact image reviewed at that specific point in time is retained in the history.
+---
 
-## 3. Lifecycle Management (Cost & Compliance Optimization)
+## 2. Strategi Penomoran Versi (*Versioning* untuk Jejak Audit)
 
-Because we use a strict versioning (no-overwrite) strategy, storage buckets will accumulate "orphaned" or "rejected" files over time, increasing storage costs.
+Pada **Alur Koreksi Parsial**, mahasiswa mungkin diminta mengunggah ulang KTP yang buram atau tidak valid.
 
-*   **Cloud Lifecycle Rules:** Configure the storage bucket with automated lifecycle policies.
-*   **Garbage Collection of Stale Versions:** 
-    *   Any file version that is no longer the "active" version in the user's main profile should be tagged or moved to a cold storage tier.
-    *   *Deletion:* Permanently delete orphaned versions after a compliance grace period (e.g., 30 to 60 days after the correction was approved). This gives admins enough time to audit recent changes while keeping cloud costs minimal.
+*   **Prinsip: JANGAN PERNAH Menimpa (*Overwrite*) Berkas.** Menimpa berkas bernama `ktp_12345.jpg` dengan berkas baru akan memusnahkan konteks historis audit trail. Ketika auditor memeriksa alasan penolakan berkas terdahulu, mereka hanya akan melihat foto baru, yang merusak kesinambungan log pengawasan.
+*   **Konvensi Penamaan Unik:** Berkas yang diunggah harus menyertakan penanda unik (UUID atau stempel waktu) pada nama berkasnya:
+    *   *Buruk:* `/uploads/ktp/123456.jpg`
+    *   *Baik:* `/kyc/ktp/ktp_123456_v169456789_a7b2c9.jpg`
+    *   *Baik:* `/kyc/ktp/ktp_123456_550e8400-e29b-41d4-a716-446655440000.jpg`
+*   **Pemetaan Basis Data:** Rekord utama mahasiswa (`MabaProfile`) selalu menunjuk ke URL berkas *terbaru/aktif*. Sedangkan riwayat berkas terdahulu dicatat di dalam entri log mutasi (`ModificationLog`), memastikan foto lama yang ditolak tetap dapat ditinjau ulang oleh verifikator.
 
-## 4. Pre-Upload Validation (Attack Mitigation)
+---
 
-To prevent malicious payloads from compromising the system:
+## 3. Manajemen Daur Hidup & Pembersihan Berkas Usang (*Garbage Collection*)
 
-*   **Strict MIME-Type Checking:** Do not rely solely on the file extension (e.g., `.jpg`). The backend must inspect the file's binary magic numbers to ensure it is a genuine `image/jpeg` or `image/png`.
-*   **Size Limits:** Enforce strict file size limits (e.g., Max 5MB per image) both on the client-side (to save bandwidth) and the server-side (to prevent Denial of Service via storage exhaustion).
-*   **Malware Scanning:** (Optional but recommended) Route uploaded files through a serverless cloud function (e.g., ClamAV on AWS Lambda/GCP Cloud Functions) for virus scanning before moving them to the final permanent bucket.
+Karena sistem menerapkan strategi *versioning* (tanpa penimpaan), repositori penyimpanan akan menampung berkas lama atau berkas yang ditolak seiring berjalannya waktu.
+
+*   **Aturan Daur Hidup Cloud (*Lifecycle Rules*):** Konfigurasikan kebijakan daur hidup otomatis pada bucket penyimpanan cloud.
+*   **Pembersihan Berkas Versi Lama (*Garbage Collection*):**
+    *   Versi berkas yang sudah tidak lagi berstatus "aktif" pada profil mahasiswa utama diberi label usang (*stale*).
+    *   *Penghapusan:* Berkas usang dapat dihapus secara permanen setelah masa tenggang kepatuhan audit (misalnya 30 hingga 60 hari setelah koreksi disetujui, sesuai `KYC_RETENTION_DAYS=60` di `.env`). Hal ini memberikan waktu yang cukup bagi pengelola untuk mengaudit riwayat sekaligus mencegah pembengkakan biaya penyimpanan.
+
+---
+
+## 4. Validasi Pra-Unggah (Mitigasi Serangan)
+
+Untuk mencegah berkas berbahaya membahayakan integritas sistem:
+
+*   **Pengecekan MIME-Type Ketat:** Tidak hanya mengandalkan ekstensi nama berkas (misal `.jpg`). Backend memeriksa *magic numbers* biner dari berkas untuk memastikan berkas tersebut benar-benar bertipe `image/jpeg` atau `image/png`.
+*   **Batasan Ukuran File:** Menerapkan batas maksimal (maks. 5MB per gambar) baik di sisi klien (*frontend*) untuk menghemat kuota, maupun di sisi server (*backend*) untuk mencegah serangan *Denial of Service* via kehabisan ruang disk.
+*   **Header Keamanan:** Penayangan dokumen privat dilengkapi header `X-Content-Type-Options: nosniff` serta `Content-Disposition` yang aman guna mencegah serangan *stored Cross-Site Scripting* (XSS).

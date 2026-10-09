@@ -1,5 +1,7 @@
 # Panduan Praktis Pengembangan Langsung di Laragon (Laravel 11 + Inertia.js + React)
 
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](LARAGON_SETUP.en.md)
+
 Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar dapat langsung dijalankan di lingkungan **Laragon (Windows / MySQL / PHP 8.2+ / Apache/Nginx)** menggunakan arsitektur **Laravel 11 + Inertia.js + React**.
 
 ---

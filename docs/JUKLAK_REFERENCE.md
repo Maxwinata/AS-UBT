@@ -1,5 +1,7 @@
 # Referensi Regulasi & JUKLAK Asrama UBT
 
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](JUKLAK_REFERENCE.en.md)
+
 Dokumen ini berisi intisari dari landasan hukum dan petunjuk pelaksanaan (JUKLAK) operasional Asrama UBT. Sistem informasi dan portal mahasiswa harus tunduk pada aturan-aturan di bawah ini.
 
 ## 1. JUKLAK-02 (Sistem Informasi Asrama)

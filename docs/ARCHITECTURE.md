@@ -1,5 +1,7 @@
 # Arsitektur Data & Logika Bisnis (Logic Chart) Portal Asrama UBT
 
+> **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](ARCHITECTURE.en.md)
+
 Dokumen ini memuat rancangan arsitektur basis data dan alur logika sistem (Backend) untuk membawa purwarupa Portal Asrama UBT ke tahap produksi, **diselaraskan dengan skema database dari Sistem Admin Asrama (Manajemen Hunian) yang sudah ada**.
 
 Karena database web portal ini akan berinteraksi dengan tabel-tabel tersebut, sistem portal Maba akan melakukan operasi *staging* (Baca/Tulis) ke struktur tabel *existing* berikut untuk diproses lebih lanjut oleh Admin Asrama.
