@@ -107,6 +107,7 @@ export const INITIAL_INVOICE: BillingInvoice = {
   totalBayar: 3600142, // 3.000.000 + 500.000 + 100.000 + 142
   cicilanDepositAllowed: false, // Default: OFF (Opsi cicilan deposit dinonaktifkan secara default)
   status: 'UNPAID',
+  noRequest: 'REQ-202610-0142',
 };
 
 export const INITIAL_ROOMS: RoomPlot[] = [

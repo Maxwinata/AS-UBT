@@ -26,6 +26,7 @@ import ERDDiagram from './ERDDiagram';
 export const LaravelBlueprint: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'erd' | 'migrations' | 'models' | 'controllers' | 'seeders' | 'kyc_storage' | 'env' | 'cron'>('erd');
+  const [migrationSubTab, setMigrationSubTab] = useState<'bridging' | 'core'>('bridging');
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -76,6 +77,166 @@ KIP_API_KEY=ubt_sec_key_2026_gleni
 # VITE & INERTIA CONFIGURATION
 VITE_APP_NAME="\${APP_NAME}"
 VITE_WA_GATEWAY_ACTIVE=true
+`;
+
+  const bridgingMigrationCode = `<?php
+
+use Illuminate\\Database\\Migrations\\Migration;
+use Illuminate\\Database\\Schema\\Blueprint;
+use Illuminate\\Support\\Facades\\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations for Laravel Web Admin Bridging Tables.
+     * Database: u540633926_asrama (Web Admin Asrama UBT)
+     * 3 Tabel Staging Otonom (request_*) & 3 Tabel Running Master (pembayaran, pembayaran_detail, transaksi, penyewa)
+     */
+    public function up(): void
+    {
+        // 1. MASTER PENYEWA (Calon Penghuni & Penghuni Aktif)
+        Schema::create('penyewa', function (Blueprint $table) {
+            $table->id();
+            $table->string('jenis_penyewa', 20)->default('mahasiswa');
+            $table->string('angkatan', 4)->nullable();
+            $table->string('namalengkap', 191)->nullable();
+            $table->string('noktp', 16)->nullable();
+            $table->string('nohp', 50)->nullable();
+            $table->string('nim', 50)->nullable()->unique();
+            $table->string('kip', 50)->nullable();
+            $table->string('email', 50)->nullable();
+            $table->char('jenis_kelamin', 1)->nullable();
+            $table->longText('alamat')->nullable();
+            $table->string('nama_bill_to', 50)->nullable();
+            $table->integer('status_asrama')->default(0)->comment('0=Belum Aktif, 1=Penghuni Aktif');
+            $table->integer('status_catering')->default(0);
+            $table->integer('status')->default(0)->comment('0=Pending/Draft, 1=Disetujui');
+            $table->integer('operator_id')->default(1)->comment('0=Mandiri Maba, 1=Admin');
+            $table->timestamps(3);
+        });
+
+        // 2. STAGING 1: request_pembayaran (Header Permintaan Pendaftaran Otonom)
+        Schema::create('request_pembayaran', function (Blueprint $table) {
+            $table->id();
+            $table->string('no_request', 50)->nullable()->unique();
+            $table->dateTime('tanggal_pembayaran', 3)->nullable();
+            $table->dateTime('tanggal_masuk', 3)->nullable();
+            $table->dateTime('tanggal_keluar', 3)->nullable();
+            $table->integer('durasi')->nullable();
+            $table->bigInteger('penyewa_id')->nullable();
+            $table->string('nama_bill_to', 50)->nullable();
+            $table->bigInteger('kamar_id')->nullable();
+            $table->decimal('total_tagihan', 15, 2)->nullable();
+            $table->decimal('total_potongan_harga', 15, 2)->default(0.00);
+            $table->decimal('total_bayar', 15, 2)->nullable();
+            $table->string('status_pembayaran', 50)->default('pending');
+            $table->dateTime('tanggal_perpanjang')->nullable();
+            $table->integer('status_asrama')->default(0);
+            $table->integer('status_catering')->default(0);
+            $table->integer('status_verifikasi')->default(0)->comment('0=Review Admin, 1=Disetujui');
+            $table->dateTime('tanggal_verifikasi', 3)->nullable();
+            $table->integer('operator_id')->default(0)->comment('0=Otonom Mandiri Maba');
+            $table->timestamps(3);
+        });
+
+        // 3. STAGING 2: request_pembayaran_detail (Rincian Komponen Biaya Permintaan)
+        Schema::create('request_pembayaran_detail', function (Blueprint $table) {
+            $table->id();
+            $table->string('no_request', 50)->nullable();
+            $table->bigInteger('harga_id')->nullable();
+            $table->string('jenissewa', 255)->nullable();
+            $table->decimal('harga', 15, 2)->nullable();
+            $table->integer('qty')->nullable();
+            $table->integer('jumlah_pembayaran')->nullable();
+            $table->decimal('potongan_harga', 15, 2)->default(0.00);
+            $table->integer('status')->default(1);
+            $table->timestamps(3);
+            $table->index('no_request');
+        });
+
+        // 4. STAGING 3: request_transaksi (Mutasi & Bukti Transfer Mandiri Maba)
+        Schema::create('request_transaksi', function (Blueprint $table) {
+            $table->id();
+            $table->string('no_request', 50)->nullable();
+            $table->string('no_transaksi', 50);
+            $table->dateTime('tanggal_transaksi', 3);
+            $table->decimal('jumlah_uang', 15, 2);
+            $table->string('metode_pembayaran', 255);
+            $table->string('file_bukti', 100)->nullable();
+            $table->integer('operator_id')->default(0)->comment('0=Otonom Mandiri Maba');
+            $table->timestamps(3);
+            $table->index('no_request');
+        });
+
+        // 5. MASTER 1: pembayaran (Buku Besar Tagihan Resmi yang Disahkan Admin)
+        Schema::create('pembayaran', function (Blueprint $table) {
+            $table->id();
+            $table->string('no_invoice', 50)->nullable()->unique();
+            $table->dateTime('tanggal_pembayaran', 3)->nullable();
+            $table->string('jenis_penyewa', 20)->default('mahasiswa');
+            $table->dateTime('tanggal_masuk', 3)->nullable();
+            $table->dateTime('tanggal_keluar', 3)->nullable();
+            $table->integer('durasi')->nullable();
+            $table->bigInteger('penyewa_id')->nullable();
+            $table->string('nama_lengkap', 255)->nullable();
+            $table->string('no_ktp', 20)->nullable();
+            $table->string('nama_bill_to', 50)->nullable();
+            $table->bigInteger('kamar_id')->nullable();
+            $table->decimal('total_tagihan', 15, 2)->nullable();
+            $table->decimal('total_potongan_harga', 15, 2)->default(0.00);
+            $table->decimal('total_bayar', 15, 2)->nullable();
+            $table->string('status_pembayaran', 50)->default('pending');
+            $table->dateTime('tanggal_perpanjang')->nullable();
+            $table->integer('status_asrama')->default(0);
+            $table->integer('status_catering')->default(0);
+            $table->integer('operator_id')->default(1)->comment('ID Operator Admin');
+            $table->timestamps(3);
+        });
+
+        // 6. MASTER 2: pembayaran_detail (Rincian Komponen Biaya Resmi)
+        Schema::create('pembayaran_detail', function (Blueprint $table) {
+            $table->id();
+            $table->string('no_invoice', 50)->nullable();
+            $table->bigInteger('harga_id')->nullable();
+            $table->string('jenissewa', 255)->nullable();
+            $table->decimal('harga', 15, 2)->nullable();
+            $table->integer('qty')->nullable();
+            $table->integer('jumlah_pembayaran')->nullable();
+            $table->decimal('potongan_harga', 15, 2)->default(0.00);
+            $table->integer('status')->default(1);
+            $table->timestamps(3);
+            $table->index('no_invoice');
+        });
+
+        // 7. MASTER 3: transaksi (Catatan Mutasi & Kas Resmi Berjalan)
+        Schema::create('transaksi', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('parent_id')->nullable();
+            $table->string('no_invoice', 50)->nullable();
+            $table->bigInteger('penyewa_id')->nullable();
+            $table->string('no_transaksi', 50);
+            $table->dateTime('tanggal_transaksi', 3);
+            $table->decimal('jumlah_uang', 15, 2);
+            $table->string('metode_pembayaran', 255);
+            $table->string('file_bukti', 100)->nullable();
+            $table->string('jenis_transaksi', 50)->default('Asrama');
+            $table->integer('operator_id')->default(1)->comment('ID Operator Admin');
+            $table->timestamps(3);
+            $table->index('no_invoice');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('transaksi');
+        Schema::dropIfExists('pembayaran_detail');
+        Schema::dropIfExists('pembayaran');
+        Schema::dropIfExists('request_transaksi');
+        Schema::dropIfExists('request_pembayaran_detail');
+        Schema::dropIfExists('request_pembayaran');
+        Schema::dropIfExists('penyewa');
+    }
+};
 `;
 
   const migrationCode = `<?php
@@ -388,7 +549,133 @@ return new class extends Migration
   const modelsCode = `<?php
 
 // ==========================================
-// 1. app/Models/PaymentScheme.php
+// 1. app/Models/Penyewa.php (Master Penyewa)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
+use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
+
+class Penyewa extends Model
+{
+    protected $table = 'penyewa';
+    protected $guarded = ['id'];
+    protected $casts = [
+        'status_asrama' => 'integer',
+        'status' => 'integer',
+        'operator_id' => 'integer',
+    ];
+
+    public function requestPembayaran(): HasMany { return $this->hasMany(RequestPembayaran::class, 'penyewa_id'); }
+    public function pembayaran(): HasMany { return $this->hasMany(Pembayaran::class, 'penyewa_id'); }
+    public function transaksi(): HasMany { return $this->hasMany(Transaksi::class, 'penyewa_id'); }
+    public function kamar(): BelongsTo { return $this->belongsTo(Room::class, 'kamar_id'); }
+}
+
+// ==========================================
+// 2. app/Models/RequestPembayaran.php (Staging Bridging 1)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
+use Illuminate\\Database\\Eloquent\\Relations\\HasOne;
+use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
+
+class RequestPembayaran extends Model
+{
+    protected $table = 'request_pembayaran';
+    protected $guarded = ['id'];
+    protected $casts = [
+        'tanggal_pembayaran' => 'datetime',
+        'total_tagihan' => 'decimal:2',
+        'total_bayar' => 'decimal:2',
+        'status_verifikasi' => 'integer',
+        'operator_id' => 'integer',
+    ];
+
+    public function details(): HasMany { return $this->hasMany(RequestPembayaranDetail::class, 'no_request', 'no_request'); }
+    public function transaksi(): HasOne { return $this->hasOne(RequestTransaksi::class, 'no_request', 'no_request'); }
+    public function penyewa(): BelongsTo { return $this->belongsTo(Penyewa::class, 'penyewa_id'); }
+
+    // Logika Promosi Atomik ke Master Pembayaran Berjalan
+    public function promoteToMaster(int $operatorId = 1, ?string $noInvoice = null)
+    {
+        $inv = $noInvoice ?? ('INV-' . date('Ym') . '-' . sprintf('%04d', $this->id));
+        $master = Pembayaran::create([
+            'no_invoice' => $inv,
+            'tanggal_pembayaran' => now(),
+            'penyewa_id' => $this->penyewa_id,
+            'total_tagihan' => $this->total_tagihan,
+            'total_bayar' => $this->total_bayar,
+            'status_pembayaran' => 'paid',
+            'status_asrama' => 1,
+            'operator_id' => $operatorId,
+        ]);
+        foreach ($this->details as $d) {
+            PembayaranDetail::create([
+                'no_invoice' => $inv,
+                'harga_id' => $d->harga_id,
+                'jenissewa' => $d->jenissewa,
+                'harga' => $d->harga,
+                'qty' => $d->qty,
+                'jumlah_pembayaran' => $d->jumlah_pembayaran,
+                'status' => 1,
+            ]);
+        }
+        $this->update(['status_verifikasi' => 1, 'status_pembayaran' => 'paid', 'operator_id' => $operatorId]);
+        return $master;
+    }
+}
+
+// ==========================================
+// 3. app/Models/RequestPembayaranDetail.php (Staging Bridging 2)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+
+class RequestPembayaranDetail extends Model
+{
+    protected $table = 'request_pembayaran_detail';
+    protected $guarded = ['id'];
+    protected $casts = ['harga' => 'decimal:2', 'qty' => 'integer'];
+}
+
+// ==========================================
+// 4. app/Models/RequestTransaksi.php (Staging Bridging 3)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+
+class RequestTransaksi extends Model
+{
+    protected $table = 'request_transaksi';
+    protected $guarded = ['id'];
+    protected $casts = ['jumlah_uang' => 'decimal:2', 'operator_id' => 'integer'];
+}
+
+// ==========================================
+// 5. app/Models/Pembayaran.php (Master Tagihan Running)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
+use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
+
+class Pembayaran extends Model
+{
+    protected $table = 'pembayaran';
+    protected $guarded = ['id'];
+    public function details(): HasMany { return $this->hasMany(PembayaranDetail::class, 'no_invoice', 'no_invoice'); }
+    public function penyewa(): BelongsTo { return $this->belongsTo(Penyewa::class, 'penyewa_id'); }
+}
+
+// ==========================================
+// 6. app/Models/PaymentScheme.php
 // ==========================================
 namespace App\\Models;
 
@@ -678,6 +965,163 @@ class MaintenanceTicketController extends Controller
         ]);
 
         return back()->with('success', "Tiket laporan {$ticket->ticket_code} dengan Prioritas [{$ticket->priority}] berhasil dibuat.");
+    }
+}
+
+// ==============================================================
+// 4. app/Http/Controllers/Billing/InvoiceController.php (Bridging Otonom)
+// ==============================================================
+namespace App\\Http\\Controllers\\Billing;
+
+use App\\Http\\Controllers\\Controller;
+use Illuminate\\Http\\Request;
+use App\\Models\\Penyewa;
+use App\\Models\\RequestPembayaran;
+use App\\Models\\RequestPembayaranDetail;
+use App\\Models\\RequestTransaksi;
+
+class InvoiceController extends Controller
+{
+    /**
+     * Menyimpan komitmen pendaftaran mandiri calon penghuni (operator_id = 0)
+     */
+    public function configure(Request $request)
+    {
+        $penyewa = Penyewa::updateOrCreate(
+            ['nim' => $request->nim],
+            [
+                'namalengkap' => $request->nama,
+                'noktp' => $request->nik,
+                'nohp' => $request->no_hp,
+                'status_asrama' => 0,
+                'status' => 0,
+                'operator_id' => 0, // Mandiri Maba
+            ]
+        );
+
+        $noRequest = 'REQ-' . date('Ym') . '-' . sprintf('%04d', rand(100, 9999));
+        $req = RequestPembayaran::create([
+            'no_request' => $noRequest,
+            'penyewa_id' => $penyewa->id,
+            'kamar_id' => $request->kamar_id,
+            'durasi' => $request->durasi_bulan ?? 6,
+            'total_tagihan' => $request->total_bayar,
+            'total_bayar' => $request->total_bayar,
+            'status_pembayaran' => 'pending',
+            'status_verifikasi' => 0,
+            'operator_id' => 0,
+        ]);
+
+        RequestPembayaranDetail::create([
+            'no_request' => $noRequest,
+            'jenissewa' => 'Sewa Asrama (' . ($request->durasi_bulan ?? 6) . ' Bulan)',
+            'harga' => $request->biaya_sewa,
+            'qty' => 1,
+            'jumlah_pembayaran' => $request->biaya_sewa,
+            'status' => 1,
+        ]);
+
+        if ($request->biaya_deposit > 0) {
+            RequestPembayaranDetail::create([
+                'no_request' => $noRequest,
+                'jenissewa' => 'Deposit Jaminan Hunian',
+                'harga' => $request->biaya_deposit,
+                'qty' => 1,
+                'jumlah_pembayaran' => $request->biaya_deposit,
+                'status' => 1,
+            ]);
+        }
+
+        return response()->json(['status' => 'success', 'no_request' => $noRequest, 'penyewa_id' => $penyewa->id]);
+    }
+}
+
+// ==============================================================
+// 5. app/Http/Controllers/Admin/AdminAsramaController.php (Promosi ke Master)
+// ==============================================================
+namespace App\\Http\\Controllers\\Admin;
+
+use App\\Http\\Controllers\\Controller;
+use Illuminate\\Http\\Request;
+use App\\Models\\RequestPembayaran;
+use App\\Models\\Pembayaran;
+use App\\Models\\PembayaranDetail;
+use App\\Models\\Transaksi;
+use App\\Models\\Penyewa;
+use Illuminate\\Support\\Facades\\DB;
+
+class AdminAsramaController extends Controller
+{
+    /**
+     * Verifikasi Permintaan Mandiri & Promosikan ke Master Berjalan Resmi
+     */
+    public function promoteRequest(Request $request, string $noRequest)
+    {
+        return DB::transaction(function () use ($request, $noRequest) {
+            $req = RequestPembayaran::where('no_request', $noRequest)->with(['details', 'transaksi'])->firstOrFail();
+            $adminId = $request->user()->id ?? 1;
+            $officialInvoice = 'INV-' . date('Ym') . '-' . sprintf('%04d', $req->id);
+
+            // 1. Gandakan Header ke Master Pembayaran
+            $masterPem = Pembayaran::create([
+                'no_invoice' => $officialInvoice,
+                'tanggal_pembayaran' => now(),
+                'penyewa_id' => $req->penyewa_id,
+                'kamar_id' => $req->kamar_id,
+                'durasi' => $req->durasi,
+                'total_tagihan' => $req->total_tagihan,
+                'total_bayar' => $req->total_bayar,
+                'status_pembayaran' => 'paid',
+                'status_asrama' => 1,
+                'operator_id' => $adminId,
+            ]);
+
+            // 2. Gandakan Rincian Komponen ke Master Pembayaran Detail
+            foreach ($req->details as $d) {
+                PembayaranDetail::create([
+                    'no_invoice' => $officialInvoice,
+                    'harga_id' => $d->harga_id,
+                    'jenissewa' => $d->jenissewa,
+                    'harga' => $d->harga,
+                    'qty' => $d->qty,
+                    'jumlah_pembayaran' => $d->jumlah_pembayaran,
+                    'status' => 1,
+                ]);
+            }
+
+            // 3. Gandakan Mutasi Struk ke Master Transaksi Kas
+            $reqTrx = $req->transaksi;
+            $trxNo = 'TRX-' . date('Ym') . '-' . sprintf('%04d', $req->id);
+            Transaksi::create([
+                'no_invoice' => $officialInvoice,
+                'penyewa_id' => $req->penyewa_id,
+                'no_transaksi' => $trxNo,
+                'tanggal_transaksi' => $reqTrx ? $reqTrx->tanggal_transaksi : now(),
+                'jumlah_uang' => $reqTrx ? $reqTrx->jumlah_uang : $req->total_bayar,
+                'metode_pembayaran' => $reqTrx ? $reqTrx->metode_pembayaran : 'Transfer Bank BSI',
+                'file_bukti' => $reqTrx ? $reqTrx->file_bukti : null,
+                'jenis_transaksi' => 'Asrama',
+                'operator_id' => $adminId,
+            ]);
+
+            // 4. Aktifkan Master Penyewa
+            Penyewa::where('id', $req->penyewa_id)->update([
+                'status' => 1,
+                'status_asrama' => 1,
+                'kamar_id' => $req->kamar_id,
+                'operator_id' => $adminId,
+            ]);
+
+            // 5. Tandai Staging Terverifikasi
+            $req->update([
+                'status_verifikasi' => 1,
+                'tanggal_verifikasi' => now(),
+                'status_pembayaran' => 'paid',
+                'operator_id' => $adminId,
+            ]);
+
+            return back()->with('success', "Permintaan {$noRequest} berhasil disahkan ke Master Invoice {$officialInvoice}.");
+        });
     }
 }
 `;
@@ -1057,15 +1501,48 @@ class KycStorageService
         )}
 
         {activeTab === 'migrations' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Sub-Tabs: Bridging vs Core */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setMigrationSubTab('bridging')}
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  migrationSubTab === 'bridging'
+                    ? 'bg-teal-600 text-white shadow-sm ring-1 ring-teal-400'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-teal-300" />
+                <span>1. Bridging Web Admin u540633926_asrama (request_* ➔ Master)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMigrationSubTab('core')}
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  migrationSubTab === 'core'
+                    ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5 text-red-300" />
+                <span>2. Core Portal Schema (Users, KYC, Contracts, SOP 5+5)</span>
+              </button>
+            </div>
+
             <div className="flex items-center justify-between bg-slate-900 px-4 py-3 rounded-xl border border-slate-800 text-xs">
               <div className="flex items-center gap-2 text-slate-300 font-mono">
-                <FileCode className="w-4 h-4 text-red-400" />
-                <span>database/migrations/2026_08_05_000001_create_asrama_ubt_tables.php</span>
+                <FileCode className={`w-4 h-4 ${migrationSubTab === 'bridging' ? 'text-teal-400' : 'text-red-400'}`} />
+                <span>
+                  {migrationSubTab === 'bridging'
+                    ? 'database/migrations/2026_01_01_000005_create_web_admin_bridging_tables.php'
+                    : 'database/migrations/2026_08_05_000001_create_asrama_ubt_tables.php'}
+                </span>
               </div>
               <button
-                onClick={() => handleCopy(migrationCode, 'migration')}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs font-medium transition-colors border border-slate-700"
+                onClick={() => handleCopy(migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationCode, 'migration')}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs font-medium transition-colors border border-slate-700 cursor-pointer"
               >
                 {copiedKey === 'migration' ? (
                   <>
@@ -1081,7 +1558,7 @@ class KycStorageService
               </button>
             </div>
             <pre className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-slate-300 text-xs font-mono overflow-x-auto leading-relaxed max-h-[600px]">
-              <code>{migrationCode}</code>
+              <code>{migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationCode}</code>
             </pre>
           </div>
         )}

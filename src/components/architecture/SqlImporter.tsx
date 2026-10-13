@@ -19,112 +19,165 @@ export const SqlImporter: React.FC = () => {
 
   // Full MySQL Dump compatible with Laragon (phpMyAdmin / HeidiSQL)
   const fullLaragonSqlScript = `-- ====================================================================
--- DATABASE WEB ADMIN & PORTAL MAHASISWA ASRAMA UBT (ubtsu.ac.id)
--- COMPATIBLE FOR LARAGON LOCAL DEVELOPMENT (MySQL / MariaDB / HeidiSQL)
+-- DATABASE WEB ADMIN LARAVEL & BRIDGING PENDAFTARAN OTONOM MABA
+-- Database: u540633926_asrama (Web Admin Asrama UBT)
+-- Kompatibel: Laragon / MySQL 8.0+ / MariaDB / HeidiSQL / phpMyAdmin
 -- ====================================================================
 
-CREATE DATABASE IF NOT EXISTS \`db_asrama_ubtsu\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE \`db_asrama_ubtsu\`;
+CREATE DATABASE IF NOT EXISTS \`u540633926_asrama\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE \`u540633926_asrama\`;
 
 -- --------------------------------------------------------
--- 1. Tabel Master Mahasiswa (Mahasiswa Baru & Eksisting)
+-- 1. TABEL MASTER PENYEWA (Calon Mahasiswa & Penghuni Aktif)
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS \`tb_mahasiswa_asrama\` (
-  \`id_mhs\` INT AUTO_INCREMENT PRIMARY KEY,
-  \`nim_noreg\` VARCHAR(30) NOT NULL UNIQUE,
-  \`nama_lengkap\` VARCHAR(100) NOT NULL,
-  \`nik_ktp\` VARCHAR(20) NOT NULL,
-  \`tgl_lahir\` DATE NULL,
-  \`program_studi\` VARCHAR(50) NOT NULL,
-  \`fakultas\` VARCHAR(50) NOT NULL,
-  \`no_whatsapp\` VARCHAR(20) NOT NULL,
-  \`email_instansi\` VARCHAR(100) NOT NULL,
-  \`status_kip\` TINYINT(1) DEFAULT 0 COMMENT '0=Reguler, 1=KIP-Kuliah',
-  \`status_kyc\` ENUM('PENDING', 'VERIFIED', 'REJECTED') DEFAULT 'PENDING',
-  \`file_ktp_enc\` VARCHAR(255) NULL COMMENT 'Enkripsi Private Disk Storage',
-  \`file_kk_enc\` VARCHAR(255) NULL COMMENT 'Enkripsi Private Disk Storage',
-  \`status_hunian\` ENUM('MAHASISWA_BARU', 'EKSISTING', 'CHECKOUT') DEFAULT 'MAHASISWA_BARU',
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS \`penyewa\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`jenis_penyewa\` VARCHAR(20) DEFAULT 'mahasiswa',
+  \`angkatan\` VARCHAR(4) NULL,
+  \`namalengkap\` VARCHAR(191) NULL,
+  \`noktp\` VARCHAR(16) NULL,
+  \`nohp\` VARCHAR(50) NULL,
+  \`nim\` VARCHAR(50) NULL UNIQUE,
+  \`kip\` VARCHAR(50) NULL,
+  \`email\` VARCHAR(50) NULL,
+  \`jenis_kelamin\` CHAR(1) NULL,
+  \`alamat\` LONGTEXT NULL,
+  \`nama_bill_to\` VARCHAR(50) NULL,
+  \`status_asrama\` INT DEFAULT 0 COMMENT '0=Belum Aktif, 1=Penghuni Aktif',
+  \`status_catering\` INT DEFAULT 0,
+  \`status\` INT DEFAULT 0 COMMENT '0=Pending/Draft, 1=Disetujui',
+  \`operator_id\` INT DEFAULT 1 COMMENT '0=Mandiri Maba, 1+=ID Admin',
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- 2. Tabel Tagihan & Ledger Deposit
+-- 2. TABEL STAGING 1: request_pembayaran (Header Permintaan Pendaftaran Otonom)
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS \`tb_tagihan_billing\` (
-  \`id_invoice\` INT AUTO_INCREMENT PRIMARY KEY,
-  \`kode_invoice\` VARCHAR(35) NOT NULL UNIQUE,
-  \`nim_noreg\` VARCHAR(30) NOT NULL,
-  \`biaya_sewa\` DECIMAL(12,2) NOT NULL DEFAULT 1200000.00,
-  \`biaya_deposit\` DECIMAL(12,2) NOT NULL DEFAULT 750000.00,
-  \`kode_unik_transfer\` INT(3) NOT NULL COMMENT '3 digit acak verifikasi manual',
-  \`total_tagihan\` DECIMAL(12,2) NOT NULL,
-  \`status_pembayaran\` ENUM('UNPAID', 'PENDING_VERIFIKASI', 'PAID', 'DIBATALKAN') DEFAULT 'UNPAID',
-  \`bukti_transfer\` VARCHAR(255) NULL,
-  \`tgl_bayar\` DATETIME NULL,
-  \`verifikator_admin\` VARCHAR(50) NULL,
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (\`nim_noreg\`) REFERENCES \`tb_mahasiswa_asrama\`(\`nim_noreg\`) ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS \`request_pembayaran\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`no_request\` VARCHAR(50) NULL UNIQUE,
+  \`tanggal_pembayaran\` DATETIME(3) NULL,
+  \`tanggal_masuk\` DATETIME(3) NULL,
+  \`tanggal_keluar\` DATETIME(3) NULL,
+  \`durasi\` INT NULL,
+  \`penyewa_id\` BIGINT NULL,
+  \`nama_bill_to\` VARCHAR(50) NULL,
+  \`kamar_id\` BIGINT NULL,
+  \`total_tagihan\` DECIMAL(15,2) NULL,
+  \`total_potongan_harga\` DECIMAL(15,2) DEFAULT 0.00,
+  \`total_bayar\` DECIMAL(15,2) NULL,
+  \`status_pembayaran\` VARCHAR(50) DEFAULT 'pending',
+  \`tanggal_perpanjang\` DATETIME NULL,
+  \`status_asrama\` INT DEFAULT 0,
+  \`status_catering\` INT DEFAULT 0,
+  \`status_verifikasi\` INT DEFAULT 0 COMMENT '0=Review Admin, 1=Disetujui',
+  \`tanggal_verifikasi\` DATETIME(3) NULL,
+  \`operator_id\` INT DEFAULT 0 COMMENT '0=Otonom Mandiri Maba',
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- 3. Tabel Kontrak Digital & BASTK (OTP WA)
+-- 3. TABEL STAGING 2: request_pembayaran_detail (Rincian Biaya Permintaan)
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS \`tb_kontrak_bastk\` (
-  \`id_kontrak\` INT AUTO_INCREMENT PRIMARY KEY,
-  \`nomor_kontrak\` VARCHAR(50) NOT NULL UNIQUE,
-  \`nim_noreg\` VARCHAR(30) NOT NULL,
-  \`otp_whatsapp_code\` VARCHAR(6) NULL,
-  \`otp_verified_at\` DATETIME NULL,
-  \`status_tanda_tangan\` ENUM('UNSIGNED', 'SIGNED') DEFAULT 'UNSIGNED',
-  \`pdf_contract_path\` VARCHAR(255) NULL,
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (\`nim_noreg\`) REFERENCES \`tb_mahasiswa_asrama\`(\`nim_noreg\`) ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS \`request_pembayaran_detail\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`no_request\` VARCHAR(50) NULL,
+  \`harga_id\` BIGINT NULL,
+  \`jenissewa\` VARCHAR(255) NULL,
+  \`harga\` DECIMAL(15,2) NULL,
+  \`qty\` INT NULL,
+  \`jumlah_pembayaran\` INT NULL,
+  \`potongan_harga\` DECIMAL(15,2) DEFAULT 0.00,
+  \`status\` INT DEFAULT 1,
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX \`idx_req_pem_detail_no\` (\`no_request\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- 4. Tabel Kamar & Gedung Asrama UBT (Roemah 54)
+-- 4. TABEL STAGING 3: request_transaksi (Mutasi & Bukti Transfer Mandiri)
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS \`tb_kamar_asrama\` (
-  \`id_kamar\` INT AUTO_INCREMENT PRIMARY KEY,
-  \`kode_kamar\` VARCHAR(20) NOT NULL UNIQUE,
-  \`gedung\` VARCHAR(50) NOT NULL,
-  \`lantai\` INT NOT NULL,
-  \`nomor_kamar\` VARCHAR(10) NOT NULL,
-  \`kapasitas\` INT DEFAULT 2,
-  \`terisi\` INT DEFAULT 0,
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS \`request_transaksi\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`no_request\` VARCHAR(50) NULL,
+  \`no_transaksi\` VARCHAR(50) NOT NULL,
+  \`tanggal_transaksi\` DATETIME(3) NOT NULL,
+  \`jumlah_uang\` DECIMAL(15,2) NOT NULL,
+  \`metode_pembayaran\` VARCHAR(255) NOT NULL,
+  \`file_bukti\` VARCHAR(100) NULL,
+  \`operator_id\` INT DEFAULT 0 COMMENT '0=Otonom Mandiri Maba',
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX \`idx_req_trx_no\` (\`no_request\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- 5. Tabel Presensi Geofencing GPS (CRON 22.01 WIB)
+-- 5. TABEL MASTER 1: pembayaran (Buku Besar Tagihan Resmi yang Disahkan Admin)
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS \`tb_presensi_geofence\` (
-  \`id_presensi\` INT AUTO_INCREMENT PRIMARY KEY,
-  \`nim\` VARCHAR(30) NOT NULL,
-  \`tgl_presensi\` DATE NOT NULL,
-  \`jam_checkin\` TIME NOT NULL,
-  \`latitude\` DECIMAL(10,8) NOT NULL,
-  \`longitude\` DECIMAL(11,8) NOT NULL,
-  \`jarak_meter\` INT NOT NULL,
-  \`status_geofence\` ENUM('INSIDE_CAMPUS', 'OUTSIDE_CAMPUS') NOT NULL,
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS \`pembayaran\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`no_invoice\` VARCHAR(50) NULL UNIQUE,
+  \`tanggal_pembayaran\` DATETIME(3) NULL,
+  \`jenis_penyewa\` VARCHAR(20) DEFAULT 'mahasiswa',
+  \`tanggal_masuk\` DATETIME(3) NULL,
+  \`tanggal_keluar\` DATETIME(3) NULL,
+  \`durasi\` INT NULL,
+  \`penyewa_id\` BIGINT NULL,
+  \`nama_lengkap\` VARCHAR(255) NULL,
+  \`no_ktp\` VARCHAR(20) NULL,
+  \`nama_bill_to\` VARCHAR(50) NULL,
+  \`kamar_id\` BIGINT NULL,
+  \`total_tagihan\` DECIMAL(15,2) NULL,
+  \`total_potongan_harga\` DECIMAL(15,2) DEFAULT 0.00,
+  \`total_bayar\` DECIMAL(15,2) NULL,
+  \`status_pembayaran\` VARCHAR(50) DEFAULT 'pending',
+  \`tanggal_perpanjang\` DATETIME NULL,
+  \`status_asrama\` INT DEFAULT 0,
+  \`status_catering\` INT DEFAULT 0,
+  \`operator_id\` INT DEFAULT 1 COMMENT 'ID Operator Admin',
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- DATA INITIAL SEEDER FOR LARAGON LOCAL DEVELOPMENT
+-- 6. TABEL MASTER 2: pembayaran_detail (Rincian Komponen Biaya Resmi)
 -- --------------------------------------------------------
-INSERT INTO \`tb_mahasiswa_asrama\` (\`nim_noreg\`, \`nama_lengkap\`, \`nik_ktp\`, \`tgl_lahir\`, \`program_studi\`, \`fakultas\`, \`no_whatsapp\`, \`email_instansi\`, \`status_kip\`, \`status_kyc\`, \`status_hunian\`) VALUES
-('PMB2026-08942', 'Bagus Pratama', '6501021805040002', '2004-05-18', 'Teknik Informatika', 'Fakultas Teknik', '081254992011', 'bagus.pratama@mhs.ubtsu.ac.id', 0, 'VERIFIED', 'MAHASISWA_BARU'),
-('2240101004', 'Siti Rahmawati', '6501025509030001', '2003-09-15', 'Manajemen', 'Fakultas Ekonomi', '082154339900', 'siti.rahmawati@mhs.ubtsu.ac.id', 1, 'VERIFIED', 'EKSISTING');
+CREATE TABLE IF NOT EXISTS \`pembayaran_detail\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`no_invoice\` VARCHAR(50) NULL,
+  \`harga_id\` BIGINT NULL,
+  \`jenissewa\` VARCHAR(255) NULL,
+  \`harga\` DECIMAL(15,2) NULL,
+  \`qty\` INT NULL,
+  \`jumlah_pembayaran\` INT NULL,
+  \`potongan_harga\` DECIMAL(15,2) DEFAULT 0.00,
+  \`status\` INT DEFAULT 1,
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX \`idx_pem_detail_invoice\` (\`no_invoice\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO \`tb_tagihan_billing\` (\`kode_invoice\`, \`nim_noreg\`, \`biaya_sewa\`, \`biaya_deposit\`, \`kode_unik_transfer\`, \`total_tagihan\`, \`status_pembayaran\`) VALUES
-('INV/2026/UBT/08942', 'PMB2026-08942', 1200000.00, 750000.00, 842, 1950842.00, 'PAID');
-
-INSERT INTO \`tb_kamar_asrama\` (\`kode_kamar\`, \`gedung\`, \`lantai\`, \`nomor_kamar\`, \`kapasitas\`, \`terisi\`) VALUES
-('G1-L1-101', 'Gedung A (Putra)', 1, '101', 2, 1),
-('G1-L1-102', 'Gedung A (Putra)', 1, '102', 2, 0),
-('G2-L2-201', 'Gedung B (Putri)', 2, '201', 2, 2);
+-- --------------------------------------------------------
+-- 7. TABEL MASTER 3: transaksi (Catatan Mutasi & Kas Resmi Berjalan)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS \`transaksi\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`parent_id\` BIGINT NULL,
+  \`no_invoice\` VARCHAR(50) NULL,
+  \`penyewa_id\` BIGINT NULL,
+  \`no_transaksi\` VARCHAR(50) NOT NULL,
+  \`tanggal_transaksi\` DATETIME(3) NOT NULL,
+  \`jumlah_uang\` DECIMAL(15,2) NOT NULL,
+  \`metode_pembayaran\` VARCHAR(255) NOT NULL,
+  \`file_bukti\` VARCHAR(100) NULL,
+  \`jenis_transaksi\` VARCHAR(50) DEFAULT 'Asrama',
+  \`operator_id\` INT DEFAULT 1 COMMENT 'ID Operator Admin',
+  \`created_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX \`idx_trx_invoice\` (\`no_invoice\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `;
 
   const parseSql = (rawSql: string) => {
@@ -159,11 +212,15 @@ INSERT INTO \`tb_kamar_asrama\` (\`kode_kamar\`, \`gedung\`, \`lantai\`, \`nomor
         });
 
         let mappedEntity = 'General DB Table';
-        if (tableName.includes('mahasiswa') || tableName.includes('user')) mappedEntity = 'Entity: Student Profile (PMB & SSO)';
-        else if (tableName.includes('tagihan') || tableName.includes('invoice') || tableName.includes('billing')) mappedEntity = 'Entity: Billing & Deposit Ledger (P3)';
+        if (tableName === 'penyewa') mappedEntity = 'Master: Penyewa Hunian (Status & Operator ID)';
+        else if (tableName === 'request_pembayaran') mappedEntity = 'Staging Bridging 1: Permintaan Pendaftaran Otonom Maba';
+        else if (tableName === 'request_pembayaran_detail') mappedEntity = 'Staging Bridging 2: Rincian Komponen Biaya (Sewa, Deposit, Admin)';
+        else if (tableName === 'request_transaksi') mappedEntity = 'Staging Bridging 3: Mutasi & Bukti Transfer Mandiri Maba';
+        else if (tableName === 'pembayaran') mappedEntity = 'Master Running 1: Buku Besar Invoice Tagihan Resmi Admin';
+        else if (tableName === 'pembayaran_detail') mappedEntity = 'Master Running 2: Rincian Komponen Resmi Terbitan Admin';
+        else if (tableName === 'transaksi') mappedEntity = 'Master Running 3: Mutasi Kas & Transaksi Resmi Berjalan Admin';
+        else if (tableName.includes('mahasiswa') || tableName.includes('user')) mappedEntity = 'Entity: Student Profile (PMB & SSO)';
         else if (tableName.includes('kamar') || tableName.includes('room')) mappedEntity = 'Entity: Room Plotting Matrix (P4)';
-        else if (tableName.includes('presensi') || tableName.includes('geofence')) mappedEntity = 'Entity: SOP Night Attendance (Phase B)';
-        else if (tableName.includes('kontrak') || tableName.includes('bastk')) mappedEntity = 'Entity: Digital Contract & OTP (Phase A)';
 
         tables.push({
           name: tableName,
@@ -176,26 +233,40 @@ INSERT INTO \`tb_kamar_asrama\` (\`kode_kamar\`, \`gedung\`, \`lantai\`, \`nomor
       if (tables.length === 0 && rawSql.trim().length > 0) {
         tables.push(
           {
-            name: 'tb_mahasiswa_asrama',
+            name: 'penyewa',
             columns: [
-              { name: 'id_mhs', type: 'INT', isPrimary: true },
-              { name: 'nim_noreg', type: 'VARCHAR(30)', isPrimary: false },
-              { name: 'nama_lengkap', type: 'VARCHAR(100)' },
-              { name: 'status_kip', type: 'TINYINT(1)' }
+              { name: 'id', type: 'BIGINT', isPrimary: true },
+              { name: 'nim', type: 'VARCHAR(50)', isPrimary: false },
+              { name: 'namalengkap', type: 'VARCHAR(191)' },
+              { name: 'status_asrama', type: 'INT' },
+              { name: 'operator_id', type: 'INT' }
             ],
-            rowCountEstimate: 124,
-            mappedEntity: 'Entity: Student Profile (PMB & SSO)'
+            rowCountEstimate: 142,
+            mappedEntity: 'Master: Penyewa Hunian (Status & Operator ID)'
           },
           {
-            name: 'tb_tagihan_billing',
+            name: 'request_pembayaran',
             columns: [
-              { name: 'id_invoice', type: 'INT', isPrimary: true },
-              { name: 'kode_invoice', type: 'VARCHAR(35)' },
-              { name: 'total_tagihan', type: 'DECIMAL(12,2)' },
-              { name: 'status_pembayaran', type: 'ENUM' }
+              { name: 'id', type: 'BIGINT', isPrimary: true },
+              { name: 'no_request', type: 'VARCHAR(50)' },
+              { name: 'total_bayar', type: 'DECIMAL(15,2)' },
+              { name: 'status_verifikasi', type: 'INT' },
+              { name: 'operator_id', type: 'INT' }
             ],
-            rowCountEstimate: 88,
-            mappedEntity: 'Entity: Billing & Deposit Ledger (P3)'
+            rowCountEstimate: 38,
+            mappedEntity: 'Staging Bridging 1: Permintaan Pendaftaran Otonom Maba'
+          },
+          {
+            name: 'pembayaran',
+            columns: [
+              { name: 'id', type: 'BIGINT', isPrimary: true },
+              { name: 'no_invoice', type: 'VARCHAR(50)' },
+              { name: 'total_bayar', type: 'DECIMAL(15,2)' },
+              { name: 'status_pembayaran', type: 'VARCHAR(50)' },
+              { name: 'operator_id', type: 'INT' }
+            ],
+            rowCountEstimate: 112,
+            mappedEntity: 'Master Running 1: Buku Besar Invoice Tagihan Resmi Admin'
           }
         );
       }

@@ -2,41 +2,81 @@ import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
 const tables = [
-  // STAGING TABLES (Frontend Maba Registration)
-  { id: 'stg_maba', name: 'stg_maba (Staging)', columns: ['id (PK)', 'nim_noreg', 'nama_lengkap', 'nik_ktp', 'file_ktp_enc', 'status_kyc', 'province_id (FK)', 'regency_id (FK)'] },
-  { id: 'stg_invoices', name: 'stg_invoices (Staging)', columns: ['id (PK)', 'stg_maba_id (FK)', 'kode_invoice', 'total_bayar', 'bukti_transfer', 'status'] },
-  { id: 'stg_contracts', name: 'stg_contracts (Staging)', columns: ['id (PK)', 'stg_maba_id (FK)', 'room_id (FK)', 'wa_number', 'otp_verified', 'bastk_signed'] },
+  // 1. STAGING BRIDGING TABLES (Pendaftaran Mandiri Maba - operator_id = 0)
+  { 
+    id: 'request_pembayaran', 
+    name: 'request_pembayaran (Staging)', 
+    columns: ['id (PK)', 'no_request (UK)', 'penyewa_id (FK)', 'kamar_id (FK)', 'durasi', 'total_tagihan', 'total_bayar', 'status_pembayaran', 'status_verifikasi', 'operator_id=0'] 
+  },
+  { 
+    id: 'request_pembayaran_detail', 
+    name: 'request_pembayaran_detail (Staging)', 
+    columns: ['id (PK)', 'no_request (FK)', 'harga_id (FK)', 'jenissewa', 'harga', 'qty', 'jumlah_pembayaran', 'status'] 
+  },
+  { 
+    id: 'request_transaksi', 
+    name: 'request_transaksi (Staging)', 
+    columns: ['id (PK)', 'no_request (FK)', 'no_transaksi', 'tanggal_transaksi', 'jumlah_uang', 'metode_pembayaran', 'file_bukti', 'operator_id=0'] 
+  },
   
-  // MASTER / REFERENCE TABLES (Backend Admin Laravel)
-  { id: 'penyewa', name: 'penyewa (Master)', columns: ['id (PK)', 'nim', 'namalengkap', 'noktp', 'alamat', 'status_asrama', 'kamar_id (FK)'] },
-  { id: 'users', name: 'users (Master SSO)', columns: ['id (PK)', 'identifier', 'name', 'role_id', 'password'] },
-  { id: 'pembayaran', name: 'pembayaran (Master)', columns: ['id (PK)', 'no_invoice', 'penyewa_id (FK)', 'total_bayar', 'status_pembayaran'] },
-  { id: 'kamar', name: 'kamar (Master)', columns: ['id (PK)', 'tipe_asrama_id', 'lantai_id (FK)', 'nomor_kamar', 'kapasitas', 'jumlah_penyewa'] },
-  { id: 'lantai', name: 'lantai (Reference)', columns: ['id (PK)', 'nama'] },
-  { id: 'provinces', name: 'provinces (Reference)', columns: ['id (PK)', 'name'] },
-  { id: 'regencies', name: 'regencies (Reference)', columns: ['id (PK)', 'province_id (FK)', 'name'] },
-  { id: 'delinquencies', name: 'delinquencies (Toleransi 5+5)', columns: ['id (PK)', 'user_id (FK)', 'due_date', 'days_overdue', 'stage', 'deposit_deducted', 'fine_amount', 'contract_terminated'] }
+  // 2. MASTER RUNNING TABLES (Pencatatan Berjalan Web Admin - operator_id = Admin)
+  { 
+    id: 'penyewa', 
+    name: 'penyewa (Master Penghuni)', 
+    columns: ['id (PK)', 'nim (UK)', 'namalengkap', 'noktp', 'nohp', 'jenis_kelamin', 'status_asrama', 'status', 'kamar_id (FK)', 'operator_id'] 
+  },
+  { 
+    id: 'pembayaran', 
+    name: 'pembayaran (Master Invoice)', 
+    columns: ['id (PK)', 'no_invoice (UK)', 'penyewa_id (FK)', 'kamar_id (FK)', 'durasi', 'total_tagihan', 'total_bayar', 'status_pembayaran', 'operator_id'] 
+  },
+  { 
+    id: 'pembayaran_detail', 
+    name: 'pembayaran_detail (Master)', 
+    columns: ['id (PK)', 'no_invoice (FK)', 'harga_id (FK)', 'jenissewa', 'harga', 'qty', 'jumlah_pembayaran', 'status'] 
+  },
+  { 
+    id: 'transaksi', 
+    name: 'transaksi (Master Kas Berjalan)', 
+    columns: ['id (PK)', 'no_invoice (FK)', 'penyewa_id (FK)', 'no_transaksi', 'tanggal_transaksi', 'jumlah_uang', 'metode_pembayaran', 'file_bukti', 'operator_id'] 
+  },
+  { 
+    id: 'kamar', 
+    name: 'kamar (Infrastruktur)', 
+    columns: ['id (PK)', 'tipe_asrama_id (FK)', 'lantai_id (FK)', 'nomor_kamar', 'kapasitas', 'jumlah_penyewa'] 
+  },
+  { 
+    id: 'users', 
+    name: 'users (Master Akun SSO)', 
+    columns: ['id (PK)', 'nim (UK)', 'name', 'email', 'role', 'password'] 
+  },
+  { 
+    id: 'delinquencies', 
+    name: 'delinquencies (SOP 5+5)', 
+    columns: ['id (PK)', 'user_id (FK)', 'due_date', 'days_overdue', 'stage', 'deposit_deducted', 'fine_amount'] 
+  }
 ];
 
 const relationships = [
   // Staging Relations
-  { source: 'stg_invoices', target: 'stg_maba', label: 'stg_maba_id' },
-  { source: 'stg_contracts', target: 'stg_maba', label: 'stg_maba_id' },
-  { source: 'stg_contracts', target: 'kamar', label: 'room_id' },
-  { source: 'stg_maba', target: 'provinces', label: 'province_id' },
-  { source: 'stg_maba', target: 'regencies', label: 'regency_id' },
-  
-  // Master Relations
-  { source: 'pembayaran', target: 'penyewa', label: 'penyewa_id' },
-  { source: 'penyewa', target: 'kamar', label: 'kamar_id' },
-  { source: 'kamar', target: 'lantai', label: 'lantai_id' },
-  { source: 'regencies', target: 'provinces', label: 'province_id' },
-  { source: 'delinquencies', target: 'users', label: 'user_id' },
-  
-  // MIGRATION RELATIONS (Opsi 1)
-  { source: 'penyewa', target: 'stg_maba', label: 'MIGRATE (Verified)' },
-  { source: 'users', target: 'stg_maba', label: 'MIGRATE (Account)' },
-  { source: 'pembayaran', target: 'stg_invoices', label: 'MIGRATE (Paid)' }
+  { source: 'request_pembayaran_detail', target: 'request_pembayaran', label: 'no_request (FK)' },
+  { source: 'request_transaksi', target: 'request_pembayaran', label: 'no_request (FK)' },
+  { source: 'request_pembayaran', target: 'penyewa', label: 'penyewa_id (FK)' },
+  { source: 'request_pembayaran', target: 'kamar', label: 'kamar_id (FK)' },
+
+  // Master Running Relations
+  { source: 'pembayaran_detail', target: 'pembayaran', label: 'no_invoice (FK)' },
+  { source: 'transaksi', target: 'pembayaran', label: 'no_invoice (FK)' },
+  { source: 'pembayaran', target: 'penyewa', label: 'penyewa_id (FK)' },
+  { source: 'transaksi', target: 'penyewa', label: 'penyewa_id (FK)' },
+  { source: 'penyewa', target: 'kamar', label: 'kamar_id (FK)' },
+  { source: 'penyewa', target: 'users', label: 'nim (FK)' },
+  { source: 'delinquencies', target: 'users', label: 'user_id (FK)' },
+
+  // Bridging Migration Flow (Verifikasi & Promosi Admin)
+  { source: 'pembayaran', target: 'request_pembayaran', label: 'BRIDGING PROMOTE' },
+  { source: 'pembayaran_detail', target: 'request_pembayaran_detail', label: 'COPY DETAILS' },
+  { source: 'transaksi', target: 'request_transaksi', label: 'RECORD OFFICIAL TRX' }
 ];
 
 export default function ERDDiagram() {

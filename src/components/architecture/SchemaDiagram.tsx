@@ -9,12 +9,10 @@ export const SchemaDiagram: React.FC = () => {
   const [activeScenario, setActiveScenario] = useState<string>('ALL');
 
   const SCENARIOS = [
-    { id: 'ALL', label: 'Semua Overview', nodes: [] },
-    { id: 'SCENARIO_1', label: '1. Maba New', nodes: ['sidara', 'users', 'staging', 'pembayaran'] },
-    { id: 'SCENARIO_2', label: '2. Eksisting (Non-Tenant)', nodes: ['sidara', 'users', 'staging', 'pembayaran'] },
-    { id: 'SCENARIO_3', label: '3. Penghuni Aktif', nodes: ['users', 'penyewa', 'kamar', 'pembayaran'] },
-    { id: 'SCENARIO_4', label: '4. Cicilan Deposit', nodes: ['staging', 'pembayaran', 'cicilan', 'penyewa'] },
-    { id: 'SCENARIO_5', label: '5. Draft Renewal', nodes: ['penyewa', 'renewal', 'pembayaran', 'kamar'] }
+    { id: 'ALL', label: 'Semua Overview (Bridging + Master)', nodes: [] },
+    { id: 'SCENARIO_1', label: '1. Pendaftaran Mandiri Maba (Staging)', nodes: ['penyewa', 'request_pembayaran', 'request_pembayaran_detail', 'request_transaksi'] },
+    { id: 'SCENARIO_2', label: '2. Eksekusi Promosi Admin (Bridging)', nodes: ['request_pembayaran', 'pembayaran', 'pembayaran_detail', 'transaksi'] },
+    { id: 'SCENARIO_3', label: '3. Master Berjalan Penghuni Aktif', nodes: ['penyewa', 'kamar', 'pembayaran', 'transaksi'] },
   ];
 
   const handleToggleExpandAll = () => {
@@ -22,8 +20,8 @@ export const SchemaDiagram: React.FC = () => {
       setExpandedNodes(new Set());
     } else {
       const allIds = [
-        "sidara", "users", "staging", "penyewa", 
-        "pembayaran", "cicilan", "renewal", "kamar"
+        "penyewa", "kamar", "request_pembayaran", "request_pembayaran_detail",
+        "request_transaksi", "pembayaran", "pembayaran_detail", "transaksi"
       ];
       setExpandedNodes(new Set(allIds));
     }
@@ -77,55 +75,75 @@ export const SchemaDiagram: React.FC = () => {
       .attr("fill", "#3b82f6");
 
     // Columns Map Definition
+    // Columns Map Definition (Bridging u540633926_asrama)
     const colsMap: Record<string, {name: string, keyType: string, dataType: string}[]> = {
-      sidara: [
-        {name: 'NIM', keyType: 'PK', dataType: 'String'},
-        {name: 'StatusAkademik', keyType: '', dataType: 'Enum'},
-        {name: 'DataBiodata', keyType: '', dataType: 'JSON'}
-      ],
-      users: [
-        {name: 'id_user', keyType: 'PK', dataType: 'UUID'},
-        {name: 'identifier', keyType: 'UK', dataType: 'String'},
-        {name: 'role', keyType: '', dataType: 'Enum'},
-        {name: 'last_login', keyType: '', dataType: 'DateTime'}
-      ],
-      staging: [
-        {name: 'id_staging', keyType: 'PK', dataType: 'UUID'},
-        {name: 'id_user', keyType: 'FK', dataType: 'UUID'},
-        {name: 'tipe_pendaftar', keyType: '', dataType: 'Enum'},
-        {name: 'status_onboarding', keyType: '', dataType: 'String'}
-      ],
       penyewa: [
-        {name: 'id_penyewa', keyType: 'PK', dataType: 'UUID'},
-        {name: 'NIM', keyType: 'FK', dataType: 'String'},
-        {name: 'id_kamar', keyType: 'FK', dataType: 'String'},
-        {name: 'tanggal_mulai', keyType: '', dataType: 'Date'},
-        {name: 'status', keyType: '', dataType: 'Enum'}
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'nim', keyType: 'UK', dataType: 'VarChar(50)'},
+        {name: 'namalengkap', keyType: '', dataType: 'VarChar(191)'},
+        {name: 'noktp', keyType: '', dataType: 'VarChar(16)'},
+        {name: 'nohp', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'status_asrama', keyType: '', dataType: 'Int(0/1)'},
+        {name: 'operator_id', keyType: '', dataType: 'Int (0:Maba, 1:Admin)'}
+      ],
+      request_pembayaran: [
+        {name: 'no_request', keyType: 'PK/UK', dataType: 'VarChar(50)'},
+        {name: 'penyewa_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'kamar_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'total_tagihan', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'total_bayar', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'status_verifikasi', keyType: '', dataType: 'Int (0:Pending)'},
+        {name: 'operator_id', keyType: '', dataType: 'Int (0:Maba)'}
+      ],
+      request_pembayaran_detail: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'no_request', keyType: 'FK', dataType: 'VarChar(50)'},
+        {name: 'harga_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'jenissewa', keyType: '', dataType: 'VarChar(255)'},
+        {name: 'harga', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'qty', keyType: '', dataType: 'Int'},
+        {name: 'jumlah_pembayaran', keyType: '', dataType: 'Int'}
+      ],
+      request_transaksi: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'no_request', keyType: 'FK', dataType: 'VarChar(50)'},
+        {name: 'no_transaksi', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'tanggal_transaksi', keyType: '', dataType: 'DateTime'},
+        {name: 'jumlah_uang', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'file_bukti', keyType: '', dataType: 'VarChar(100)'},
+        {name: 'operator_id', keyType: '', dataType: 'Int (0:Maba)'}
       ],
       pembayaran: [
-        {name: 'id_invoice', keyType: 'PK', dataType: 'UUID'},
-        {name: 'id_penyewa', keyType: 'FK', dataType: 'UUID'},
-        {name: 'tipe_tagihan', keyType: '', dataType: 'Enum'},
-        {name: 'status', keyType: '', dataType: 'Enum'},
-        {name: 'is_cicilan', keyType: '', dataType: 'Boolean'}
+        {name: 'no_invoice', keyType: 'PK/UK', dataType: 'VarChar(50)'},
+        {name: 'penyewa_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'kamar_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'total_tagihan', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'total_bayar', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'status_pembayaran', keyType: '', dataType: 'VarChar(paid)'},
+        {name: 'operator_id', keyType: '', dataType: 'Int (Admin ID)'}
       ],
-      cicilan: [
-        {name: 'id_cicilan', keyType: 'PK', dataType: 'UUID'},
-        {name: 'id_invoice', keyType: 'FK', dataType: 'UUID'},
-        {name: 'termin_ke', keyType: '', dataType: 'Int'},
-        {name: 'nominal_termin', keyType: '', dataType: 'Decimal'},
-        {name: 'status_termin', keyType: '', dataType: 'Enum'}
+      pembayaran_detail: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'no_invoice', keyType: 'FK', dataType: 'VarChar(50)'},
+        {name: 'harga_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'jenissewa', keyType: '', dataType: 'VarChar(255)'},
+        {name: 'harga', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'qty', keyType: '', dataType: 'Int'},
+        {name: 'jumlah_pembayaran', keyType: '', dataType: 'Int'}
       ],
-      renewal: [
-        {name: 'id_draft', keyType: 'PK', dataType: 'UUID'},
-        {name: 'id_penyewa', keyType: 'FK', dataType: 'UUID'},
-        {name: 'periode_baru', keyType: '', dataType: 'Date'},
-        {name: 'status_draft', keyType: '', dataType: 'Enum'},
-        {name: 'id_invoice_renewal', keyType: 'FK', dataType: 'UUID'}
+      transaksi: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'no_invoice', keyType: 'FK', dataType: 'VarChar(50)'},
+        {name: 'penyewa_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'no_transaksi', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'jumlah_uang', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'jenis_transaksi', keyType: '', dataType: 'VarChar(Asrama)'},
+        {name: 'operator_id', keyType: '', dataType: 'Int (Admin ID)'}
       ],
       kamar: [
-        {name: 'id_kamar', keyType: 'PK', dataType: 'String'},
-        {name: 'gedung', keyType: '', dataType: 'String'},
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'nomor_kamar', keyType: '', dataType: 'VarChar(10)'},
+        {name: 'gedung', keyType: '', dataType: 'VarChar(50)'},
         {name: 'kapasitas', keyType: '', dataType: 'Int'},
         {name: 'terisi', keyType: '', dataType: 'Int'}
       ],
@@ -136,19 +154,19 @@ export const SchemaDiagram: React.FC = () => {
 
     // Base Nodes Data
     const rawNodes = [
-      { id: "sidara", label: "SIDARA_DB", desc: "Source of Truth Akademik", type: "external", color: "#475569" },
-      { id: "users", label: "ASRAMA_USERS", desc: "Auth & Identity", type: "core", color: "#8b5cf6" },
-      { id: "staging", label: "STAGING_PENDAFTARAN", desc: "Skenario 1 & 2 (Booking)", type: "staging", color: "#f59e0b" },
-      { id: "penyewa", label: "MASTER_PENYEWA", desc: "Skenario 3 (Penghuni Aktif)", type: "master", color: "#10b981" },
-      { id: "kamar", label: "MASTER_KAMAR", desc: "Infrastruktur Asrama", type: "infra", color: "#6366f1" },
-      { id: "pembayaran", label: "MASTER_PEMBAYARAN", desc: "Tagihan Induk", type: "master", color: "#10b981" },
-      { id: "cicilan", label: "SKEMA_CICILAN", desc: "Dev Path 1 (Cicilan Deposit)", type: "extension", color: "#ec4899" },
-      { id: "renewal", label: "DRAFT_RENEWAL", desc: "Dev Path 2 (Masa Kontrak)", type: "extension", color: "#ec4899" },
+      { id: "penyewa", label: "penyewa", desc: "Master Penghuni (status 0 ➔ 1)", type: "master", color: "#10b981" },
+      { id: "kamar", label: "kamar", desc: "Infrastruktur Kamar Hunian", type: "infra", color: "#6366f1" },
+      { id: "request_pembayaran", label: "request_pembayaran", desc: "Staging Tagihan Mandiri (op=0)", type: "staging", color: "#f59e0b" },
+      { id: "request_pembayaran_detail", label: "request_pembayaran_detail", desc: "Staging Rincian Item Tarif", type: "staging", color: "#f59e0b" },
+      { id: "request_transaksi", label: "request_transaksi", desc: "Staging Mutasi Bukti Bayar", type: "staging", color: "#f59e0b" },
+      { id: "pembayaran", label: "pembayaran", desc: "Master Invoice Resmi Berjalan", type: "master", color: "#0284c7" },
+      { id: "pembayaran_detail", label: "pembayaran_detail", desc: "Master Rincian Komponen Resmi", type: "master", color: "#0284c7" },
+      { id: "transaksi", label: "transaksi", desc: "Master Kas Resmi (op=Admin)", type: "master", color: "#0284c7" },
     ];
 
-    const row1Ids = ["sidara", "users", "kamar"];
-    const row2Ids = ["staging", "penyewa", "renewal"];
-    const row3Ids = ["cicilan", "pembayaran"];
+    const row1Ids = ["penyewa", "kamar"];
+    const row2Ids = ["request_pembayaran", "request_pembayaran_detail", "request_transaksi"];
+    const row3Ids = ["pembayaran", "pembayaran_detail", "transaksi"];
 
     // Compute sizes & layout
     const nodesData = rawNodes.map(n => {
@@ -172,9 +190,11 @@ export const SchemaDiagram: React.FC = () => {
 
     nodesData.forEach(n => {
       // Columns (X-axis)
-      if (["sidara", "staging", "cicilan"].includes(n.id)) n.x = 180;
-      else if (["users", "penyewa", "pembayaran"].includes(n.id)) n.x = 512;
-      else if (["kamar", "renewal"].includes(n.id)) n.x = 844;
+      if (["penyewa"].includes(n.id)) n.x = 350;
+      else if (["kamar"].includes(n.id)) n.x = 680;
+      else if (["request_pembayaran", "pembayaran"].includes(n.id)) n.x = 180;
+      else if (["request_pembayaran_detail", "pembayaran_detail"].includes(n.id)) n.x = 512;
+      else if (["request_transaksi", "transaksi"].includes(n.id)) n.x = 844;
 
       // Rows (Y-axis)
       if (row1Ids.includes(n.id)) n.y = row1Top + n.boxHeight / 2;
@@ -184,21 +204,19 @@ export const SchemaDiagram: React.FC = () => {
 
     // Links Data
     const links = [
-      { source: "sidara", target: "users", type: "sync", label: "Sync API" },
-      { source: "users", target: "staging", type: "relation", label: "1:1 (Onboarding)" },
-      { source: "users", target: "penyewa", type: "relation", label: "1:1 (Penghuni)" },
+      { source: "request_pembayaran", target: "penyewa", type: "relation", label: "penyewa_id" },
+      { source: "request_pembayaran", target: "kamar", type: "relation", label: "kamar_id" },
+      { source: "request_pembayaran_detail", target: "request_pembayaran", type: "relation", label: "no_request" },
+      { source: "request_transaksi", target: "request_pembayaran", type: "relation", label: "no_request" },
       
-      { source: "staging", target: "pembayaran", type: "relation", label: "Tagihan Deposit" },
-      { source: "penyewa", target: "pembayaran", type: "relation", label: "Tagihan Bulanan" },
+      { source: "pembayaran", target: "request_pembayaran", type: "migration", label: "BRIDGING PROMOTE" },
+      { source: "pembayaran_detail", target: "request_pembayaran_detail", type: "migration", label: "COPY ITEMS" },
+      { source: "transaksi", target: "request_transaksi", type: "migration", label: "COPY CASH TRX" },
       
-      { source: "penyewa", target: "kamar", type: "relation", label: "N:1 (Menempati)" },
-      
-      { source: "pembayaran", target: "cicilan", type: "relation", label: "1:N (is_cicilan)" },
-      
-      { source: "penyewa", target: "renewal", type: "relation", label: "1:1 (Masa Kritis)" },
-      { source: "renewal", target: "pembayaran", type: "relation", label: "Tagihan Baru" },
-
-      { source: "staging", target: "penyewa", type: "migration", label: "Migrasi (Sync NIM & Lunas)" }
+      { source: "pembayaran_detail", target: "pembayaran", type: "relation", label: "no_invoice" },
+      { source: "transaksi", target: "pembayaran", type: "relation", label: "no_invoice" },
+      { source: "pembayaran", target: "penyewa", type: "relation", label: "penyewa_id" },
+      { source: "penyewa", target: "kamar", type: "relation", label: "kamar_id" }
     ];
 
     const g = svg.append("g").attr("transform", "translate(0, 0)");

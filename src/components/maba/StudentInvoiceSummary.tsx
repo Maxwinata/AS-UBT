@@ -38,6 +38,10 @@ export const StudentInvoiceSummary: React.FC<StudentInvoiceSummaryProps> = ({ in
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-teal-800/40">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30">
+              {invoice.status === 'PAID' && invoice.isMigrated ? `Invoice Resmi: ${invoice.invoiceId}` : `Staging Request: ${invoice.noRequest || invoice.invoiceId}`}
+            </span>
+
             <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
               isLunasPenuh
                 ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'

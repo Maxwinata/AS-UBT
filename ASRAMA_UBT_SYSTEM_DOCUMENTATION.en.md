@@ -99,46 +99,33 @@ All business logic is handled by standard Laravel controllers mapped in `routes/
 
 ---
 
-## 6. Database Field Mapping & Relations
+## 6. Database Field Mapping & Bridging Strategy (SQL Web Admin: `u540633926_asrama`)
 
-### Phase 1: Registration & e-KYC
-*Form data is partitioned into 5 key categories:*
+The system implements a robust 2-tier database architecture: **Autonomous Freshman Staging Tables (`request_*`)** and **Official Running Master Tables (`pembayaran`, `transaksi`, `penyewa`)**.
 
-**Category 1: Academic Data**
-| Frontend Field | Target Table | Column | Description |
-| --- | --- | --- | --- |
-| Full Name | `users` | `name` | Auth identity |
-| NIM / Reg Number | `maba_profiles` / `users` | `nim` / `no_pmb` | Primary student identifier |
-| Faculty / Study Program | `maba_profiles` | `fakultas`, `prodi` | Academic affiliation |
-| Gender | `maba_profiles` | `jenis_kelamin` | Building gender filter (`L`/`P`) |
+### A. Autonomous Staging Tables (Student Frontend - `operator_id = 0`)
+1. **`penyewa` (Draft Initial Applicant)**
+   - Columns: `nim`, `namalengkap`, `noktp`, `nohp`, `email`, `alamat`, `jenis_kelamin`, `nama_bill_to`
+   - Initial State: `status = 0`, `status_asrama = 0`, `operator_id = 0` (Autonomously registered by student)
+2. **`request_pembayaran` (Autonomous Invoice Header)**
+   - Columns: `no_request` (UK, e.g. `REQ-202610-0142`), `penyewa_id`, `kamar_id`, `durasi`, `tanggal_masuk`, `tanggal_keluar`
+   - Financials: `total_tagihan`, `total_potongan_harga`, `total_bayar`
+   - Lifecycle: `status_pembayaran = 'pending'`, `status_verifikasi = 0`, `operator_id = 0`
+3. **`request_pembayaran_detail` (Itemized Tariff Breakdown)**
+   - Columns: `no_request` (FK Index), `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran`, `potongan_harga`
+   - Transparently itemizes rent, security deposit, and administrative initial amenity fees.
+4. **`request_transaksi` (Self-Reported Mutation & Transfer Slip)**
+   - Columns: `no_request` (FK Index), `no_transaksi` (Provisional), `tanggal_transaksi`, `jumlah_uang`, `metode_pembayaran`, `file_bukti`, `operator_id = 0`
 
-**Category 2: Personal Contact & Address**
-| Frontend Field | Target Table | Column | Description |
-| --- | --- | --- | --- |
-| Active Email | `users` | `email` | Login & correspondence |
-| Phone / WhatsApp | `maba_profiles` | `no_hp_wa` | OTP delivery destination |
-| Structured KTP Address | `maba_profiles` | `alamat_ktp_*` | Street, RT/RW, Sub-district, City, Province |
-| Domicile Address | `maba_profiles` | `alamat_domisili_*` | Mailing address (supports "Same as KTP") |
-
-**Category 3: Emergency Contacts**
-| Frontend Field | Target Table | Column | Description |
-| --- | --- | --- | --- |
-| Primary Contact Name | `maba_profiles` | `kontak_darurat_nama` | Parent or Guardian |
-| Relationship & Phone | `maba_profiles` | `kontak_darurat_no_hp`| Emergency WhatsApp number |
-| Secondary Contact | `maba_profiles` | `kontak_darurat_alt_*`| Optional backup guardian |
-
-**Category 4: Room Preferences**
-| Frontend Field | Target Table | Column | Description |
-| --- | --- | --- | --- |
-| Preferred Building Type| `maba_profiles` | `tipe_kamar` | Male / Female Dormitory |
-| Floor Preference | `maba_profiles` | `preferensi_lantai` | Floor level affinity |
-
-**Category 5: Document Uploads (e-KYC)**
-| Frontend Field | Target Table | Column | Description |
-| --- | --- | --- | --- |
-| KTP Image | `maba_profiles` | `ktp_url` | Private storage path |
-| Biometric Selfie | `maba_profiles` | `selfie_url` | Private storage path |
-| Verification Status | `maba_profiles` | `kyc_verified` | Boolean flag |
+### B. Official Running Master Tables (Laravel Web Admin - `operator_id = Admin ID`)
+1. **`penyewa` (Active Resident Master)**
+   - Promoted State: `status = 1`, `status_asrama = 1`, `operator_id = Admin ID`
+2. **`pembayaran` (Official Invoice Ledger)**
+   - Columns: `no_invoice` (Generated: `INV-202610-xxxx`), `penyewa_id`, `kamar_id`, `durasi`, `total_tagihan`, `total_bayar`, `status_pembayaran = 'paid'`, `operator_id = Admin ID`
+3. **`pembayaran_detail` (Official Line Items Master)**
+   - Columns: `no_invoice` (FK Index), `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran`, `status = 1`
+4. **`transaksi` (Official Cash & Payment Mutation Ledger)**
+   - Columns: `no_invoice` (FK Index), `penyewa_id`, `no_transaksi` (Official), `tanggal_transaksi`, `jumlah_uang`, `metode_pembayaran`, `file_bukti`, `jenis_transaksi = 'Asrama'`, `operator_id = Admin ID`
 
 ---
 

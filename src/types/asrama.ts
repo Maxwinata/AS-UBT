@@ -111,6 +111,8 @@ export interface BillingInvoice {
   paidAt?: string;
   vaNumber?: string;
   isMigrated?: boolean;
+  noRequest?: string;
+  officialInvoiceNo?: string;
 }
 
 export interface RoomPlot {
@@ -300,3 +302,133 @@ export interface PaymentScheme {
   installmentMultiplier: number;
   allowDepositInstallment?: boolean; // false = Nonaktif (Default), true = Diaktifkan oleh Admin
 }
+
+// ============================================================================
+// STRATEGI INTEGRASI DATABASE: WEB ADMIN LARAVEL & FRONTEND MABA BRIDGING
+// ============================================================================
+
+export interface PenyewaRecord {
+  id: number;
+  jenis_penyewa: string;
+  angkatan?: string;
+  namalengkap: string;
+  noktp?: string;
+  nohp?: string;
+  nim: string;
+  kip?: string;
+  email?: string;
+  jenis_kelamin?: string;
+  alamat?: string;
+  nama_bill_to?: string;
+  status_asrama: number;
+  status_catering: number;
+  status: number;
+  operator_id: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RequestPembayaranDetailRecord {
+  id: number;
+  no_request: string;
+  harga_id?: number;
+  jenissewa: string;
+  harga: number;
+  qty: number;
+  jumlah_pembayaran: number;
+  potongan_harga: number;
+  status: number;
+}
+
+export interface RequestTransaksiRecord {
+  id: number;
+  no_request: string;
+  no_transaksi: string;
+  tanggal_transaksi: string;
+  jumlah_uang: number;
+  metode_pembayaran: string;
+  file_bukti?: string;
+  operator_id: number;
+}
+
+export interface RequestPembayaranRecord {
+  id: number;
+  no_request: string;
+  tanggal_pembayaran?: string;
+  tanggal_masuk?: string;
+  tanggal_keluar?: string;
+  durasi: number;
+  penyewa_id: number;
+  nama_bill_to: string;
+  kamar_id?: number;
+  total_tagihan: number;
+  total_potongan_harga: number;
+  total_bayar: number;
+  status_pembayaran: string;
+  tanggal_perpanjang?: string;
+  status_asrama: number;
+  status_catering: number;
+  status_verifikasi: number; // 0 = Menunggu Review Admin, 1 = Disetujui
+  tanggal_verifikasi?: string;
+  operator_id: number; // 0 = Mandiri Maba
+  created_at?: string;
+  updated_at?: string;
+  details?: RequestPembayaranDetailRecord[];
+  transaksi?: RequestTransaksiRecord;
+  penyewa?: PenyewaRecord;
+}
+
+export interface PembayaranDetailRecord {
+  id: number;
+  no_invoice: string;
+  harga_id?: number;
+  jenissewa: string;
+  harga: number;
+  qty: number;
+  jumlah_pembayaran: number;
+  potongan_harga: number;
+  status: number;
+}
+
+export interface TransaksiRecord {
+  id: number;
+  parent_id?: number;
+  no_invoice: string;
+  penyewa_id: number;
+  no_transaksi: string;
+  tanggal_transaksi: string;
+  jumlah_uang: number;
+  metode_pembayaran: string;
+  file_bukti?: string;
+  jenis_transaksi: string;
+  operator_id: number;
+}
+
+export interface PembayaranRecord {
+  id: number;
+  no_invoice: string;
+  tanggal_pembayaran?: string;
+  jenis_penyewa: string;
+  tanggal_masuk?: string;
+  tanggal_keluar?: string;
+  durasi: number;
+  penyewa_id: number;
+  nama_lengkap: string;
+  no_ktp?: string;
+  nama_bill_to?: string;
+  kamar_id?: number;
+  total_tagihan: number;
+  total_potongan_harga: number;
+  total_bayar: number;
+  status_pembayaran: string;
+  tanggal_perpanjang?: string;
+  status_asrama: number;
+  status_catering: number;
+  operator_id: number;
+  created_at?: string;
+  updated_at?: string;
+  details?: PembayaranDetailRecord[];
+  transaksi?: TransaksiRecord;
+  penyewa?: PenyewaRecord;
+}
+

@@ -1,76 +1,163 @@
-# Data Architecture & Business Logic Chart — UBT Dormitory Portal
+# Data Architecture & Bridging Database Integration Strategy for UBT Dormitory Portal
 
-> **Language / Pilihan Bahasa:** [🇮🇩 Bahasa Indonesia (Primary)](ARCHITECTURE.md) | 🇬🇧 **English Version**
+> **Language Selection / Pilihan Bahasa:** [🇮🇩 Versi Bahasa Indonesia (Utama)](ARCHITECTURE.md) | 🇬🇧 **English Version**
 
-This document details the database architecture and backend business logic flow required to operate the UBT Dormitory Web Portal in production, **aligned with the existing Dormitory Management Administration Database schema**.
-
-Because this web portal interacts directly with the institution's operational records, the student registration portal executes *staging* (Read/Write) transactions that are subsequently verified and promoted into the master tables by Dormitory & Finance Administrators.
+This document specifies the database architecture and bridging integration logic between the **Freshman Frontend (Autonomous Self-Registration)** and the **Laravel Web Admin (Running Master Ledger Records)**, 100% aligned with the production SQL schema (`u540633926_asrama`).
 
 ---
 
-## 1. Database Schema Mapping (Housing Management ERD)
+## 1. Architectural Philosophy: Autonomous Self-Process vs. Official Running Master
 
-Based on the existing database, the following entities are used by the student admission application:
+Within the UBT Dormitory operational ecosystem, data management is divided into two distinct authority domains:
 
-### A. Tables `staging_penyewa` & `penyewa` (Student/Tenant Profiles)
-Applicant profile records are partitioned into two architectural layers to ensure data integrity:
-- **`staging_penyewa` (Portal Staging Area)**: Used while prospective students progress through the 6-step online registration. This data is periodically synchronized with the university's academic system (SIAKAD).
-- **`penyewa` (Master Records)**: Clean, validated tenant records. Promotion rules from staging:
-  1. **New Students (Maba)**: Migration to master occurs ONLY once the registration billing invoice has achieved *PAID* status.
-  2. **Existing Students (SSO)**: If an active student logs in with "Non-Resident" status, their data remains in staging until their housing invoice is confirmed as *PAID*, preventing uncommitted attempts from polluting master records.
-- Key columns: `nim`, `nama`, `jenis_kelamin` (building gender filter), `no_hp` (WhatsApp OTP), and academic department relations.
+1. **Autonomous Self-Registration Domain (`request_*`)**:
+   - Designed for new students registering independently via the web portal interface.
+   - Because data is inputted autonomously without immediate staff intervention, all rows are stamped with **`operator_id = 0`**.
+   - Held in a *staging / pending* state (`status = 0`, `status_verifikasi = 0`, `status_pembayaran = 'pending'`).
+   - Prevents unverified drafts, abandoned carts, or bad entries from contaminating the official master ledgers.
 
-### B. Tables `tipe_asrama`, `lantai`, and `kamar` (Dormitory Infrastructure)
-Relational hierarchy representing buildings, floors, and rooms available during Room Plotting:
-- **`tipe_asrama`**: Building type (e.g., Male Dormitory, Female Dormitory) with a `jenis_kelamin` attribute.
-- **`lantai`**: Manages floor levels within each building.
-- **`kamar`**: Individual room records containing `tipe_asrama_id`, `lantai_id`, room number (`nomor`), and maximum bed capacity (`kapasitas`).
-
-### C. Tables `transaksi` & `request_transaksi` (Booking & Plotting System)
-Concurrency and quota locks are computed dynamically based on active bookings per room:
-- **`request_transaksi`**: Temporary quota lock created when a student selects a room (Step 4), expiring after a designated reservation window (e.g., 24 hours).
-- **`transaksi`**: Permanent confirmation record created once payment is verified, binding `penyewa_id` to `kamar_id` along with occupancy start dates and contract statuses.
-- *Concurrency Logic*: Available Beds = `kamar.kapasitas` - (Count of active `transaksi` + pending `request_transaksi`).
-
-### D. Financial Tables (`tagih`, `request_pembayaran`, `pembayaran`, `deposit`)
-Handles invoice generation and payment settlement (Steps 2 & 3):
-- **`tagih` / `harga`**: Standard fee references (monthly room rent, initial bedding supplies, administrative charges).
-- **`request_pembayaran`**: Staging invoices generated with unique 3-digit verification codes prior to funds transfer.
-- **`pembayaran`**: Permanent ledger entry created when a bank webhook or manual admin review approves the transaction (`status_bayar = 1`).
-- **`deposit` & `deposit_pembayaran`**: Handles security deposit accounting, separating lump-sum payments from multi-month installment schedules.
+2. **Official Running Master Domain (`pembayaran`, `pembayaran_detail`, `transaksi`, `penyewa`)**:
+   - The operational table structure when the system is running officially, where registration, billing commitments, and cash flows are handled and ratified by dorm and finance administrators.
+   - Every row is tagged with **`operator_id = Admin ID`** (ensuring audit accountability for the approving officer).
+   - Serves as the *single source of truth* for university/foundation financial reports, external audits, and active tenant occupancy management.
 
 ---
 
-## 2. System Logic Chart (Web Portal Staging Flows)
+## 2. In-Depth Analysis of the 3 New Bridging Tables
 
-### Flow 1: Authentication & e-KYC (SIAKAD Synchronization)
-1. **Frontend:** Student logs in using PMB Registration Number or official NIM.
-2. **Backend (SSO/SIAKAD):** Validates credentials and synchronizes the latest student biodata.
-3. **Backend Asrama:** Performs an `UPSERT` into `staging_penyewa`.
-4. **Continuous Sync:** As students advance through admission steps, missing academic fields are progressively filled via background sync.
+The three new tables prefixed with `request_` function as the bridging interface between the student frontend and the backend web admin database:
 
-### Flow 2: Room Plotting Concurrency (`request_transaksi`)
-1. **Frontend:** Student requests available room listings (Step 4).
-2. **Backend:** Filters rooms where building gender matches the student profile. Computes: `kapasitas` - active reservations.
-3. **Frontend:** Student selects an available room (e.g., Room 101).
-4. **Backend:** Inserts a temporary reservation into `request_transaksi` with an expiration countdown, decrementing visible capacity for other users.
-5. **Cron Scheduler:** Releases and purges expired reservations if payment is not initiated within the tolerance window.
+### A. Table `request_pembayaran` (Staging Autonomous Invoice Header)
+Captures the initial payment commitment when the freshman selects a room, lease duration (6 or 12 months), and deposit installment terms.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Unique Key (UK)**: `no_request` (VARCHAR 50, e.g., `REQ-202610-0142`)
+- **Foreign Keys (FK)**:
+  - `penyewa_id` ➔ references `penyewa.id`
+  - `kamar_id` ➔ references `kamar.id`
+- **Operational Fields**:
+  - `tanggal_masuk`, `tanggal_keluar`, `durasi`
+  - `total_tagihan`, `total_potongan_harga`, `total_bayar`
+  - `status_pembayaran` (default: `'pending'`)
+  - `status_verifikasi` (default: `0` = Pending Admin Review, `1` = Approved)
+  - `operator_id` (default: `0` = Autonomous Student)
 
-### Flow 3: Invoice Issuance & Bank Webhooks (`request_pembayaran`)
-1. **Backend:** Generates an invoice containing base rent, security deposit, base administrative fee (Rp 100,000), and a random 3-digit code.
-2. **Frontend:** Renders the exact payable amount and bank account details (Step 3).
-3. **Bank Webhook:** When bank reconciliation confirms incoming funds matching the exact total, the bank pings the backend.
-4. **Backend:** Transitions invoice to `PAID`, records a permanent `pembayaran`, and converts `request_transaksi` into a permanent tenancy `transaksi`.
+### B. Table `request_pembayaran_detail` (Staging Line Items Breakdown)
+Maintains the itemized pricing components of the registration invoice to ensure transparency and compliance with official tariff regulations.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Foreign Keys (FK)**:
+  - `no_request` ➔ references `request_pembayaran.no_request` (Indexed)
+  - `harga_id` ➔ references tariff master (`harga.id`)
+- **Detailed Line Items**:
+  - Line 1: Dormitory Rent (`jenissewa = 'Sewa Asrama'`, `harga = 500000`, `qty = 6/12`, `jumlah_pembayaran = total_rent`)
+  - Line 2: Security Deposit (`jenissewa = 'Deposit Jaminan Hunian'`, `harga = 500000/1000000`, `qty = 1`)
+  - Line 3: Initial Amenities & Admin Fee (`jenissewa = 'Biaya Administrasi & Fasilitas Awal'`, `harga = 100000`, `qty = 1`)
 
-### Flow 4: Digital Contract & e-Ticket Generation
-1. **Backend:** Generates a 6-digit random OTP and dispatches it via WhatsApp to the student (and parent/guardian).
-2. **Frontend:** Student submits the OTP.
-3. **Backend:** Validates OTP, records the SHA-256 audit timestamp, and seals the agreement under JUKLAK-02.
-4. **Frontend:** Issues an official digital e-Ticket with encrypted QR code parameters for gate check-in.
+### C. Table `request_transaksi` (Staging Payment Proof & Self-Reported Mutation)
+Stores proof of transfer receipt uploads or initial manual transfer reports submitted by the student.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Foreign Keys (FK)**:
+  - `no_request` ➔ references `request_pembayaran.no_request` (Indexed)
+- **Mutation Fields**:
+  - `no_transaksi` (VARCHAR 50, provisional e.g. `TRX-REQ-202610-0142`)
+  - `tanggal_transaksi` (DATETIME)
+  - `jumlah_uang` (DECIMAL 15,2)
+  - `metode_pembayaran` (VARCHAR 255, e.g. `'Transfer Manual Bank BSI'`)
+  - `file_bukti` (VARCHAR 100, private storage receipt path)
+  - `operator_id` (`0` = Autonomous Student)
 
-### Flow 5: Legal Compliance & Hybrid Collective Agreement (JUKLAK-03)
-Under Dormitory Regulation Article 39, UU ITE Article 11, and the Indonesian Stamp Duty Law (UU Bea Meterai No. 10/2020), this system employs a **"Hybrid Master Collective Agreement & WhatsApp Gateway"** model:
-1. **Electronic Consent**: Students verify their acceptance individually via WhatsApp OTP, authorizing inclusion into the collective dormitory agreement roster.
-2. **Physical Master Ratification**: Dormitory management compiles signatories into an official batch PDF (F-22 Collective Ratification Sheet, up to 40 students per sheet). A single physical Rp 10,000 duty stamp is affixed and signed by the Dormitory Director.
-3. **Digital Distribution**: The executed master sheet is scanned and made available on student dashboards as legally binding proof of residency.
-4. **Cost & Legal Efficiency**: Saves millions of rupiah in third-party e-signature subscriptions while maintaining full legal standing under Indonesian law.
+---
+
+## 3. Field-by-Field Transformation Matrix: Staging ➔ Running Master
+
+When the Finance/Dorm Admin clicks **"Approve & Promote to Master"**, the system executes the following atomic database transaction:
+
+| No | Source Table (Autonomous Staging) | Source Field | Target Table (Running Master) | Target Field | Transformation Rule / Notes |
+|---|---|---|---|---|---|
+| 1 | `request_pembayaran` | `no_request` | `pembayaran` | `no_invoice` | **Newly generated** official invoice number (e.g., `INV-202610-0012`). |
+| 2 | `request_pembayaran` | `penyewa_id` | `pembayaran` | `penyewa_id` | Copied 1:1. |
+| 3 | `request_pembayaran` | `kamar_id` | `pembayaran` | `kamar_id` | Permanently locks the room allocation in master. |
+| 4 | `request_pembayaran` | `durasi`, `tanggal_masuk`, `tanggal_keluar` | `pembayaran` | `durasi`, `tanggal_masuk`, `tanggal_keluar` | Copied 1:1. |
+| 5 | `request_pembayaran` | `total_tagihan`, `total_bayar` | `pembayaran` | `total_tagihan`, `total_bayar` | Copied 1:1. |
+| 6 | `request_pembayaran` | `status_pembayaran` | `pembayaran` | `status_pembayaran` | Transitions from `'pending'` to `'paid'`. |
+| 7 | `request_pembayaran` | `operator_id = 0` | `pembayaran` | `operator_id` | **Assigned with Staff Admin ID** who verified (`auth()->id()`). |
+| 8 | `request_pembayaran_detail` | `no_request` | `pembayaran_detail` | `no_invoice` | Bound to the newly issued official `no_invoice`. |
+| 9 | `request_pembayaran_detail` | `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran` | `pembayaran_detail` | `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran` | All breakdown items duplicated 1:1. |
+| 10 | `request_transaksi` | `no_request` | `transaksi` | `no_invoice` | Bound to official `no_invoice`. |
+| 11 | `request_transaksi` | `penyewa_id` (via req) | `transaksi` | `penyewa_id` | Populated with tenant ID. |
+| 12 | `request_transaksi` | `no_transaksi` | `transaksi` | `no_transaksi` | Official transaction receipt number issued (e.g., `TRX-202610-0012`). |
+| 13 | `request_transaksi` | `jumlah_uang`, `tanggal_transaksi`, `file_bukti` | `transaksi` | `jumlah_uang`, `tanggal_transaksi`, `file_bukti` | Copied 1:1 into the official cash ledger. |
+| 14 | - | - | `transaksi` | `jenis_transaksi` | Set to `'Asrama'`. |
+| 15 | `request_transaksi` | `operator_id = 0` | `transaksi` | `operator_id` | **Assigned with Staff Admin ID** who verified. |
+| 16 | `penyewa` | `status = 0`, `status_asrama = 0` | `penyewa` | `status = 1`, `status_asrama = 1` | Tenant status activated to official active resident. |
+| 17 | `request_pembayaran` | `status_verifikasi = 0` | `request_pembayaran` | `status_verifikasi = 1` | Staging record updated; sets `tanggal_verifikasi = now()`. |
+
+---
+
+## 4. End-to-End Lifecycle & Concurrency Flow
+
+```
+[ FRESHMAN FRONTEND ]
+       │
+       ▼ (1. Complete Profile Biodata)
+INSERT / UPDATE penyewa (status = 0, operator_id = 0)
+       │
+       ▼ (2. Select Room & Configure Billing)
+INSERT request_pembayaran (no_request, operator_id = 0)
+INSERT request_pembayaran_detail (rent, deposit, admin fees)
+       │
+       ▼ (3. Upload Transfer Proof)
+INSERT request_transaksi (file_bukti, jumlah_uang, operator_id = 0)
+       │
+       ▼ (Status: Awaiting Financial Verification)
+─────────────────────────────────────────────────────────────
+[ LARAVEL WEB ADMIN DASHBOARD ]
+       │
+       ▼ (4. Admin Verifies Unique Code & Bank Mutation)
+Click: "Approve & Promote to Master"
+       │
+       ├──► INSERT pembayaran (official no_invoice, operator_id = Admin ID)
+       ├──► INSERT pembayaran_detail (bound to no_invoice)
+       ├──► INSERT transaksi (official cash ledger, operator_id = Admin ID)
+       ├──► UPDATE penyewa (status = 1, status_asrama = 1)
+       └──► UPDATE request_pembayaran (status_verifikasi = 1, status_pembayaran = 'paid')
+       │
+       ▼ (5. Permanent Room Quota Decrement)
+Available Capacity = kamar.kapasitas - COUNT(transaksi.kamar_id)
+       │
+       ▼ (6. Freshman Receives Digital Contract & e-Ticket)
+Student verifies WhatsApp OTP and receives digital BASTK and e-Ticket QR Code.
+```
+
+---
+
+## 5. Summary of Primary Keys & Foreign Keys (PK / FK)
+
+- **`penyewa`**:
+  - `id` (PK)
+  - `nim` (UK)
+- **`request_pembayaran`**:
+  - `id` (PK)
+  - `no_request` (UK)
+  - `penyewa_id` ➔ FK to `penyewa.id`
+  - `kamar_id` ➔ FK to `kamar.id`
+- **`request_pembayaran_detail`**:
+  - `id` (PK)
+  - `no_request` ➔ FK to `request_pembayaran.no_request`
+  - `harga_id` ➔ FK to tariff master
+- **`request_transaksi`**:
+  - `id` (PK)
+  - `no_request` ➔ FK to `request_pembayaran.no_request`
+- **`pembayaran`**:
+  - `id` (PK)
+  - `no_invoice` (UK)
+  - `penyewa_id` ➔ FK to `penyewa.id`
+  - `kamar_id` ➔ FK to `kamar.id`
+- **`pembayaran_detail`**:
+  - `id` (PK)
+  - `no_invoice` ➔ FK to `pembayaran.no_invoice`
+- **`transaksi`**:
+  - `id` (PK)
+  - `no_invoice` ➔ FK to `pembayaran.no_invoice`
+  - `penyewa_id` ➔ FK to `penyewa.id`
+
+With this architecture, the bridge between autonomous freshman onboarding and strict accounting compliance in Web Admin is seamless, resilient, and audit-ready.

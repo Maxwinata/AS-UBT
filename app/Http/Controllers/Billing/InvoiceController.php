@@ -7,11 +7,19 @@ use Illuminate\Http\Request;
 use App\Models\BillingInvoice;
 use App\Models\Tariff;
 use App\Models\PaymentScheme;
+use App\Models\Penyewa;
+use App\Models\RequestPembayaran;
+use App\Models\RequestPembayaranDetail;
+use App\Models\RequestTransaksi;
 
 class InvoiceController extends Controller
 {
     /**
      * Konfigurasi Pilihan Durasi Sewa dan Skema Cicilan Deposit Mahasiswa
+     * Menyimpan ke BillingInvoice dan tabel Bridging Staging Otonom:
+     * - penyewa (operator_id = 0, status = 0)
+     * - request_pembayaran (operator_id = 0, status_verifikasi = 0)
+     * - request_pembayaran_detail (rincian komponen sewa, deposit, admin)
      */
     public function configure(Request $request)
     {
@@ -48,11 +56,13 @@ class InvoiceController extends Controller
 
         $kodeUnik = rand(100, 999);
         $totalBayar = $biayaSewaInitial + $biayaDepositTermin1 + $tarifPerlengkapan + $kodeUnik;
+        $reqCode = 'REQ-' . date('Ym') . '-' . rand(1000, 9999);
 
+        // 1. Simpan / Perbarui BillingInvoice untuk state Inertia
         $invoice = BillingInvoice::updateOrCreate(
             ['user_id' => $user->id, 'status' => 'UNPAID'],
             [
-                'invoice_id' => 'INV-UBT-' . date('Y') . '-' . rand(1000, 9999),
+                'invoice_id' => $reqCode,
                 'nim' => $user->nim ?? $user->no_pmb,
                 'nama' => $user->name,
                 'is_kip' => $isKip,
@@ -74,11 +84,93 @@ class InvoiceController extends Controller
             ]
         );
 
-        return redirect()->back()->with('success', 'Rincian tagihan invoice berhasil diperbarui.');
+        // 2. Sinkronkan ke Tabel Penyewa (Staging Maba, operator_id = 0)
+        $penyewa = Penyewa::updateOrCreate(
+            ['nim' => $user->nim ?? $user->no_pmb],
+            [
+                'jenis_penyewa' => 'mahasiswa',
+                'angkatan' => date('Y'),
+                'namalengkap' => $user->name,
+                'noktp' => $user->mabaProfile->nik ?? null,
+                'nohp' => $user->mabaProfile->no_hp_wa ?? $user->phone ?? null,
+                'kip' => $isKip ? 'KIP-KULIAH' : null,
+                'email' => $user->email,
+                'alamat' => $user->mabaProfile->alamat_ktp_jalan ?? null,
+                'nama_bill_to' => $user->name,
+                'status_asrama' => 0,
+                'status' => 0,
+                'operator_id' => 0, // Didaftarkan mandiri oleh Maba
+            ]
+        );
+
+        // 3. Simpan ke Tabel Bridging: request_pembayaran
+        $requestPembayaran = RequestPembayaran::updateOrCreate(
+            ['no_request' => $invoice->invoice_id],
+            [
+                'tanggal_pembayaran' => null,
+                'tanggal_masuk' => now(),
+                'tanggal_keluar' => now()->addMonths($request->durasi_kontrak_total),
+                'durasi' => $request->durasi_kontrak_total,
+                'penyewa_id' => $penyewa->id,
+                'nama_bill_to' => $user->name,
+                'kamar_id' => null,
+                'total_tagihan' => $totalBayar,
+                'total_potongan_harga' => 0.00,
+                'total_bayar' => $totalBayar,
+                'status_pembayaran' => 'pending',
+                'status_asrama' => 0,
+                'status_catering' => 0,
+                'status_verifikasi' => 0, // Menunggu review Admin
+                'operator_id' => 0, // Otonom Maba
+            ]
+        );
+
+        // 4. Simpan ke Tabel Bridging: request_pembayaran_detail
+        // Hapus detail lama jika ada
+        RequestPembayaranDetail::where('no_request', $invoice->invoice_id)->delete();
+
+        // Baris 1: Biaya Sewa
+        RequestPembayaranDetail::create([
+            'no_request' => $invoice->invoice_id,
+            'harga_id' => 1,
+            'jenissewa' => "Sewa Asrama ({$request->durasi_bayar} Bulan)",
+            'harga' => $tarifSewa,
+            'qty' => $request->durasi_bayar,
+            'jumlah_pembayaran' => (int) $biayaSewaInitial,
+            'potongan_harga' => 0.00,
+            'status' => 1,
+        ]);
+
+        // Baris 2: Deposit Jaminan
+        RequestPembayaranDetail::create([
+            'no_request' => $invoice->invoice_id,
+            'harga_id' => 2,
+            'jenissewa' => $isCicilanDeposit ? "Deposit Jaminan (Termin 1/{$validOpsiDeposit})" : 'Deposit Jaminan Hunian (Lunas)',
+            'harga' => $biayaDepositTermin1,
+            'qty' => 1,
+            'jumlah_pembayaran' => (int) $biayaDepositTermin1,
+            'potongan_harga' => 0.00,
+            'status' => 1,
+        ]);
+
+        // Baris 3: Perlengkapan Awal & Biaya Administrasi
+        RequestPembayaranDetail::create([
+            'no_request' => $invoice->invoice_id,
+            'harga_id' => 3,
+            'jenissewa' => 'Biaya Administrasi & Fasilitas Awal',
+            'harga' => $tarifPerlengkapan,
+            'qty' => 1,
+            'jumlah_pembayaran' => (int) $tarifPerlengkapan,
+            'potongan_harga' => 0.00,
+            'status' => 1,
+        ]);
+
+        return redirect()->back()->with('success', 'Rincian permintaan pembayaran mandiri (request_pembayaran) berhasil dibuat.');
     }
 
     /**
      * Upload Bukti Transfer Manual Bank BSI
+     * Menyimpan ke storage dan mencatat ke tabel bridging: request_transaksi
      */
     public function uploadTransferProof(Request $request, $id)
     {
@@ -95,6 +187,24 @@ class InvoiceController extends Controller
             'metode_bayar' => 'TRANSFER_MANUAL',
         ]);
 
-        return redirect()->back()->with('success', 'Bukti transfer berhasil diunggah. Menunggu verifikasi Bagian Keuangan.');
+        // Catat ke request_transaksi
+        RequestTransaksi::updateOrCreate(
+            ['no_request' => $invoice->invoice_id],
+            [
+                'no_transaksi' => 'TRX-' . $invoice->invoice_id,
+                'tanggal_transaksi' => now(),
+                'jumlah_uang' => $invoice->total_bayar,
+                'metode_pembayaran' => 'Transfer Manual Bank BSI',
+                'file_bukti' => $path,
+                'operator_id' => 0, // Mandiri Maba
+            ]
+        );
+
+        // Update status di request_pembayaran
+        RequestPembayaran::where('no_request', $invoice->invoice_id)->update([
+            'status_pembayaran' => 'pending_verification',
+        ]);
+
+        return redirect()->back()->with('success', 'Bukti transfer berhasil dicatat di request_transaksi. Menunggu verifikasi Bagian Keuangan.');
     }
 }

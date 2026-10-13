@@ -99,69 +99,33 @@ Seluruh logika bisnis dikelola oleh controller Laravel resmi dan dipetakan di `r
 
 ---
 
-## 6. Pemetaan Database (Field Mapping)
+## 6. Pemetaan Database & Strategi Bridging (SQL Web Admin: `u540633926_asrama`)
 
-### Fase 1: Pendaftaran & e-KYC
-*Form pendaftaran terbagi menjadi 5 kelompok data:*
+Sistem mengadopsi arsitektur 2-lapisan: **Tabel Staging Pendaftaran Otonom Mandiri Maba (`request_*`)** dan **Tabel Master Berjalan Admin (`pembayaran`, `transaksi`, `penyewa`)**.
 
-**Kelompok 1: Data Akademik**
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Nama Lengkap | `users` | `name` | Biodata login |
-| NIM | `admission_applications` / `users` | `nim` | Identifier |
-| Fakultas/Prodi | `admission_applications` | `faculty` | - |
-| Jenis Kelamin | `admission_applications` | `gender` | ENUM('L','P') |
+### A. Tabel Staging Otonom (Frontend Maba - `operator_id = 0`)
+1. **`penyewa` (Draft Awal Calon Penghuni)**
+   - Kolom: `nim`, `namalengkap`, `noktp`, `nohp`, `email`, `alamat`, `jenis_kelamin`, `nama_bill_to`
+   - Nilai Inisial: `status = 0`, `status_asrama = 0`, `operator_id = 0` (Didaftarkan mandiri oleh maba)
+2. **`request_pembayaran` (Header Tagihan Mandiri)**
+   - Kolom: `no_request` (UK, cth: `REQ-202610-0142`), `penyewa_id`, `kamar_id`, `durasi`, `tanggal_masuk`, `tanggal_keluar`
+   - Keuangan: `total_tagihan`, `total_potongan_harga`, `total_bayar`
+   - Siklus: `status_pembayaran = 'pending'`, `status_verifikasi = 0`, `operator_id = 0`
+3. **`request_pembayaran_detail` (Rincian Komponen Biaya)**
+   - Kolom: `no_request` (FK Index), `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran`, `potongan_harga`
+   - Memecah biaya sewa, deposit jaminan, dan administrasi menjadi baris terpisah secara transparan.
+4. **`request_transaksi` (Mutasi & Upload Bukti Bayar Mandiri)**
+   - Kolom: `no_request` (FK Index), `no_transaksi` (Sementara), `tanggal_transaksi`, `jumlah_uang`, `metode_pembayaran`, `file_bukti`, `operator_id = 0`
 
-**Kelompok 2: Kontak Pribadi**
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Email | `users` | `email` | Kontak & login |
-| No HP / WA | `admission_applications` | `whatsapp_number` | OTP WA |
-| Alamat Domisili | `admission_applications` | `alamat_domisili` | - |
-| Alamat Asal | `admission_applications` | `alamat_asal` | - |
-
-**Kelompok 3: Kontak Darurat**
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Nama Kontak | `admission_applications` | `emergency_contact_name` | - |
-| Hubungan | `admission_applications` | `emergency_contact_relation`| Ayah/Ibu/Wali |
-| No HP Darurat | `admission_applications` | `emergency_contact_phone` | - |
-| Alamat Darurat | `admission_applications` | `emergency_contact_address` | - |
-
-**Kelompok 4: Preferensi Hunian**
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Tipe Kamar | `admission_applications` | `room_preference_type` | - |
-| Pref. Lantai | `admission_applications` | `room_preference_floor` | - |
-| Keb. Khusus | `admission_applications` | `special_needs` | Disabilitas (opsional) |
-| Catatan Sehat | `admission_applications` | `health_notes` | Penyakit bawaan |
-
-**Kelompok 5: Upload Dokumen / e-KYC**
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| KTP | `admission_identity_verifications` | `ktp_image_path` | Storage private |
-| Selfie+KTP | `admission_identity_verifications` | `selfie_image_path`| Storage private |
-| Status KYC | `admission_identity_verifications` | `status` | ENUM(PENDING, VERIFIED) |
-
-### Fase 2: Pembayaran
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Total Tagihan | `admission_bills` | `total_amount` | Nominal + 3 Digit Unik |
-| File Struk | `admission_payment_proofs` | `proof_image_path` | Upload bukti bayar |
-| Status | `admission_bills` | `payment_status` | ENUM(UNPAID, PENDING, PAID) |
-
-### Fase 3: Kontrak Digital
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| Checkbox Setuju | `admission_contracts` | `is_agreed` | BOOLEAN |
-| Kode OTP | `admission_contract_otp_logs` | `otp_code` | VARCHAR rahasia |
-| Status OTP | `admission_contract_otp_logs` | `status_verified`| BOOLEAN |
-
-### Fase 4: e-Ticket
-| Field Frontend | Target Tabel | Kolom | Keterangan |
-| --- | --- | --- | --- |
-| String Barcode | `admission_checkin_tickets` | `ticket_code` | TKT-UBT-XYZ |
-| Status Scan | `admission_checkin_tickets` | `status` | ENUM(PENDING, SCANNED) |
+### B. Tabel Master Berjalan (Web Admin Laravel - `operator_id = Admin ID`)
+1. **`penyewa` (Master Penghuni Aktif)**
+   - Nilai Promosi: `status = 1`, `status_asrama = 1`, `operator_id = Admin ID`
+2. **`pembayaran` (Buku Besar Tagihan Resmi yang Disahkan)**
+   - Kolom: `no_invoice` (Generated: `INV-202610-xxxx`), `penyewa_id`, `kamar_id`, `durasi`, `total_tagihan`, `total_bayar`, `status_pembayaran = 'paid'`, `operator_id = Admin ID`
+3. **`pembayaran_detail` (Rincian Komponen Resmi)**
+   - Kolom: `no_invoice` (FK Index), `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran`, `status = 1`
+4. **`transaksi` (Buku Kas & Mutasi Pembayaran Berjalan)**
+   - Kolom: `no_invoice` (FK Index), `penyewa_id`, `no_transaksi` (Resmi), `tanggal_transaksi`, `jumlah_uang`, `metode_pembayaran`, `file_bukti`, `jenis_transaksi = 'Asrama'`, `operator_id = Admin ID`
 
 ---
 

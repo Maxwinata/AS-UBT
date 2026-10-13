@@ -1,96 +1,163 @@
-# Arsitektur Data & Logika Bisnis (Logic Chart) Portal Asrama UBT
+# Arsitektur Data & Strategi Integrasi Bridging Database Portal Asrama UBT
 
 > **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](ARCHITECTURE.en.md)
 
-Dokumen ini memuat rancangan arsitektur basis data dan alur logika sistem (Backend) untuk membawa purwarupa Portal Asrama UBT ke tahap produksi, **diselaraskan dengan skema database dari Sistem Admin Asrama (Manajemen Hunian) yang sudah ada**.
-
-Karena database web portal ini akan berinteraksi dengan tabel-tabel tersebut, sistem portal Maba akan melakukan operasi *staging* (Baca/Tulis) ke struktur tabel *existing* berikut untuk diproses lebih lanjut oleh Admin Asrama.
-
-## 1. Pemetaan Skema Basis Data (Sistem Manajemen Hunian ERD)
-
-Berdasarkan *existing database*, berikut adalah pemetaan entitas yang akan digunakan oleh aplikasi *Front-End* Maba:
-
-### A. Tabel `staging_penyewa` & `penyewa` (Data Mahasiswa/Maba)
-Tabel profil pendaftar dipisahkan menjadi dua lapisan untuk memastikan kelengkapan data.
-- **`staging_penyewa` (Portal Area)**: Digunakan saat Maba berproses di web portal. Data di tabel ini **di-sync/download secara berkala dari API SIAKAD** pada setiap fase pendaftaran, karena data awal seringkali belum lengkap.
-- **`penyewa` (Master Admin)**: Tabel master yang bersih dan lengkap. Aturan migrasi dari *staging*: 
-  1. **Mahasiswa Baru (Maba)**: Migrasi HANYA terjadi jika tagihan pendaftaran sudah berstatus LUNAS.
-  2. **Mahasiswa Eksisting (SSO)**: Jika saat dicek Maba/Mahasiswa berstatus **"Bukan Penghuni"**, maka migrasi/update data ke tabel master tetap **menunggu tagihan berstatus LUNAS**. Data tidak akan mengotori tabel master jika mereka sekadar login dan membatalkan pendaftaran.
-- Field penting: `nim`, `nama`, `jenis_kelamin` (filter gedung), `no_hp` (OTP), relasi akademik.
-
-### B. Tabel `tipe_asrama`, `lantai`, dan `kamar` (Infrastruktur Asrama)
-Tabel relasional untuk menampung data gedung dan kamar yang bisa dipilih saat *Room Plotting*.
-- **`tipe_asrama`**: Gedung asrama (Misal: Asrama Putra, Asrama Putri). Memiliki field `jenis_kelamin`.
-- **`lantai`**: Mengatur hierarki lantai di setiap gedung.
-- **`kamar`**: Menyimpan detail kamar, termasuk `tipe_asrama_id`, `lantai_id`, `nomor` kamar, dan `kapasitas` (jumlah maksimal ranjang).
-
-### C. Tabel `transaksi` & `request_transaksi` (Sistem Booking & Plotting)
-Alih-alih menggunakan tabel `beds` secara terpisah, *concurrency* (perebutan kuota) dihitung berdasarkan jumlah `transaksi` aktif dalam suatu `kamar`.
-- **`request_transaksi`**: Digunakan saat Maba melakukan plot kamar (Langkah 4). Mengunci kuota kamar sementara.
-- **`transaksi`**: Data konfirmasi saat tagihan sudah dibayar. Mencatat `penyewa_id` yang terikat pada `kamar_id` beserta `tgl_masuk` dan `status`.
-- *Logic Concurrency*: Kapasitas Tersedia = `kamar.kapasitas` - (Jumlah `transaksi` aktif + `request_transaksi` pending di `kamar_id` tersebut).
-
-### D. Tabel Keuangan (`tagih`, `request_pembayaran`, `pembayaran`, `deposit`)
-Menangani pembuatan Invoice (Langkah 2 & 3).
-- **`tagih` / `harga`**: Komponen dasar biaya (sewa, perlengkapan).
-- **`request_pembayaran`**: Tabel *staging* saat sistem menerbitkan tagihan (Invoice) dengan *kode unik* ke Maba sebelum dana ditransfer. Mencatat `no_request`, `nominal`, dan `status`.
-- **`pembayaran`**: Data permanen saat *Webhook* mutasi bank mendeteksi dana masuk. Mengubah status di `request_pembayaran` menjadi lunas (`status_bayar = 1`).
-- **`deposit` & `deposit_pembayaran`**: Mengelola *logic* skema cicilan/lunas deposit terpisah dari biaya sewa utama.
+Dokumen ini memuat rancangan arsitektur basis data dan alur logika bridging integrasi antara **Frontend Mahasiswa Baru (Pendaftaran Otonom Mandiri)** dan **Web Admin Laravel (Pencatatan Master Berjalan)**, diselaraskan 100% dengan skema SQL Web Admin Laravel (`u540633926_asrama`).
 
 ---
 
-## 2. Alur Logika Sistem (Logic Chart Web Portal Staging)
+## 1. Filosofi Pemisahan: Proses Otonom Mandiri vs Master Berjalan
 
-### Alur 1: Autentikasi & e-KYC (Sinkronisasi SIAKAD)
-1. **Frontend:** Maba *Login* menggunakan Nomor PMB/NIM.
-2. **Backend (SSO/SIAKAD):** Memvalidasi status Maba dan men-download/sync profil terbaru dari SIAKAD.
-3. **Backend Asrama:** Melakukan `UPSERT` ke tabel **`staging_penyewa`**.
-4. **Proses Berkelanjutan:** Di setiap perpindahan langkah di web portal, *Backend* kembali melakukan *sync* dari SIAKAD ke `staging_penyewa` untuk memastikan kekosongan data di master terisi secara bertahap seiring berjalannya pendaftaran Maba di kampus.
+Di lingkungan operasional Asrama UBT, terdapat dua domain pencatatan data yang memiliki batas wewenang yang tegas:
 
-### Alur 2: *Concurrency* Plotting Kamar (Tabel `request_transaksi`)
-1. **Frontend:** Maba meminta list kamar yang tersedia (Langkah 4).
-2. **Backend:** *Query* tabel `kamar` yang `tipe_asrama.jenis_kelamin` cocok dengan Maba. Hitung kuota: `kapasitas` - `COUNT(transaksi.kamar_id)`.
-3. **Frontend:** Maba memilih Kamar 101.
-4. **Backend:** Mem-buat entri di tabel `request_transaksi` (Booking) dengan batas waktu tertentu (misal 24 Jam). Hal ini akan mengurangi sisa kuota yang bisa dilihat Maba lain.
-5. **Cron Job:** Menghapus `request_transaksi` jika melewati batas waktu tanpa ada entri di tabel `pembayaran`.
+1. **Domain Otonom Mandiri Maba (`request_*`)**:
+   - Ditujukan untuk mahasiswa baru yang mendaftar secara independen melalui aplikasi web portal.
+   - Karena diisi mandiri tanpa campur tangan langsung staf di awal, seluruh baris data ditandai dengan **`operator_id = 0`**.
+   - Berstatus *staging / pending* (`status = 0`, `status_verifikasi = 0`, `status_pembayaran = 'pending'`).
+   - Mencegah data kotor atau pendaftaran yang batal masuk mengotori buku besar resmi asrama.
 
-### Alur 3: Penerbitan Tagihan & Webhook (Tabel `request_pembayaran`)
-1. **Backend:** Setelah `request_transaksi` dibuat, sistem mem-buat entri `request_pembayaran` (Sewa + Perlengkapan + Kode Unik) dan `deposit_pembayaran` (Jika ada skema deposit).
-2. **Frontend:** Menampilkan Nominal + Kode Unik kepada Maba (Langkah 3).
-3. **Webhook (Bank/Payment Gateway):** Saat dana masuk, PING ke Backend.
-4. **Backend:** *Query* `request_pembayaran` berdasarkan nominal bersih (termasuk kode unik). Jika cocok, buat data di `pembayaran` dan konversi `request_transaksi` menjadi `transaksi` permanen.
+2. **Domain Master Berjalan Admin (`pembayaran`, `pembayaran_detail`, `transaksi`, `penyewa`)**:
+   - Struktur pencatatan isi tabel saat sistem running normal, di mana pendaftaran, penetapan tagihan, dan mutasi kas dilakukan/disahkan oleh staf admin asrama dan keuangan.
+   - Seluruh baris data memiliki **`operator_id = ID Admin`** (akuntabilitas staf yang memverifikasi).
+   - Menjadi *single source of truth* untuk laporan keuangan yayasan/universitas, audit BPK/internal, dan data operasional hunian aktif.
 
-### Alur 4: Tanda Tangan Digital & e-Ticket
-1. **Backend:** Saat Maba meminta OTP (Langkah 5), kirim pesan WA ke `penyewa.no_hp`.
-2. **Frontend:** Maba memasukkan OTP.
-3. **Backend:** Verifikasi OTP. Jika benar, catat stempel waktu persetujuan.
-4. **Frontend:** Terbitkan e-Ticket dengan data `transaksi.id`, `penyewa.nim`, dan `kamar.nomor` (dapat ditambahkan parameter *Hash* rahasia agar QR Code aman).
+---
 
-### Alur 5: Kepatuhan Hukum & Kontrak Elektronik Kolektif (Hibrida)
-Berdasarkan Pasal 39 Peraturan Asrama dan Pasal 11 UU ITE, serta mematuhi UU Bea Meterai No. 10/2020 tentang efisiensi meterai fisik, portal ini mengadopsi arsitektur **"Master Kontrak Kolektif (Hibrida Digital-Fisik) & WhatsApp Gateway"**. Arsitektur ini bertujuan menghemat biaya dengan mencetak 1 Master Agreement massal yang dibubuhi 1 meterai fisik Rp10.000 untuk batch mahasiswa.
+## 2. Analisa 3 Tabel Baru Bridging Pendaftaran Otonom
 
-**1. Alur Tanda Tangan Dokumen Mahasiswa (Persetujuan Masuk Batch Kolektif)**
-1. **Generate OTP (Internal)**: Saat Maba menekan tombol "Kirim OTP", sistem Laravel secara mandiri menghasilkan 6-digit angka acak dan menyimpannya (kedaluwarsa 5 menit).
-2. **Delivery (Pihak Ketiga)**: Laravel memanggil API Gateway WhatsApp untuk mengirimkan OTP ke HP mahasiswa (dan Wali jika disyaratkan).
-3. **Validasi & Persetujuan Khusus (Internal)**: Mahasiswa menginput OTP sambil menyetujui klausul spesifik pemberian kuasa agar identitasnya dimasukkan ke Lampiran Dokumen Perjanjian Kolektif.
-4. **Penyegelan Antrean (Internal)**: Sistem mencatat *Audit Trail* (Waktu, IP, Nomor WA, Metode Otentikasi) dan memasukkan mahasiswa ke antrean *"Batch Bulan Ini"*.
+Tiga tabel baru berawalan `request_` berfungsi sebagai jembatan (*bridging interface*) antara frontend maba dengan database backend web admin:
 
-**2. Alur Pengesahan Master Kontrak (Fisik-Digital)**
-1. **Sistem Batching**: Pada waktu *cut-off* tertentu (misal akhir bulan/kuota 50), backend Laravel mengompilasi data mahasiswa menjadi satu file PDF tunggal (Kontrak Induk + Tabel Daftar Penghuni di bagian lampiran).
-2. **Eksekusi Fisik (Admin)**: Pengelola mengunduh dan mencetak PDF tersebut. Satu lembar Meterai Fisik Rp10.000 ditempelkan di akhir lembar tabel kolektif dan ditandatangani basah oleh Pengelola.
-3. **Digitalisasi & Distribusi (Sistem)**: Dokumen fisik yang telah sah di-scan dan diunggah kembali ke sistem. Sistem secara otomatis mendistribusikan salinan *Master Kontrak* ini ke dasbor seluruh mahasiswa yang berada di batch tersebut sebagai bukti hukum yang sah.
+### A. Tabel `request_pembayaran` (Staging Header Tagihan Mandiri)
+Menampung komitmen awal tagihan saat Maba memilih kamar, durasi sewa (6/12 bulan), dan skema cicilan deposit.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Unique Key (UK)**: `no_request` (VARCHAR 50, cth: `REQ-202610-0142`)
+- **Foreign Key (FK)**:
+  - `penyewa_id` ➔ mengarah ke `penyewa.id`
+  - `kamar_id` ➔ mengarah ke `kamar.id`
+- **Atribut Operasional**:
+  - `tanggal_masuk`, `tanggal_keluar`, `durasi`
+  - `total_tagihan`, `total_potongan_harga`, `total_bayar`
+  - `status_pembayaran` (default: `'pending'`)
+  - `status_verifikasi` (default: `0` = Menunggu Review Admin, `1` = Disahkan)
+  - `operator_id` (default: `0` = Maba Mandiri)
 
-**3. Alur Revisi Nomor WA Wali yang Tidak Akurat (Pasal 39 Ayat 11 huruf b)**
-Sesuai regulasi, Maba tidak dapat mengubah nomor WA wali secara sepihak. Namun, untuk mencegah *bottleneck*:
-1. **Pengajuan via Portal**: Maba menekan tombol "Ganti Nomor?" di Panel Kontrak.
-2. **Formulir Ringkas**: Muncul modal input Nomor Baru + unggah KK/Surat Wali.
-3. **Status Pending**: OTP ditangguhkan sementara. Notifikasi *Review* masuk ke Dasbor UPA.
-4. **Verifikasi UPA**: Admin memeriksa keabsahan dokumen dan menyetujui.
-5. **Resume Flow**: Sistem portal Maba diperbarui otomatis; Maba dapat mengirim ulang OTP.
+### B. Tabel `request_pembayaran_detail` (Staging Rincian Item Tarif)
+Menampung breakdown komponen biaya tagihan pendaftaran agar transparan dan sesuai dengan SK Tarif.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Foreign Key (FK)**:
+  - `no_request` ➔ mengarah ke `request_pembayaran.no_request` (Indexed)
+  - `harga_id` ➔ mengarah ke master tarif (`harga.id` / `tariff.id`)
+- **Atribut Rincian**:
+  - Baris 1: Sewa Asrama (`jenissewa = 'Sewa Asrama'`, `harga = 500000`, `qty = 6/12`, `jumlah_pembayaran = sewa_total`)
+  - Baris 2: Deposit Jaminan (`jenissewa = 'Deposit Jaminan Hunian'`, `harga = 500000/1000000`, `qty = 1`)
+  - Baris 3: Fasilitas Awal (`jenissewa = 'Biaya Administrasi & Fasilitas Awal'`, `harga = 100000`, `qty = 1`)
 
-**Keuntungan Arsitektur Hibrida WhatsApp & Master Kolektif:**
-*   **Efisiensi Biaya Maksimal**: Menghindari langganan E-Signature mahal per pengguna dan menghemat jutaan rupiah dengan menggunakan 1 meterai fisik untuk ratusan mahasiswa per batch.
-*   **Keabsahan Hukum Sempurna**: Sesuai UU Bea Meterai (1 dokumen kolektif = 1 meterai) dan bukti otentikasi log OTP tersimpan secara aman di database.
-*   **Kendali & Fleksibilitas**: Terbebas dari vendor pihak ketiga (kecuali API WhatsApp yang sangat murah). Seluruh siklus hukum dikendalikan internal oleh UPA UBT.
+### C. Tabel `request_transaksi` (Staging Bukti & Mutasi Bayar Mandiri)
+Menampung unggahan struk transfer manual atau notifikasi awal transaksi yang dilakukan oleh Maba.
+- **Primary Key (PK)**: `id` (BIGINT AUTO_INCREMENT)
+- **Foreign Key (FK)**:
+  - `no_request` ➔ mengarah ke `request_pembayaran.no_request` (Indexed)
+- **Atribut Mutasi**:
+  - `no_transaksi` (VARCHAR 50, sementara cth: `TRX-REQ-202610-0142`)
+  - `tanggal_transaksi` (DATETIME)
+  - `jumlah_uang` (DECIMAL 15,2)
+  - `metode_pembayaran` (VARCHAR 255, cth: `'Transfer Manual Bank BSI'`)
+  - `file_bukti` (VARCHAR 100, path berkas struk di storage privat)
+  - `operator_id` (`0` = Maba Mandiri)
 
-Dengan arsitektur ini, sistem otonom asrama setara dengan standar persetujuan aplikasi kelas perusahaan besar (banking/enterprise) namun dengan kearifan efisiensi anggaran universitas negeri.
+---
+
+## 3. Matriks Pemetaan Kolom: Staging ➔ Master Berjalan (Field-by-Field)
+
+Saat Admin Keuangan/Asrama menekan tombol **"Verifikasi & Sahkan ke Master" (Approve & Promote)**, sistem mengeksekusi migrasi atomik (Database Transaction) berikut:
+
+| No | Tabel Sumber (Staging Otonom) | Field Sumber | Tabel Target (Master Berjalan) | Field Target | Aturan Transformasi / Catatan |
+|---|---|---|---|---|---|
+| 1 | `request_pembayaran` | `no_request` | `pembayaran` | `no_invoice` | **Digenerate baru** oleh sistem admin (cth: `INV-202610-0012`). |
+| 2 | `request_pembayaran` | `penyewa_id` | `pembayaran` | `penyewa_id` | Disalin 1:1 langsung. |
+| 3 | `request_pembayaran` | `kamar_id` | `pembayaran` | `kamar_id` | Mengunci plotting kamar secara resmi di master. |
+| 4 | `request_pembayaran` | `durasi`, `tanggal_masuk`, `tanggal_keluar` | `pembayaran` | `durasi`, `tanggal_masuk`, `tanggal_keluar` | Disalin 1:1 langsung. |
+| 5 | `request_pembayaran` | `total_tagihan`, `total_bayar` | `pembayaran` | `total_tagihan`, `total_bayar` | Disalin 1:1 langsung. |
+| 6 | `request_pembayaran` | `status_pembayaran` | `pembayaran` | `status_pembayaran` | Berubah dari `'pending'` menjadi `'paid'`. |
+| 7 | `request_pembayaran` | `operator_id = 0` | `pembayaran` | `operator_id` | **Diisi ID Staf Admin** yang melakukan approval (`auth()->id()`). |
+| 8 | `request_pembayaran_detail` | `no_request` | `pembayaran_detail` | `no_invoice` | Diikat ke `no_invoice` resmi yang baru diterbitkan. |
+| 9 | `request_pembayaran_detail` | `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran` | `pembayaran_detail` | `harga_id`, `jenissewa`, `harga`, `qty`, `jumlah_pembayaran` | Seluruh baris rincian tarif diduplikasi 1:1. |
+| 10 | `request_transaksi` | `no_request` | `transaksi` | `no_invoice` | Diikat ke `no_invoice` resmi. |
+| 11 | `request_transaksi` | `penyewa_id` (via req) | `transaksi` | `penyewa_id` | Diisi ID penyewa terkait. |
+| 12 | `request_transaksi` | `no_transaksi` | `transaksi` | `no_transaksi` | Diterbitkan nomor mutasi kas resmi (cth: `TRX-202610-0012`). |
+| 13 | `request_transaksi` | `jumlah_uang`, `tanggal_transaksi`, `file_bukti` | `transaksi` | `jumlah_uang`, `tanggal_transaksi`, `file_bukti` | Disalin 1:1 ke mutasi buku kas resmi. |
+| 14 | - | - | `transaksi` | `jenis_transaksi` | Diisi default `'Asrama'`. |
+| 15 | `request_transaksi` | `operator_id = 0` | `transaksi` | `operator_id` | **Diisi ID Staf Admin** yang memverifikasi. |
+| 16 | `penyewa` | `status = 0`, `status_asrama = 0` | `penyewa` | `status = 1`, `status_asrama = 1` | Status penyewa diaktifkan menjadi penghuni resmi. |
+| 17 | `request_pembayaran` | `status_verifikasi = 0` | `request_pembayaran` | `status_verifikasi = 1` | Status staging diperbarui; mencatat `tanggal_verifikasi = now()`. |
+
+---
+
+## 4. Alur Siklus Pendaftaran & Concurrency Kamar
+
+```
+[ FRONTEND MABA ]
+       │
+       ▼ (1. Isi Biodata Profil)
+INSERT / UPDATE penyewa (status = 0, operator_id = 0)
+       │
+       ▼ (2. Pilih Kamar & Konfigurasi Tagihan)
+INSERT request_pembayaran (no_request, operator_id = 0)
+INSERT request_pembayaran_detail (rincian sewa, deposit, admin)
+       │
+       ▼ (3. Unggah Struk Bukti Bayar)
+INSERT request_transaksi (file_bukti, jumlah_uang, operator_id = 0)
+       │
+       ▼ (Status: Menunggu Review Keuangan)
+─────────────────────────────────────────────────────────────
+[ WEB ADMIN LARAVEL DASHBOARD ]
+       │
+       ▼ (4. Admin Keuangan Review Kode Unik & Mutasi Rekening)
+Klik: "Approve & Sahkan ke Master (Promote)"
+       │
+       ├──► INSERT pembayaran (no_invoice resmi, operator_id = Admin ID)
+       ├──► INSERT pembayaran_detail (diikat ke no_invoice)
+       ├──► INSERT transaksi (buku kas resmi, operator_id = Admin ID)
+       ├──► UPDATE penyewa (status = 1, status_asrama = 1)
+       └──► UPDATE request_pembayaran (status_verifikasi = 1, status_pembayaran = 'paid')
+       │
+       ▼ (5. Kamar Resmi Terisi & Kuota Berkurang Permanen)
+Kapasitas Tersedia = kamar.kapasitas - COUNT(transaksi.kamar_id)
+       │
+       ▼ (6. Frontend Maba Menerima Tiket Masuk & BASTK)
+Maba menandatangani kontrak digital dan menerima e-Ticket QR Code.
+```
+
+---
+
+## 5. Ringkasan Relasi Kunci (PK / FK)
+
+- **`penyewa`**:
+  - `id` (PK)
+  - `nim` (UK)
+- **`request_pembayaran`**:
+  - `id` (PK)
+  - `no_request` (UK)
+  - `penyewa_id` ➔ FK ke `penyewa.id`
+  - `kamar_id` ➔ FK ke `kamar.id`
+- **`request_pembayaran_detail`**:
+  - `id` (PK)
+  - `no_request` ➔ FK ke `request_pembayaran.no_request`
+  - `harga_id` ➔ FK ke master tarif
+- **`request_transaksi`**:
+  - `id` (PK)
+  - `no_request` ➔ FK ke `request_pembayaran.no_request`
+- **`pembayaran`**:
+  - `id` (PK)
+  - `no_invoice` (UK)
+  - `penyewa_id` ➔ FK ke `penyewa.id`
+  - `kamar_id` ➔ FK ke `kamar.id`
+- **`pembayaran_detail`**:
+  - `id` (PK)
+  - `no_invoice` ➔ FK ke `pembayaran.no_invoice`
+- **`transaksi`**:
+  - `id` (PK)
+  - `no_invoice` ➔ FK ke `pembayaran.no_invoice`
+  - `penyewa_id` ➔ FK ke `penyewa.id`
+
+Dengan arsitektur ini, integrasi database antara kemandirian pendaftaran Maba dan kepatuhan akuntansi Web Admin berjalan harmonis tanpa risiko inkonsistensi data.

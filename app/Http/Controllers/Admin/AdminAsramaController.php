@@ -12,11 +12,15 @@ use App\Models\Delinquency;
 use App\Models\Tariff;
 use App\Models\PaymentScheme;
 use App\Models\ModificationLog;
+use App\Models\RequestPembayaran;
+use App\Models\Pembayaran;
+use App\Models\Penyewa;
 
 class AdminAsramaController extends Controller
 {
     /**
      * Render Halaman Portal Admin Asrama via Inertia.js
+     * Menyertakan data Request Bridging Staging dan Master Running Tables
      */
     public function index(Request $request)
     {
@@ -27,6 +31,10 @@ class AdminAsramaController extends Controller
         $paymentSchemes = PaymentScheme::all();
         $logs = ModificationLog::latest()->take(20)->get();
 
+        // Data Bridging Pendaftaran Otonom Mandiri vs Master Berjalan
+        $stagedRequests = RequestPembayaran::with(['details', 'transaksi', 'penyewa'])->latest()->get();
+        $officialPayments = Pembayaran::with(['details', 'transaksi', 'penyewa'])->latest()->get();
+
         return Inertia::render('Admin/Dashboard', [
             'invoices' => $invoices,
             'rooms' => $rooms,
@@ -34,37 +42,75 @@ class AdminAsramaController extends Controller
             'tariffs' => $tariffs,
             'paymentSchemes' => $paymentSchemes,
             'logs' => $logs,
+            'stagedRequests' => $stagedRequests,
+            'officialPayments' => $officialPayments,
         ]);
     }
 
     /**
-     * Verifikasi Manual Pembayaran Transfer Bank BSI
+     * Verifikasi Manual Pembayaran & Eksekusi Bridging Promosi ke Master Running
+     * Mentransisikan request_pembayaran -> pembayaran, request_transaksi -> transaksi,
+     * serta memperbarui status master penyewa dan kamar hunian.
      */
     public function verifyInvoice(Request $request, $id)
     {
         $invoice = BillingInvoice::findOrFail($id);
-        $action = $request->input('action'); // 'APPROVE' or 'REJECT'
+        $action = $request->input('action', 'APPROVE_AND_MIGRATE'); // 'APPROVE_AND_MIGRATE', 'APPROVE_BOOKING', 'REJECT', 'MIGRATE_ONLY'
+        $operatorId = $request->user()->id ?? 1;
 
-        if ($action === 'APPROVE') {
+        if ($action === 'APPROVE' || $action === 'APPROVE_AND_MIGRATE') {
+            // Cari data request_pembayaran terkait
+            $requestPembayaran = RequestPembayaran::where('no_request', $invoice->invoice_id)->first();
+            
+            $officialInvoiceNo = 'INV-' . date('Ym') . '-' . rand(1000, 9999);
+
+            if ($requestPembayaran) {
+                // Eksekusi bridging migrasi ke tabel master pembayaran & transaksi
+                $requestPembayaran->promoteToMaster($operatorId, $officialInvoiceNo);
+            }
+
             $invoice->update([
                 'status' => 'PAID',
                 'paid_at' => now(),
-                'verified_by' => $request->user()->id ?? 1,
+                'verified_by' => $operatorId,
+                'is_migrated' => true,
             ]);
 
             ModificationLog::create([
                 'actor' => $request->user()->name ?? 'Admin Keuangan',
-                'action' => "Verifikasi pembayaran Invoice {$invoice->invoice_id} disetujui.",
+                'action' => "Bridging Berhasil: Permintaan {$invoice->invoice_id} dipromosikan ke Master Pembayaran {$officialInvoiceNo} (operator_id: {$operatorId}).",
             ]);
 
-            return redirect()->back()->with('success', "Invoice {$invoice->invoice_id} berhasil diverifikasi LUNAS.");
+            return redirect()->back()->with('success', "Invoice {$invoice->invoice_id} disetujui & berhasil dipromosikan ke Master Pembayaran ({$officialInvoiceNo}).");
+        } elseif ($action === 'APPROVE_BOOKING') {
+            // Approval sementara status booking (misal NIM belum sinkron)
+            $invoice->update([
+                'status' => 'PAID',
+                'paid_at' => now(),
+                'verified_by' => $operatorId,
+                'is_migrated' => false,
+            ]);
+
+            return redirect()->back()->with('success', "Pembayaran Invoice {$invoice->invoice_id} dikonfirmasi sebagai BOOKING (Menunggu Sinkronisasi NIM SIAKAD).");
         } else {
+            // REJECT
+            $reason = $request->input('reason', 'Bukti transfer tidak valid/mutasi tidak cocok.');
+            
             $invoice->update([
                 'status' => 'UNPAID',
-                'verification_notes' => $request->input('reason', 'Bukti transfer tidak valid/mutasi tidak cocok.'),
+                'verification_notes' => $reason,
             ]);
 
-            return redirect()->back()->with('error', "Invoice {$invoice->invoice_id} ditolak.");
+            RequestPembayaran::where('no_request', $invoice->invoice_id)->update([
+                'status_pembayaran' => 'rejected',
+            ]);
+
+            ModificationLog::create([
+                'actor' => $request->user()->name ?? 'Admin Keuangan',
+                'action' => "Invoice {$invoice->invoice_id} ditolak: {$reason}",
+            ]);
+
+            return redirect()->back()->with('error', "Permintaan pembayaran {$invoice->invoice_id} ditolak.");
         }
     }
 

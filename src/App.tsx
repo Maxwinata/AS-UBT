@@ -1,4 +1,4 @@
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import React, { useState } from 'react';
 import { UserRole, MabaProfile, BillingInvoice, RoomPlot, DigitalContract, ETicket, ModificationLog, TariffItem, PaymentScheme } from './types/asrama';
 import {
@@ -138,15 +138,16 @@ export default function App() {
       prev.map((inv) => {
         if (inv.invoiceId === invoiceId) {
           if (action === 'APPROVE_AND_MIGRATE') {
-            alert(`[MIGRATION SUCCESS]\n\nData Maba dengan Invoice ${invoiceId} berhasil di-approve & dimigrasi!\n\nProses Backend:\n1. Insert to \`penyewa\`\n2. Insert to \`pembayaran\`\n3. Insert to \`users\` (SSO)`);
+            toast.success(`[BRIDGING PROMOTION BERHASIL]\nPermintaan ${inv.noRequest || invoiceId} disahkan ke Master Pembayaran!\n\n1. request_pembayaran ➔ pembayaran (${invoiceId})\n2. request_pembayaran_detail ➔ pembayaran_detail\n3. request_transaksi ➔ transaksi (Kas Asrama)\n4. Master penyewa aktif (operator_id = Admin Keuangan)`);
             return { ...inv, status: 'PAID', isMigrated: true, paidAt: new Date().toISOString() };
           } else if (action === 'APPROVE_BOOKING') {
-            alert(`[BOOKING SUCCESS]\n\nPembayaran deposit untuk Invoice ${invoiceId} berhasil di-approve!\n\nStatus Maba menjadi BOOKING. Belum dimigrasi ke master karena NIM belum tersedia.`);
+            toast.info(`[BOOKING BERHASIL]\nPembayaran tagihan ${inv.noRequest || invoiceId} disetujui sebagai BOOKING sementara.\nMenunggu sinkronisasi NIM resmi untuk aktivasi master penyewa.`);
             return { ...inv, status: 'PAID', isMigrated: false, paidAt: new Date().toISOString() };
           } else if (action === 'MIGRATE_ONLY') {
-            alert(`[MIGRATION SUCCESS]\n\nMaba dengan Invoice ${invoiceId} berhasil dimigrasi ke master (NIM telah tersedia).`);
+            toast.success(`[PROMOSI MASTER BERHASIL]\nMaba dengan Invoice ${invoiceId} berhasil dipromosikan ke master penyewa aktif.`);
             return { ...inv, isMigrated: true };
           } else {
+            toast.error(`[PERMINTAAN DITOLAK]\nPermintaan ${inv.noRequest || invoiceId} ditolak. Status dikembalikan ke UNPAID.`);
             return { ...inv, status: 'UNPAID', paidAt: undefined, isMigrated: false };
           }
         }
