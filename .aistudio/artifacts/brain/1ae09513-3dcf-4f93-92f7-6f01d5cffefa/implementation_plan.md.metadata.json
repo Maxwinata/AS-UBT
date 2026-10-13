@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana arsitektur dan teknis integrasi API SIAKAD UBT sebagai satu pintu sinkronisasi ekosistem SIDARA, mencakup deteksi otomatis NIM resmi pada calon mahasiswa baru (pengalihan ke SSO) dan alur fast-track pendaftaran untuk mahasiswa eksisting bukan penghuni yang login via SSO dengan validasi kelengkapan field API.",
-  "updatedAt": "2026-10-13T10:51:13.682884314Z",
+  "summary": "Rencana implementasi standarisasi skema API SIAKAD UBT (BTT-006 dan BTT-002) ke sistem Asrama UBT, mencakup integrasi sso_id_from_sidara sebagai foreign key, klasifikasi Maba vs Eksisting berdasarkan awalan NIM, dan form ringkas pelengkap nomor WhatsApp & jenis kelamin.",
+  "updatedAt": "2026-10-13T11:06:20.159278466Z",
   "requestFeedback": true,
   "userFacing": true
 }

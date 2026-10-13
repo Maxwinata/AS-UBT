@@ -11,6 +11,7 @@ class SiakadMahasiswaStg extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
+        'id_siakad' => 'integer',
         'status_klaim' => 'integer',
         'status_verifikasi_subsidi' => 'integer',
         'verified_at' => 'datetime',
@@ -24,11 +25,23 @@ class SiakadMahasiswaStg extends Model
     }
 
     /**
-     * Scope query untuk mencari calon mahasiswa berdasarkan No PMB atau NIK
+     * Cek apakah kategori mahasiswa baru (Maba 2026 / PMB)
+     */
+    public function isMaba(): bool
+    {
+        return $this->angkatan === '2026' 
+            || str_starts_with($this->nomor_registrasi, '26') 
+            || str_starts_with($this->nomor_registrasi, 'PMB')
+            || str_starts_with($this->nomor_registrasi, 'REG');
+    }
+
+    /**
+     * Scope query untuk mencari calon mahasiswa berdasarkan No PMB, NIM, atau NIK
      */
     public function scopeLookup($query, string $identifier)
     {
         return $query->where('nomor_registrasi', $identifier)
+                     ->orWhere('sso_id_from_sidara', $identifier)
                      ->orWhere('nik', $identifier);
     }
 }

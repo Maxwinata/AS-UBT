@@ -141,6 +141,11 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 }) => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [showBastk, setShowBastk] = useState(false);
+  const [showQuickCompletionModal, setShowQuickCompletionModal] = useState(false);
+  const [quickWaInput, setQuickWaInput] = useState(initialProfile.noHpWa || '');
+  const [quickGenderInput, setQuickGenderInput] = useState(
+    initialProfile.jenisKelamin === 'P' || initialProfile.jenisKelamin === 'Perempuan' ? 'Perempuan' : 'Laki-laki'
+  );
   const [currentStep, setCurrentStep] = useState<AdmissionStep>(
     getInitialStep(initialProfile, initialInvoice, room, initialContract, ticket)
   );
@@ -426,19 +431,32 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   const handleAutoFillFromSiakad = () => {
     const target = matchedSiakadRecord || siakadStaging.find((s: SiakadMahasiswaStgRecord) => s.nomor_registrasi === 'PMB2026-08942') || siakadStaging[0];
     if (target) {
+      const hasPhone = Boolean(target.nomor_telepon && target.nomor_telepon.trim());
+      const hasGender = Boolean(target.jenis_kelamin);
+      const genderVal = target.jenis_kelamin === 'P' ? 'Perempuan' : target.jenis_kelamin === 'L' ? 'Laki-laki' : profile.jenisKelamin || 'Laki-laki';
       updateProfileObject({
         nama: target.nama_lengkap,
         nik: target.nik,
         noPmb: target.nomor_registrasi,
         nim: target.nomor_registrasi.startsWith('PMB') ? 'Belum tersedia' : target.nomor_registrasi,
         noHpWa: target.nomor_telepon || profile.noHpWa,
+        jenisKelamin: genderVal,
+        ssoIdFromSidara: target.sso_id_from_sidara || profile.ssoIdFromSidara,
         prodi: target.program_studi || profile.prodi,
         fakultas: target.fakultas || profile.fakultas,
         kategori: target.kategori_beasiswa === 'kip' ? 'KIP' : 'REGULER',
         isKipStudent: target.kategori_beasiswa === 'kip',
         kipNumber: target.kategori_beasiswa === 'kip' ? target.nomor_registrasi : undefined,
       });
-      toast.success(`Data SIAKAD ${target.nama_lengkap} (${target.nomor_registrasi}) berhasil dimuat ke formulir!`);
+
+      if (!hasPhone || !hasGender) {
+        setQuickWaInput(target.nomor_telepon || profile.noHpWa || '');
+        setQuickGenderInput(genderVal);
+        setShowQuickCompletionModal(true);
+        toast.info('Data ditarik dari SIAKAD. Silakan lengkapi nomor WhatsApp & jenis kelamin pada form ringkas.');
+      } else {
+        toast.success(`Data SIAKAD ${target.nama_lengkap} (${target.nomor_registrasi}) berhasil dimuat ke formulir!`);
+      }
     } else {
       toast.error('Tidak ditemukan data pra-registrasi SIAKAD yang cocok.');
     }
@@ -2150,7 +2168,24 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                      {(!profile.noHpWa || profile.noHpWa.trim() === '' || !profile.jenisKelamin) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickWaInput(profile.noHpWa || '');
+                            setQuickGenderInput(
+                              profile.jenisKelamin === 'P' || profile.jenisKelamin === 'Perempuan' ? 'Perempuan' : 'Laki-laki'
+                            );
+                            setShowQuickCompletionModal(true);
+                          }}
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer animate-pulse"
+                          title="Lengkapi nomor WhatsApp dan konfirmasi jenis kelamin"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>Form Ringkas (WA & Gender)</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={handleAutoFillFromSiakad}
@@ -4335,6 +4370,130 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                   ) : (
                     <><ShieldCheck className="w-5 h-5" /> Sahkan Kontrak Elektronik (F-19 & F-02)</>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FORM RINGKAS: LENGKAPI NOMOR WHATSAPP & JENIS KELAMIN (SIAKAD COMPLIANCE) */}
+      {showQuickCompletionModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-teal-600 to-indigo-700 p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <PhoneCall className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base leading-tight">Form Ringkas Data Asrama</h3>
+                    <p className="text-xs text-teal-100 mt-0.5">Pemutakhiran Kontak & Alokasi Gedung</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowQuickCompletionModal(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Sinkronisasi SIAKAD UBT</span>
+                  Database SIAKAD belum menyediakan kontak WhatsApp aktif dan kepastian jenis kelamin untuk alokasi asrama. Mohon lengkapi 2 data berikut:
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nomor WhatsApp Aktif <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 text-xs font-bold font-mono">+62</span>
+                  <input
+                    type="tel"
+                    value={quickWaInput}
+                    onChange={(e) => setQuickWaInput(e.target.value)}
+                    placeholder="081234567890"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-12 pr-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white font-mono shadow-sm"
+                    autoFocus
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Digunakan untuk notifikasi tagihan VA, link OTP wali, dan e-Ticket asrama.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Jenis Kelamin (Penentuan Gedung Asrama) <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setQuickGenderInput('Laki-laki')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                      quickGenderInput === 'Laki-laki'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-950 font-bold ring-2 ring-indigo-500/30'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">Laki-laki (Putra)</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">Gedung A / B</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQuickGenderInput('Perempuan')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                      quickGenderInput === 'Perempuan'
+                        ? 'border-rose-600 bg-rose-50 text-rose-950 font-bold ring-2 ring-rose-500/30'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">Perempuan (Putri)</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">Gedung C / D</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickCompletionModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!quickWaInput || quickWaInput.trim().length < 8) {
+                      toast.error('Masukkan nomor WhatsApp yang valid (minimal 8 digit).');
+                      return;
+                    }
+                    const cleanWa = quickWaInput.trim().startsWith('0')
+                      ? quickWaInput.trim()
+                      : `0${quickWaInput.trim().replace(/^62/, '')}`;
+                    updateProfileObject({
+                      noHpWa: cleanWa,
+                      jenisKelamin: quickGenderInput,
+                    });
+                    setShowQuickCompletionModal(false);
+                    toast.success('Nomor WhatsApp dan Jenis Kelamin berhasil disimpan ke formulir asrama!');
+                  }}
+                  className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan & Terapkan</span>
                 </button>
               </div>
             </div>

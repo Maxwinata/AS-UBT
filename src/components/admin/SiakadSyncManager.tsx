@@ -264,25 +264,37 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-slate-900">
-                        <div>{item.nomor_registrasi}</div>
+                      <td className="p-3.5 font-mono text-slate-900">
+                        <div className="font-bold">{item.nomor_registrasi}</div>
                         <div className="text-[10px] text-slate-400 font-normal">
                           NIK: {item.nik || '-'}
                         </div>
+                        {item.sso_id_from_sidara && (
+                          <div className="text-[9px] text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded inline-block font-mono mt-0.5 border border-teal-200">
+                            SSO: {item.sso_id_from_sidara}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3.5">
-                        <div className="font-bold text-slate-900">{item.nama_lengkap}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                          <span>{item.nama_lengkap}</span>
+                          {item.angkatan && (
+                            <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              {item.angkatan}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                           <span>{item.email || '-'}</span>
                           <span>·</span>
-                          <span>{item.nomor_telepon || '-'}</span>
+                          <span>{item.nomor_telepon ? `WA: ${item.nomor_telepon}` : 'WA: Kosong'}</span>
                         </div>
                       </td>
 
                       <td className="p-3.5">
                         <div className="font-semibold text-slate-800">{item.program_studi}</div>
-                        <div className="text-[10px] text-slate-500">{item.fakultas}</div>
+                        <div className="text-[10px] text-slate-500">{item.fakultas || '-'}</div>
                       </td>
 
                       <td className="p-3.5 font-medium">
@@ -293,7 +305,7 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          Endpoint: {isKip ? 'mahasiswa-btt-002' : 'mahasiswa-btt-006'}
+                          {item.bill_to_code ? `Kode: ${item.bill_to_code}` : isKip ? 'BTT-002' : 'BTT-006'} · {isKip ? 'mahasiswa-btt-002' : 'mahasiswa-btt-006'}
                         </div>
                       </td>
 

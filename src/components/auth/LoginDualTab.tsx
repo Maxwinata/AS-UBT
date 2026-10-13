@@ -62,12 +62,20 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
         setErrorMessage('Nomor Registrasi PMB / NIM awal tidak ditemukan di database SIAKAD UBT.');
         return;
       }
+
       const matched = INITIAL_SIAKAD_STAGING.find(
         (s) => s.nomor_registrasi.toLowerCase() === cleanReg.toLowerCase() || (s.nik && s.nik === cleanReg)
       );
 
+      // Deteksi jika yang dimasukkan adalah NIM Mahasiswa Eksisting (Angkatan <= 2025)
+      const isExistingStudentNim = /^(22|23|24|25)\d{4,8}$/.test(cleanReg);
+      if (isExistingStudentNim) {
+        setErrorMessage(`Nomor ${cleanReg} teridentifikasi sebagai NIM Mahasiswa Eksisting UBT. Silakan gunakan tab 'Akun SSO Mahasiswa' untuk login dan proses pendaftaran kamar asrama.`);
+        return;
+      }
+
       // SKENARIO 1: Deteksi apakah calon mahasiswa sudah memiliki NIM resmi di SIAKAD & SIDARA!
-      if (matched && matched.has_active_nim && matched.nim_resmi) {
+      if (matched && matched.has_active_nim && matched.nim_resmi && (cleanReg.startsWith('PMB') || cleanReg.startsWith('REG'))) {
         setDetectedNimStudent(matched);
         setShowNimDetectedModal(true);
         return;
@@ -560,6 +568,24 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                       </div>
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold shrink-0 ml-2">
                         API 002 (KIP)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPmbNoReg('2606001')}
+                      className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        pmbNoReg === '2606001'
+                          ? 'bg-purple-50 border-purple-500 text-purple-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">Dania Sifa Azzahra</div>
+                        <div className="text-[10px] text-slate-500 font-mono">2606001 · Ilmu Hukum (Angkatan 2026)</div>
+                      </div>
+                      <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-mono font-bold shrink-0 ml-2">
+                        API 002 (Maba 2026)
                       </span>
                     </button>
                   </div>

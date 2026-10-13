@@ -36,6 +36,7 @@ export interface MabaProfile {
   kategori: string;
   noHpWa: string;
   email: string;
+  ssoIdFromSidara?: string | number; // Foreign key penghubung akun SSO SIDARA
 
   // Alamat KTP (Asal)
   alamatKtpJalan: string;
@@ -448,14 +449,18 @@ export interface ApiLinkRecord {
 export interface SiakadMahasiswaStgRecord {
   id: number;
   api_link_id: number;
+  id_siakad?: number; // ID unik dari SIAKAD UBT
+  sso_id_from_sidara?: string | number; // Foreign key penghubung langsung antara akun SSO SIDARA dan pendaftaran
   kategori_beasiswa: 'nonkip' | 'kip';
   nama_beasiswa: string;
-  nomor_registrasi: string;
+  bill_to_code?: string; // BTT-006 / BTT-002
+  nomor_registrasi: string; // Nomor registrasi PMB atau NIM
   nim_resmi?: string; // Jika NIM resmi telah terbit di SIAKAD & SIDARA
   has_active_nim?: boolean; // True jika mahasiswa telah terbit NIM aktif
   is_api_fields_complete?: boolean; // True jika field biodata dari output API memadai
   nama_lengkap: string;
   nik: string;
+  angkatan?: string; // 2026, 2025, 2024, 2023
   email: string;
   nomor_telepon: string;
   program_studi: string;

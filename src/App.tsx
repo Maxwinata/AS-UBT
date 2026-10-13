@@ -130,8 +130,12 @@ export default function App() {
       const studentName = siakadMatch ? siakadMatch.nama_lengkap : nama;
       const studentProdi = siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi;
       const studentFakultas = siakadMatch ? siakadMatch.fakultas : INITIAL_MABA.fakultas;
-      const studentPhone = siakadMatch?.nomor_telepon || INITIAL_MABA.noHpWa;
+      const studentPhone = siakadMatch ? (siakadMatch.nomor_telepon || '') : INITIAL_MABA.noHpWa;
       const studentNik = siakadMatch?.nik || INITIAL_MABA.nik;
+      const studentGender = siakadMatch?.jenis_kelamin
+        ? (siakadMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
+        : INITIAL_MABA.jenisKelamin;
+      const ssoId = siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined;
 
       if (siakadMatch) {
         toast.success(`[SIAKAD CONNECTED] Data ${studentName} (${siakadMatch.nama_beasiswa}) berhasil ditarik otomatis ke formulir pendaftaran!`, { duration: 4500 });
@@ -147,6 +151,8 @@ export default function App() {
           fakultas: studentFakultas,
           noHpWa: studentPhone,
           nik: studentNik,
+          jenisKelamin: studentGender,
+          ssoIdFromSidara: ssoId,
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
           kipNumber: isKip ? nim : undefined,
@@ -174,6 +180,8 @@ export default function App() {
           fakultas: studentFakultas,
           noHpWa: studentPhone,
           nik: studentNik,
+          jenisKelamin: studentGender,
+          ssoIdFromSidara: ssoId,
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
           kipNumber: isKip ? nim : undefined,
@@ -206,6 +214,8 @@ export default function App() {
           fakultas: studentFakultas,
           noHpWa: studentPhone,
           nik: studentNik,
+          jenisKelamin: studentGender,
+          ssoIdFromSidara: ssoId,
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
           kipNumber: isKip ? nim : undefined,
@@ -240,6 +250,8 @@ export default function App() {
           fakultas: studentFakultas,
           noHpWa: studentPhone,
           nik: studentNik,
+          jenisKelamin: studentGender,
+          ssoIdFromSidara: ssoId,
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
           kipNumber: isKip ? nim : undefined,

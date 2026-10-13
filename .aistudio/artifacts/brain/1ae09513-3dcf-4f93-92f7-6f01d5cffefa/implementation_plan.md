@@ -1,126 +1,140 @@
-# Rencana Implementasi: Integrasi SIAKAD & Protokol Sinkronisasi SIDARA (Skenario 1 & 2)
+# Rencana Implementasi: Standarisasi & Penyesuaian Skema API SIAKAD UBT (BTT-006 & BTT-002)
 
-Rencana arsitektur dan teknis penerapan keterhubungan satu pintu antara API SIAKAD UBT dan ekosistem SIDARA Synchronization & Booking Migration Protocol mengacu pada **SCENARIO-mappings.md** serta keputusan klarifikasi pengguna:
-1. **Skenario 1 (Maba Baru Onboarding - Deteksi NIM Resmi)**:
-   - Jika calon mahasiswa mendaftar via form PMB namun di API SIAKAD/SIDARA telah diterbitkan NIM resmi, sistem menampilkan **Modal Notifikasi Pengalihan SSO** yang memandu mahasiswa masuk melalui jalur SSO Kampus terintegrasi.
-2. **Skenario 2 (Mahasiswa Eksisting Bukan Penghuni via SSO)**:
-   - Mahasiswa aktif kampus yang login via SSO dan terverifikasi di SIAKAD/SIDARA namun belum tercatat di master `penyewa` diarahkan ke **Fast-Track Pendaftaran** (langsung ke Step 2 Pemilihan Kamar & Tagihan) **hanya jika field output API memadai** (Nama, NIK, No. HP, Prodi, Fakultas lengkap). Jika belum memadai, diarahkan ke Step 1 untuk melengkapi field yang kurang.
-3. **Mekanisme Pencocokan**:
-   - Pencocokan otomatis dilakukan pada level data staging `siakad_mahasiswa_stg` via korelasi nomor registrasi PMB dan NIK.
+Dokumen ini memuat rencana teknis penyesuaian sistem Asrama UBT berdasarkan hasil audit dan analisis langsung dari payload API resmi:
+- `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006` (133 mahasiswa, Beasiswa Khusus, Angkatan 2025)
+- `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002` (297 mahasiswa, KIP-Kuliah, Multi-Angkatan: 2026, 2025, 2024, 2023)
+
+Serta arahan keputusan pengguna:
+1. **Field Pelengkap**: Menyediakan form ringkas untuk melengkapi 2 field krusial yang tidak disediakan API: **Nomor WhatsApp** (untuk OTP kontrak) dan **Jenis Kelamin** (untuk alokasi Gedung Putra/Putri).
+2. **Kunci Penghubung**: Memanfaatkan `sso_id_from_sidara` sebagai *foreign key* penghubung langsung antara akun SSO SIDARA dan rekord pendaftaran asrama.
+3. **Klasifikasi Maba vs Eksisting**: Menentukan kategori pengguna berdasarkan format dan awalan Nomor Induk Mahasiswa (NIM) yang dimasukkan saat login (`26xxxx` / `PMB` = Maba Baru; `25xxxx`, `24xxxx`, `23xxxx`, `22xxxx` = Mahasiswa Eksisting).
 
 ---
 
-## 1. Arsitektur Ekosistem SIAKAD, SIDARA & Asrama UBT
+## 1. Arsitektur Pemetaan Data (SIAKAD ➔ Staging Asrama)
 
 ```
-                    [ PANGKALAN DATA SIAKAD & SIDARA KAMPUS UBT ]
-                           (Satu-Satunya Pintu Data Akademik)
-                                           │
-                                           ▼ (Protokol Sinkronisasi Terjadwal / On-Demand)
-                   [ BACKEND LARAVEL: SiakadSyncService & SIDARA Engine ]
-                                           │
-                        ┌──────────────────┴──────────────────┐
-                        ▼                                     ▼
-             [ TABEL MASTER: api_link ]          [ TABEL STAGING: siakad_mahasiswa_stg ]
-             - endpoint mahasiswa-btt-006        - nomor_registrasi (PMB) & nik
-             - endpoint mahasiswa-btt-002        - nim_resmi & has_active_nim
-                                                 - is_api_fields_complete (Kelengkapan Data)
-                                           │
-         ┌─────────────────────────────────┴─────────────────────────────────┐
-         ▼                                                                   ▼
-┌─────────────────────────────────────────┐       ┌─────────────────────────────────────────┐
-│     SKENARIO 1: MABA BARU ONBOARDING    │       │     SKENARIO 2: MAHASISWA EKSISTING     │
-│       (Login via Formulir PMB)          │       │           (Login via SSO UBT)           │
-├─────────────────────────────────────────┤       ├─────────────────────────────────────────┤
-│ 1. Input Nomor PMB                      │       │ 1. Login Kredensial SSO (NIM Valid)     │
-│ 2. Cek apakah NIM Resmi terbit?         │       │ 2. Cek status di tabel penyewa:         │
-│    ├── SUDAH (has_active_nim = true):   │       │    ├── AKTIF: Masuk Dashboard Eksisting │
-│    │   Modal: "NIM Resmi Terbit!" ──────┼──────►│    └── NULL (Bukan Penghuni):            │
-│    │   Alihkan ke SSO (NIM Terisi)      │       │        Evaluasi kelengkapan field API:  │
-│    └── BELUM: Lanjut Onboarding Reguler │       │        ├── LENGKAP: Fast-Track (Step 2) │
-│        (Admisi 6-Langkah Standar)       │       │        └── BELUM: Form Step 1 (Lengkapi)│
-└─────────────────────────────────────────┘       └─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PAYLOAD RESMI API SIAKAD UBT                          │
+│ id_siakad | sso_id_from_sidara | nim | nik_ktp | nama_mahasiswa | angkatan  │
+│ unit: { id, name } | bill_to_type: { id, code, name }                       │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+                                       ▼ (Engine Pemetaan & Sanitasi)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  TABEL STAGING: siakad_mahasiswa_stg                        │
+│ • sso_id_from_sidara (FK ke akun SSO SIDARA)                                │
+│ • id_siakad (ID unik pangkalan data kampus)                                 │
+│ • nomor_registrasi / nim (Format Standar Kampus)                            │
+│ • nama_lengkap (Auto-Trim spasi berlebih)                                   │
+│ • nik (Dukungan NIK valid & penanganan null)                                │
+│ • program_studi (Dari unit.name)                                            │
+│ • angkatan (Tahun akademik masuk)                                           │
+│ • kategori_beasiswa & nama_beasiswa (Dari bill_to_type)                     │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+           ┌───────────────────────────┴───────────────────────────┐
+           ▼                                                       ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────────┐
+│      LOGIKA DETEKSI KELAS NIM        │  │     MINI-FORM PELENGKAP DATA     │
+│ Awalan 26xxxx / PMB ➔ Maba Baru      │  │ Input 2 field yang tidak ada API:│
+│ Awalan <=25xxxx ➔ Eksisting Non-Host │  │ 1. No. WhatsApp (Untuk OTP)      │
+└──────────────────────────────────────┘  │ 2. Jenis Kelamin (Putra/Putri)   │
+                                          └──────────────────────────────────┘
 ```
 
 ---
 
-## 2. Struktur Data & Perubahan Model
+## 2. Struktur Data & Penyesuaian Skema
 
-### A. Penambahan Atribut pada `SiakadMahasiswaStgRecord` (`src/types/asrama.ts`)
-* `nim_resmi?: string`: Nomor Induk Mahasiswa resmi yang telah diterbitkan sistem SIAKAD/SIDARA (contoh: `2601015001`).
-* `has_active_nim: boolean`: Penanda apakah mahasiswa sudah memiliki NIM aktif sehingga wajib menggunakan SSO.
-* `is_api_fields_complete: boolean`: Flag evaluasi apakah data dasar (Nama, NIK, No. HP, Prodi, Fakultas, Jenis Kelamin) sudah lengkap dari payload API SIAKAD.
+### A. Update Tipe TypeScript (`src/types/asrama.ts`)
+Pembaruan interface `SiakadMahasiswaStgRecord`:
+```typescript
+export interface SiakadMahasiswaStgRecord {
+  id: number;
+  api_link_id: number;
+  id_siakad?: number;              // ID unik dari SIAKAD
+  sso_id_from_sidara?: number;     // Foreign key ke akun SSO SIDARA
+  kategori_beasiswa: 'nonkip' | 'kip';
+  nama_beasiswa: string;
+  bill_to_code?: string;           // BTT-006 / BTT-002
+  nomor_registrasi: string;        // NIM mahasiswa
+  nim_resmi?: string;              // Alias NIM
+  has_active_nim?: boolean;
+  nama_lengkap: string;            // Trimmed
+  nik: string;                     // NIK KTP (atau string kosong jika null)
+  angkatan?: string;               // 2026, 2025, 2024, 2023
+  program_studi: string;           // Dari unit.name
+  fakultas: string;
+  email?: string;
+  nomor_telepon?: string;          // Diisi lewat mini-form
+  jenis_kelamin?: 'L' | 'P';       // Diisi lewat mini-form
+  status_klaim: number;
+  status_verifikasi_subsidi: number;
+  is_api_fields_complete?: boolean;
+  synced_at: string;
+}
+```
 
-### B. Pembaruan Initial Data (`src/data/initialData.ts`)
-* Menambahkan variasi data uji coba pada `INITIAL_SIAKAD_STAGING`:
-  1. **PMB2026-08942 (Maximilian)**: Terdeteksi memiliki NIM resmi `2601015001` (`has_active_nim = true`) untuk menguji pemicu Skenario 1 (Modal Pengalihan ke SSO).
-  2. **PMB-BTT-002-001 (Muhammad Fadhil)**: Maba murni belum memiliki NIM resmi (`has_active_nim = false`, `nim_resmi = undefined`) untuk menguji alur pendaftaran PMB standar.
-  3. **2240101088 (Ahmad Zaky)**: Mahasiswa aktif kampus di SIDARA, bukan penghuni asrama (`penyewa = null`), data API lengkap (`is_api_fields_complete = true`) untuk menguji Fast-Track Step 2.
-  4. **2240101099 (Rina Anggraini)**: Mahasiswa aktif kampus di SIDARA, data API belum lengkap NIK/kontak (`is_api_fields_complete = false`) untuk menguji fallback pengisian Step 1.
+### B. Update Migrasi Laravel (`database/migrations/2026_01_01_000006_create_siakad_sync_tables.php`)
+Menambahkan kolom `sso_id_from_sidara`, `id_siakad`, `angkatan`, dan `bill_to_code` pada tabel `siakad_mahasiswa_stg`.
+
+### C. Update Service Sinkronisasi (`app/Services/SiakadSyncService.php`)
+Memperbarui fungsi parsing agar membaca struktur JSON payload asli:
+- Menyimpan `sso_id_from_sidara` dan `id_siakad`.
+- Menarik `unit.name` ke kolom `program_studi`.
+- Menarik `bill_to_type.code` dan `bill_to_type.name` ke kolom beasiswa.
+- Melakukan pembersihan string `trim($item['nama_mahasiswa'])`.
 
 ---
 
-## 3. Komponen Antarmuka & UX Design (Sesuai Frontend Design Skill)
+## 3. Komponen Antarmuka & UX Flow
 
-### A. Modal Notifikasi "NIM Resmi Terbit" di `LoginDualTab.tsx`
-* **Trigger**: Calon mahasiswa submit form PMB atau memilih nomor registrasi yang memiliki `has_active_nim === true`.
-* **Visual**:
-  - Dialog modal fokus dengan backdrop blur halus (`bg-slate-900/60 backdrop-blur-sm`).
-  - Badge identitas: `SIAKAD & SIDARA INTEGRATION PROTOCOL`.
-  - Informasi kartu transparan berisi perbandingan No. PMB lama vs NIM resmi baru yang terbit.
-  - Aksi 1-klik: *"Masuk via SSO Menggunakan NIM Ini →"* yang secara otomatis:
-    1. Menutup modal.
-    2. Mengalihkan tampilan ke Tab Login SSO.
-    3. Mengisi kolom username SSO dengan NIM resmi secara instan.
-    4. Memberikan toast feedback bantuan kredensial.
+### A. Klasifikasi Berdasarkan Format NIM saat Login
+* **NIM Baru (Angkatan 2026, misal `2606001`, `2603040`, `2607018`)**:
+  - Dikenali sebagai **Maba Baru (Jalur KIP/Beasiswa 2026)**.
+  - Masuk ke alur Admisi Mahasiswa Baru dengan biodata terisi otomatis.
+* **NIM Eksisting (Angkatan 2025, 2024, 2023, misal `2503034`, `24301001`, `2240101088`)**:
+  - Dikenali sebagai **Mahasiswa Eksisting (Bukan Penghuni)**.
+  - Masuk ke alur Fast-Track Asrama dengan verifikasi SSO SIDARA.
 
-### B. Evaluasi & Fast-Track Mahasiswa Eksisting (Bukan Penghuni) via SSO
-* **Trigger**: Mahasiswa aktif login via SSO dan query `penyewa` menghasilkan NULL (Bukan Penghuni Aktif).
-* **Percabangan Logika**:
-  - **Jika Field API Memadai (`is_api_fields_complete === true`)**:
-    - Dialog konfirmasi pengalihan menampilkan opsi: *"Biodata Akademik SIAKAD Lengkap — Langsung Pilih Kamar (Fast-Track)"*.
-    - Sistem mengarahkan langsung ke **Step 2 (Rincian Tagihan & Pemilihan Kamar)**, mengunci biodata Step 1 sebagai data terverifikasi SIAKAD, memotong friksi pengisian ulang.
-  - **Jika Field API Belum Memadai (`is_api_fields_complete === false`)**:
-    - Sistem menampilkan banner informatif: *"Data Akademik SIAKAD Terhubung — Mohon lengkapi NIK dan Kontak Darurat"*.
-    - Sistem mengarahkan ke **Step 1** dengan kolom yang tersedia terisi otomatis, dan menandai kolom yang belum lengkap dengan border aksen lembut.
+### B. Mini-Form Pelengkap Data (WhatsApp & Gender)
+* Saat data ditarik dari SIAKAD (baik saat login maupun klik tombol Auto-Fill), jika `nomor_telepon` atau `jenis_kelamin` belum ada:
+* Menampilkan dialog/modal ringkas elegan:
+  - Judul: **"Lengkapi 2 Data Kontak & Hunian"**
+  - Kolom 1: **Nomor WhatsApp Aktif** (dengan info: *"Dibutuhkan untuk verifikasi OTP kontrak digital"*).
+  - Kolom 2: **Jenis Kelamin (Laki-laki / Perempuan)** (dengan info: *"Dibutuhkan untuk penentuan alokasi Gedung Putra / Putri"*).
+  - Tombol simpan: *"Simpan & Lanjutkan"*.
 
 ---
 
 ## 4. Proposed Changes by Files
 
-### Frontend & Logic Integration
-- **`src/types/asrama.ts`**:
-  - Tambahkan field `nim_resmi`, `has_active_nim`, dan `is_api_fields_complete` pada interface `SiakadMahasiswaStgRecord`.
-- **`src/data/initialData.ts`**:
-  - Perbarui mock data `INITIAL_SIAKAD_STAGING` agar mencakup kasus uji Skenario 1 dan 2 (lengkap vs belum lengkap).
-- **`src/components/auth/LoginDualTab.tsx`**:
-  - Tambahkan pengecekan `has_active_nim` pada `handleMabaSubmit`.
-  - Buat komponen modal notifikasi `NimDetectedModal` dengan auto-redirect ke SSO.
-  - Tambahkan evaluasi `is_api_fields_complete` pada modal `showRedirectModal` SSO untuk membedakan Fast-Track (Step 2) vs Form Melengkapi Biodata (Step 1).
-- **`src/App.tsx`**:
-  - Perbarui handler `handleLoginSuccess` untuk mendukung rute awal `initialStep = 2` saat mahasiswa eksisting bukan penghuni memenuhi syarat Fast-Track.
-- **`src/components/maba/MabaDashboard.tsx`**:
-  - Berikan visual penanda khusus saat mahasiswa masuk via Fast-Track SSO (misal: badge *"Data Akademik Terverifikasi Penuh dari SIDARA"*).
+### Backend & Migrations
+- **`database/migrations/2026_01_01_000006_create_siakad_sync_tables.php`**: Tambahkan kolom `sso_id_from_sidara`, `id_siakad`, `angkatan`, `bill_to_code`.
+- **`app/Models/SiakadMahasiswaStg.php`**: Daftarkan atribut baru ke casts dan fillable.
+- **`app/Services/SiakadSyncService.php`**: Sesuaikan pemetaan payload response JSON dari endpoint SIAKAD.
+
+### Frontend
+- **`src/types/asrama.ts`**: Update interface `SiakadMahasiswaStgRecord` sesuai atribut API.
+- **`src/data/initialData.ts`**: Masukkan sampel data otentik dari API asli (`2606001` Dania Sifa, `2503034` Ferniati Lani, `24301001` Amanda Sheira) dengan `sso_id_from_sidara`.
+- **`src/components/auth/LoginDualTab.tsx`**: Update logika deteksi Maba vs Eksisting berdasarkan awalan NIM, serta preset uji coba akun asli.
+- **`src/components/maba/MabaDashboard.tsx`**: Tambahkan komponen modal pelengkap ringkas (WhatsApp & Gender) saat auto-fill dipicu.
+- **`src/components/admin/SiakadSyncManager.tsx`**: Tampilkan kolom `sso_id_from_sidara` dan `angkatan` pada tabel audit admin keuangan.
 
 ### Dokumentasi
-- **`docs/scenario-mappings.md` & `docs/scenario-mappings.en.md`**:
-  - Perbarui matriks Skenario 1 dan 2 dengan klausul deteksi NIM resmi dan evaluasi kelengkapan field API.
-- **`docs/ARCHITECTURE.md` & `ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`**:
-  - Tambahkan alur teknis integrasi SIDARA Synchronization Protocol.
+- **`docs/ARCHITECTURE.md` & `ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`**: Perbarui spesifikasi integrasi API dengan skema final.
 
 ---
 
 ## 5. Verification Plan
 
-1. **Pengujian Skenario 1 (Maba Memiliki NIM Resmi)**:
-   - Pilih preset PMB `PMB2026-08942` pada form pendaftaran maba.
-   - Verifikasi modal *"NIM Resmi SIAKAD Terbit"* muncul dan menampilkan NIM `2601015001`.
-   - Klik tombol pengalihan dan verifikasi tab SSO aktif dengan NIM terisi otomatis.
-2. **Pengujian Skenario 2A (Eksisting Bukan Penghuni - Data Lengkap)**:
-   - Login SSO dengan akun mahasiswa bukan penghuni yang datanya lengkap.
-   - Verifikasi sistem langsung melompati Step 1 dan membuka Step 2 (Pemilihan Kamar & Durasi Sewa).
-3. **Pengujian Skenario 2B (Eksisting Bukan Penghuni - Data Belum Lengkap)**:
-   - Login SSO dengan akun mahasiswa bukan penghuni yang datanya belum lengkap.
-   - Verifikasi sistem membuka Step 1 dengan notifikasi untuk melengkapi field yang kurang.
+1. **Uji Pemetaan Data API**:
+   - Sinkronisasi data dan verifikasi field `sso_id_from_sidara`, `nim`, `unit.name`, dan `bill_to_type` tersimpan dengan benar.
+2. **Uji Login Klasifikasi NIM**:
+   - Login dengan NIM angkatan 2026 (`2606001`) ➔ terklasifikasi sebagai Maba.
+   - Login dengan NIM angkatan 2025 (`2503034`) ➔ terklasifikasi sebagai Mahasiswa Eksisting.
+3. **Uji Mini-Form Pelengkap**:
+   - Verifikasi dialog pengisian No. WhatsApp dan Jenis Kelamin muncul jika kedua field belum terisi, dan berhasil disimpan ke profil.
 4. **Verifikasi Build**:
-   - Jalankan `lint_applet` (`tsc --noEmit`) dan `compile_applet` untuk memastikan tidak ada galat kompilasi.
+   - Jalankan `lint_applet` dan `compile_applet`.

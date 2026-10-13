@@ -55,16 +55,20 @@ return new class extends Migration
             Schema::create('siakad_mahasiswa_stg', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('api_link_id');
+                $table->unsignedBigInteger('id_siakad')->nullable()->comment('ID unik dari SIAKAD UBT');
+                $table->string('sso_id_from_sidara', 50)->nullable()->index()->comment('Foreign key ke akun SSO SIDARA');
                 $table->string('kategori_beasiswa', 50)->comment('nonkip / kip');
                 $table->string('nama_beasiswa', 100)->nullable();
+                $table->string('bill_to_code', 50)->nullable()->comment('BTT-006 / BTT-002');
                 $table->string('nomor_registrasi', 50)->unique()->comment('PMB / NIM Calon');
                 $table->string('nama_lengkap', 191);
                 $table->string('nik', 16)->nullable();
+                $table->string('angkatan', 10)->nullable()->comment('2026, 2025, 2024, 2023');
                 $table->string('email', 100)->nullable();
-                $table->string('nomor_telepon', 50)->nullable();
+                $table->string('nomor_telepon', 50)->nullable()->comment('Diisi lewat mini-form');
                 $table->string('program_studi', 100)->nullable();
                 $table->string('fakultas', 100)->nullable();
-                $table->char('jenis_kelamin', 1)->nullable();
+                $table->char('jenis_kelamin', 1)->nullable()->comment('L/P diisi lewat mini-form');
                 $table->integer('status_klaim')->default(0)->comment('0=Belum Mendaftar, 1=Telah Klaim / Isi Form');
                 $table->integer('status_verifikasi_subsidi')->default(0)->comment('0=Pending, 1=Disetujui, -1=Ditolak');
                 $table->string('verified_by')->nullable();

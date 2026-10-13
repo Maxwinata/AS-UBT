@@ -241,16 +241,20 @@ return new class extends Migration
         Schema::create('siakad_mahasiswa_stg', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('api_link_id');
+            $table->unsignedBigInteger('id_siakad')->nullable()->comment('ID SIAKAD UBT');
+            $table->string('sso_id_from_sidara', 50)->nullable()->index()->comment('FK ke SSO SIDARA');
             $table->string('kategori_beasiswa', 50)->comment('nonkip / kip');
             $table->string('nama_beasiswa', 100)->nullable();
+            $table->string('bill_to_code', 50)->nullable()->comment('BTT-006 / BTT-002');
             $table->string('nomor_registrasi', 50)->unique();
             $table->string('nama_lengkap', 191);
             $table->string('nik', 16)->nullable();
+            $table->string('angkatan', 10)->nullable();
             $table->string('email', 100)->nullable();
-            $table->string('nomor_telepon', 50)->nullable();
+            $table->string('nomor_telepon', 50)->nullable()->comment('Diisi via Form Ringkas');
             $table->string('program_studi', 100)->nullable();
             $table->string('fakultas', 100)->nullable();
-            $table->char('jenis_kelamin', 1)->nullable();
+            $table->char('jenis_kelamin', 1)->nullable()->comment('Diisi via Form Ringkas');
             $table->integer('status_klaim')->default(0);
             $table->integer('status_verifikasi_subsidi')->default(0);
             $table->string('verified_by')->nullable();
@@ -750,6 +754,7 @@ class SiakadMahasiswaStg extends Model
     protected $table = 'siakad_mahasiswa_stg';
     protected $guarded = ['id'];
     protected $casts = [
+        'id_siakad' => 'integer',
         'status_klaim' => 'integer',
         'status_verifikasi_subsidi' => 'integer',
         'verified_at' => 'datetime',
@@ -760,6 +765,11 @@ class SiakadMahasiswaStg extends Model
     public function apiLink(): BelongsTo
     {
         return $this->belongsTo(ApiLink::class, 'api_link_id');
+    }
+
+    public function isMaba(): bool
+    {
+        return $this->angkatan === '2026' || str_starts_with($this->nomor_registrasi, '26') || str_starts_with($this->nomor_registrasi, 'PMB');
     }
 }
 

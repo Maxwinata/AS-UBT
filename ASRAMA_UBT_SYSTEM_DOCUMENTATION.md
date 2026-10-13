@@ -262,3 +262,14 @@ Sistem portal terhubung secara harmonis dengan dua endpoint API resmi pangkalan 
 * **Auto-Fill Saat Login**: Ketika calon mahasiswa memasukkan Nomor Registrasi PMB (misal: `PMB2026-08942` atau `PMB-BTT-002-001`), sistem secara otomatis mencocokkan ke database staging dan mengisi field profil (Nama Lengkap, NIK, No. HP, Program Studi, Fakultas, dan Jalur Masuk).
 * **Tata Kelola Akuntabilitas Beasiswa (Opsi 2 & 3)**: Mahasiswa jalur KIP atau Beasiswa Khusus langsung memiliki badge status resmi pada profilnya. Namun pemotongan subsidi tarif/deposit kamar memerlukan pengesahan manual (1-klik) oleh staf Admin Keuangan melalui panel `SiakadSyncManager`, menjamin akuntabilitas audit keuangan asrama.
 
+#### 15.1. Analisis Pola Endpoint & Penyesuaian Terimplementasi:
+1. **Analisis Standard & Pola API**:
+   - Pola Penamaan: `mahasiswa-btt-006` (Non-KIP / Beasiswa Khusus) dan `mahasiswa-btt-002` (KIP) mengindikasikan standard klasifikasi beasiswa bantuan tarif (*BTT*).
+   - Foreign Key Sentral `sso_id_from_sidara`: Ditemukan pada kedua endpoint API dan kini dijadikan foreign key penghubung langsung antara akun SSO SIDARA dan entitas pendaftaran asrama.
+2. **Penanganan Ketiadaan Field WhatsApp & Jenis Kelamin**:
+   - Mengingat API SIAKAD tidak menyediakan nomor kontak WhatsApp aktif dan data jenis kelamin seringkali belum terverifikasi untuk penentuan asrama Putra (Gedung A/B) vs Putri (Gedung C/D), sistem menyediakan **Form Ringkas** interaktif pada dashboard untuk melengkapi 2 data krusial tersebut tanpa membebani calon mahasiswa.
+3. **Logika Penentuan Kategori Maba vs Mahasiswa Eksisting**:
+   - Dideteksi berdasarkan Nomor Induk yang dimasukkan:
+     - Nomor berawalan `PMB` atau `REG` ➔ Kategori Calon Mahasiswa Baru (Maba). Jika di database SIAKAD terdeteksi sudah memiliki NIM resmi (`has_active_nim`), sistem memberikan edukasi untuk beralih ke login SSO.
+     - Nomor berformat NIM murni 10 digit (senior) ➔ Mahasiswa Eksisting (Bukan Penghuni). Jika data API lengkap (`is_api_fields_complete`), diarahkan ke *Fast-Track* pemilihan kamar. Jika belum lengkap, diarahkan melengkapi biodata.
+
