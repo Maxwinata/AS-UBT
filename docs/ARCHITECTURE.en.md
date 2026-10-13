@@ -155,9 +155,46 @@ Student verifies WhatsApp OTP and receives digital BASTK and e-Ticket QR Code.
 - **`pembayaran_detail`**:
   - `id` (PK)
   - `no_invoice` ➔ FK to `pembayaran.no_invoice`
-- **`transaksi`**:
+- **`api_link`**:
   - `id` (PK)
-  - `no_invoice` ➔ FK to `pembayaran.no_invoice`
-  - `penyewa_id` ➔ FK to `penyewa.id`
+  - `kategori` (`nonkip` / `kip`)
+  - `link` (SIAKAD API Endpoint URL)
+- **`siakad_mahasiswa_stg`**:
+  - `id` (PK)
+  - `api_link_id` ➔ FK to `api_link.id`
+  - `nomor_registrasi` (UK, Registration / Student ID)
+  - `status_klaim` (0 = Unclaimed, 1 = Onboarding Started)
+  - `status_verifikasi_subsidi` (0 = Pending Review, 1 = Approved, -1 = Standard Rate)
 
-With this architecture, the bridge between autonomous freshman onboarding and strict accounting compliance in Web Admin is seamless, resilient, and audit-ready.
+---
+
+## 6. SIAKAD API Integration Architecture (api_link & siakad_mahasiswa_stg)
+
+### A. Registered Endpoints
+The platform interfaces directly with UBT SIAKAD academic database:
+1. **Special Scholarship / Non-KIP**: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006` (Category: `nonkip`)
+2. **KIP-Kuliah**: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002` (Category: `kip`)
+
+### B. Ingestion & Staging Flow
+```
+[ UBT SIAKAD SERVER ]
+       │
+       ▼ (Cron Worker / Admin Instant Trigger)
+[ LARAVEL BACKEND: SiakadSyncService ]
+       │
+       ▼ (Normalized Upsert)
+[ STAGING TABLE: siakad_mahasiswa_stg ]
+       │
+       ├─────────────────────────────────┐
+       ▼                                 ▼
+[ FRESHMAN FRONTEND ]           [ FINANCE WEB ADMIN ]
+- Instant Auto-Fill on login     - SIAKAD Sync Management Panel
+- Automatic scholarship badges  - 1-Click subsidy qualification audit
+- Form identity validation      - Foundation audit trail compliance
+```
+
+### C. Auto-Fill & Subsidy Governance
+1. **Instant Auto-Fill on Login**: When new applicants enter their PMB Registration Number (e.g. `PMB2026-08942` or `PMB-BTT-002-001`), the frontend looks up `siakad_mahasiswa_stg` and auto-populates: Full Name, NIK, Phone, Study Program, Faculty, and Scholarship Status.
+2. **Subsidy Audit Verification**: In accordance with user decisions (Options 2 & 3), scholarship flags are honored as official student identity attributes. However, rate waivers and subsidized deposits require explicit approval by Financial Staff in the `SiakadSyncManager` panel to ensure strict regulatory accounting compliance.
+
+With this architecture, the bridge between autonomous freshman onboarding, SIAKAD campus database synchronization, and Web Admin accounting compliance operates seamlessly without data anomalies.

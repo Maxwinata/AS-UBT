@@ -22,7 +22,10 @@ import {
   PackageNotification,
   FacilityRegister,
   DepositRefundCalculation,
-PaymentScheme } from '../types/asrama';
+  PaymentScheme,
+  ApiLinkRecord,
+  SiakadMahasiswaStgRecord
+} from '../types/asrama';
 
 export const initialPaymentSchemes: PaymentScheme[] = [
   { id: 'ps1', target: 'KIP', maxInstallments: 3, installmentMultiplier: 1.5, allowDepositInstallment: false },
@@ -343,6 +346,133 @@ export const SAMPLE_REFUND_CALCULATIONS: DepositRefundCalculation[] = [
     totalDeduction: 150000,
     finalRefundAmount: 850000,
     status: 'APPROVED',
+  }
+];
+
+export const INITIAL_API_LINKS: ApiLinkRecord[] = [
+  {
+    id: 1,
+    jenis: 'penyewa',
+    kategori: 'nonkip',
+    link: 'https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006',
+    nama: 'Beasiswa Khusus',
+    last_synced_at: '2026-10-13 10:00:00',
+    total_records: 48,
+    status_connection: 'connected'
+  },
+  {
+    id: 2,
+    jenis: 'penyewa',
+    kategori: 'kip',
+    link: 'https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002',
+    nama: 'KIP',
+    last_synced_at: '2026-10-13 10:00:00',
+    total_records: 65,
+    status_connection: 'connected'
+  }
+];
+
+export const INITIAL_SIAKAD_STAGING: SiakadMahasiswaStgRecord[] = [
+  {
+    id: 1,
+    api_link_id: 1,
+    kategori_beasiswa: 'nonkip',
+    nama_beasiswa: 'Beasiswa Khusus',
+    nomor_registrasi: 'PMB2026-08942',
+    nim_resmi: '2601015001',
+    has_active_nim: true, // Skenario 1: NIM resmi telah diterbitkan di SIAKAD & SIDARA
+    is_api_fields_complete: true,
+    nama_lengkap: 'Maximilian Wimin Winata',
+    nik: '1271040809980001',
+    email: 'maximilian.winata@ubtsu.ac.id',
+    nomor_telepon: '081234567890',
+    program_studi: 'Teknik Informatika',
+    fakultas: 'Teknologi Informasi',
+    jenis_kelamin: 'L',
+    status_klaim: 1,
+    status_verifikasi_subsidi: 1,
+    verified_by: 'Staf Keuangan Asrama',
+    verified_at: '2026-10-13 09:30:00',
+    catatan_admin: 'SK Beasiswa Khusus No. 104/UBT/2026 terverifikasi valid.',
+    synced_at: '2026-10-13 10:00:00'
+  },
+  {
+    id: 2,
+    api_link_id: 2,
+    kategori_beasiswa: 'kip',
+    nama_beasiswa: 'KIP',
+    nomor_registrasi: 'PMB-BTT-002-001',
+    has_active_nim: false, // Maba murni belum ada NIM resmi (jalur PMB reguler)
+    is_api_fields_complete: true,
+    nama_lengkap: 'Muhammad Fadhil Ramadhan',
+    nik: '1271011504030005',
+    email: 'm.fadhil.ramadhan@ubtsu.ac.id',
+    nomor_telepon: '081298765432',
+    program_studi: 'Agribisnis',
+    fakultas: 'Pertanian',
+    jenis_kelamin: 'L',
+    status_klaim: 0,
+    status_verifikasi_subsidi: 0,
+    synced_at: '2026-10-13 10:00:00'
+  },
+  {
+    id: 3,
+    api_link_id: 2,
+    kategori_beasiswa: 'kip',
+    nama_beasiswa: 'KIP',
+    nomor_registrasi: 'PMB-BTT-002-002',
+    has_active_nim: false,
+    is_api_fields_complete: false, // Output API belum lengkap
+    nama_lengkap: 'Siti Aisyah Nurfadilah',
+    nik: '',
+    email: 'siti.aisyah@ubtsu.ac.id',
+    nomor_telepon: '',
+    program_studi: 'Manajemen',
+    fakultas: 'Ekonomi & Bisnis',
+    jenis_kelamin: 'P',
+    status_klaim: 0,
+    status_verifikasi_subsidi: 0,
+    synced_at: '2026-10-13 10:00:00'
+  },
+  {
+    id: 4,
+    api_link_id: 1,
+    kategori_beasiswa: 'nonkip',
+    nama_beasiswa: 'Reguler Mahasiswa Aktif',
+    nomor_registrasi: '2240101088',
+    nim_resmi: '2240101088',
+    has_active_nim: true,
+    is_api_fields_complete: true, // Skenario 2A: Mahasiswa Eksisting (Bukan Penghuni) - Data Lengkap -> Fast-Track
+    nama_lengkap: 'Ahmad Zaky Maulana',
+    nik: '1271081405020003',
+    email: 'ahmad.zaky@ubtsu.ac.id',
+    nomor_telepon: '081266778899',
+    program_studi: 'Teknik Sipil',
+    fakultas: 'Teknik',
+    jenis_kelamin: 'L',
+    status_klaim: 0,
+    status_verifikasi_subsidi: 0,
+    synced_at: '2026-10-13 10:00:00'
+  },
+  {
+    id: 5,
+    api_link_id: 2,
+    kategori_beasiswa: 'kip',
+    nama_beasiswa: 'KIP',
+    nomor_registrasi: '2240101099',
+    nim_resmi: '2240101099',
+    has_active_nim: true,
+    is_api_fields_complete: false, // Skenario 2B: Mahasiswa Eksisting (Bukan Penghuni) - Data Belum Lengkap -> Form Step 1
+    nama_lengkap: 'Rina Anggraini',
+    nik: '', // NIK belum terisi di SIAKAD
+    email: 'rina.anggraini@ubtsu.ac.id',
+    nomor_telepon: '', // No HP belum terisi di SIAKAD
+    program_studi: 'Pendidikan Bahasa Inggris',
+    fakultas: 'Keguruan & Ilmu Pendidikan',
+    jenis_kelamin: 'P',
+    status_klaim: 0,
+    status_verifikasi_subsidi: 0,
+    synced_at: '2026-10-13 10:00:00'
   }
 ];
 

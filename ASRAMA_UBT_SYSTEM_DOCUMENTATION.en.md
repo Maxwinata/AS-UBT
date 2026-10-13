@@ -141,3 +141,21 @@ The system includes an intelligent state calculation mechanism (`getInitialStep`
 ## 8. Regulatory Compliance (JUKLAK-02 & JUKLAK-03)
 - **Hybrid Collective Agreement:** Avoids expensive individual e-signature subscriptions. Students consent electronically via WhatsApp OTP, and their identities are batched into the F-22 Collective Ratification Sheet, validated with a single physical Rp 10,000 duty stamp by the Dormitory Director.
 - **Audit Trail Immutability:** SHA-256 hashes, timestamps, and IP addresses are recorded to guarantee document authenticity under Article 11 of the Indonesian Electronic Information and Transactions Law (UU ITE).
+
+---
+
+## 9. SIAKAD API Database Integration (`api_link` & `siakad_mahasiswa_stg`)
+
+The dormitory platform connects to UBT's official SIAKAD academic database across two endpoints:
+1. **Endpoint 1 (Special Scholarship / Non-KIP)**:
+   - URL: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006`
+   - Category: `nonkip`, Name: `Beasiswa Khusus`
+2. **Endpoint 2 (KIP-Kuliah)**:
+   - URL: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002`
+   - Category: `kip`, Name: `KIP`
+
+### Architecture & Workflows:
+- **Pre-Registration Staging Table**: Ingested payloads are saved to `siakad_mahasiswa_stg` linked with `api_link`. Raw API data never pollutes active ledger tables (`penyewa`) until students formally initiate onboarding.
+- **Login-Time Auto-Fill**: Entering the PMB Registration Number (e.g., `PMB2026-08942` or `PMB-BTT-002-001`) automatically looks up the student's academic record and populates: Name, NIK, Phone, Study Program, Faculty, and Scholarship Track.
+- **Subsidy Qualification & Audit Governance**: While scholarship flags are recognized instantly on student profiles, fee waivers and subsidized deposits require manual ratification (1-click) by the Financial Admin in the `SiakadSyncManager` panel to ensure complete audit compliance for university accounts.
+

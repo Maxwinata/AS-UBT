@@ -54,6 +54,18 @@ const tables = [
     id: 'delinquencies', 
     name: 'delinquencies (SOP 5+5)', 
     columns: ['id (PK)', 'user_id (FK)', 'due_date', 'days_overdue', 'stage', 'deposit_deducted', 'fine_amount'] 
+  },
+  
+  // 3. INTEGRASI API SIAKAD UBT (Pra-Registrasi)
+  { 
+    id: 'api_link', 
+    name: 'api_link (Endpoint SIAKAD)', 
+    columns: ['id (PK)', 'jenis', 'kategori (nonkip/kip)', 'link', 'nama', 'total_records', 'last_synced_at'] 
+  },
+  { 
+    id: 'siakad_mahasiswa_stg', 
+    name: 'siakad_mahasiswa_stg (Staging Pra-Registrasi)', 
+    columns: ['id (PK)', 'api_link_id (FK)', 'nomor_registrasi (UK)', 'nama_lengkap', 'nik', 'kategori_beasiswa', 'status_klaim', 'status_verifikasi_subsidi'] 
   }
 ];
 
@@ -72,6 +84,10 @@ const relationships = [
   { source: 'penyewa', target: 'kamar', label: 'kamar_id (FK)' },
   { source: 'penyewa', target: 'users', label: 'nim (FK)' },
   { source: 'delinquencies', target: 'users', label: 'user_id (FK)' },
+
+  // SIAKAD Integration
+  { source: 'siakad_mahasiswa_stg', target: 'api_link', label: 'api_link_id (FK)' },
+  { source: 'penyewa', target: 'siakad_mahasiswa_stg', label: 'AUTO-FILL PMB' },
 
   // Bridging Migration Flow (Verifikasi & Promosi Admin)
   { source: 'pembayaran', target: 'request_pembayaran', label: 'BRIDGING PROMOTE' },

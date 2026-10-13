@@ -72,6 +72,8 @@ import {
   Settings2,
   Sparkles,
   Save,
+  Link2,
+  GraduationCap,
 } from 'lucide-react';
 
 import { AddressForm } from './AddressForm';
@@ -79,11 +81,13 @@ import { useFormValidation } from '../../hooks/useFormValidation';
 import { CaptureComponent } from '../shared/CaptureComponent';
 import { VerifikasiTrail, VerificationAttempt } from './VerifikasiTrail';
 
-import { TariffItem, PaymentScheme } from '../../types/asrama';
+import { TariffItem, PaymentScheme, SiakadMahasiswaStgRecord } from '../../types/asrama';
+import { INITIAL_SIAKAD_STAGING } from '../../data/initialData';
 
 interface MabaDashboardProps {
   tariffs?: TariffItem[];
   paymentSchemes?: PaymentScheme[];
+  siakadStaging?: SiakadMahasiswaStgRecord[];
   profile: MabaProfile | any;
   invoice: BillingInvoice;
   room?: RoomPlot;
@@ -111,6 +115,7 @@ const getInitialStep = (
   if (invoice.status === 'PAID') return 4;
   if (invoice.status === 'PENDING_VERIFICATION') return 3;
   if (profile.kycVerified && invoice.status === 'UNPAID') {
+    if (profile.isFastTrackSso) return 2; // Mahasiswa Fast-Track SSO langsung diarahkan ke Step 2
     if (invoice.totalBayar > 0) return 3;
     return 2;
   }
@@ -131,6 +136,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   onUpdateTicket,
   tariffs = [],
   paymentSchemes = [],
+  siakadStaging = INITIAL_SIAKAD_STAGING,
   onUpdateProfile,
 }) => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -406,6 +412,35 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
     setProfile(updated);
     if (onUpdateProfile) {
       onUpdateProfile(updated);
+    }
+  };
+
+  // SIAKAD Match & Auto-Fill Helper
+  const currentRegNo = profile.noPmb || profile.nim || '';
+  const matchedSiakadRecord = siakadStaging.find(
+    (s: SiakadMahasiswaStgRecord) =>
+      (currentRegNo && s.nomor_registrasi.toLowerCase() === currentRegNo.toLowerCase()) ||
+      (profile.nik && s.nik === profile.nik)
+  );
+
+  const handleAutoFillFromSiakad = () => {
+    const target = matchedSiakadRecord || siakadStaging.find((s: SiakadMahasiswaStgRecord) => s.nomor_registrasi === 'PMB2026-08942') || siakadStaging[0];
+    if (target) {
+      updateProfileObject({
+        nama: target.nama_lengkap,
+        nik: target.nik,
+        noPmb: target.nomor_registrasi,
+        nim: target.nomor_registrasi.startsWith('PMB') ? 'Belum tersedia' : target.nomor_registrasi,
+        noHpWa: target.nomor_telepon || profile.noHpWa,
+        prodi: target.program_studi || profile.prodi,
+        fakultas: target.fakultas || profile.fakultas,
+        kategori: target.kategori_beasiswa === 'kip' ? 'KIP' : 'REGULER',
+        isKipStudent: target.kategori_beasiswa === 'kip',
+        kipNumber: target.kategori_beasiswa === 'kip' ? target.nomor_registrasi : undefined,
+      });
+      toast.success(`Data SIAKAD ${target.nama_lengkap} (${target.nomor_registrasi}) berhasil dimuat ke formulir!`);
+    } else {
+      toast.error('Tidak ditemukan data pra-registrasi SIAKAD yang cocok.');
     }
   };
 
@@ -2071,6 +2106,63 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
                 {/* Expanded Form View */}
                 <div className={`mt-5 grid grid-cols-2 gap-4 transition-all duration-300 ${isAcademicExpanded ? 'block' : 'hidden'}`}>
+                  {/* SIAKAD Auto-Fill Helper Bar */}
+                  <div className="col-span-2 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
+                        <Link2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-indigo-950 flex flex-wrap items-center gap-2">
+                          <span>Sinkronisasi Data SIAKAD UBT</span>
+                          <span className="text-[10px] font-mono text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded font-bold">
+                            {profile.isKipStudent ? 'Jalur: KIP (mahasiswa-btt-002)' : 'Jalur: Beasiswa Khusus (mahasiswa-btt-006)'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          {matchedSiakadRecord ? (
+                            <span>
+                              Terhubung dengan data pra-registrasi: <strong className="text-slate-900">{matchedSiakadRecord.nama_lengkap}</strong> ({matchedSiakadRecord.nomor_registrasi}) · {matchedSiakadRecord.program_studi}
+                            </span>
+                          ) : (
+                            <span>Ketikkan No. Registrasi PMB atau NIM untuk auto-fill biodata dari database SIAKAD.</span>
+                          )}
+                        </div>
+                        {matchedSiakadRecord && (
+                          <div className="text-[10px] font-medium mt-1">
+                            {matchedSiakadRecord.status_verifikasi_subsidi === 1 ? (
+                              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Subsidi Beasiswa Terverifikasi Sah oleh Staf Keuangan
+                              </span>
+                            ) : matchedSiakadRecord.status_verifikasi_subsidi === -1 ? (
+                              <span className="text-slate-500 flex items-center gap-1">
+                                Tarif Normal Non-Subsidi Diberlakukan
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                Hak Subsidi Beasiswa Menunggu Review Staf Keuangan
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={handleAutoFillFromSiakad}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        title="Tarik data otomatis dari endpoint SIAKAD ke formulir ini"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Tarik Auto-Fill SIAKAD</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="col-span-2 md:col-span-1">
                     <label className="text-slate-700 block mb-1 text-[11px] font-bold">Nama Lengkap *</label>
                     {isEditingAcademic ? (
@@ -3069,6 +3161,34 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
               Rincian biaya dan skema cicilan dihitung otomatis berdasarkan regulasi <strong>Konfigurasi Master Tarif & Skema Cicilan</strong> yang aktif.
             </p>
           </div>
+
+          {profile.isFastTrackSso && (
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-emerald-950 flex items-center gap-2">
+                    <span>Jalur Fast-Track SSO SIDARA Aktif</span>
+                    <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                      NIM: {profile.nim}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Data biodata mahasiswa aktif telah terverifikasi lengkap dari pangkalan data SIAKAD & SIDARA UBT. Tahapan pengisian profil e-KYC (Langkah 1) dilewati secara otomatis.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="text-[11px] font-bold text-teal-800 hover:text-teal-950 hover:underline shrink-0 cursor-pointer"
+              >
+                Lihat / Periksa Biodata Step 1 &rarr;
+              </button>
+            </div>
+          )}
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-6">
             {/* Status Jalur & Pengaturan Master Tarif Aktif */}

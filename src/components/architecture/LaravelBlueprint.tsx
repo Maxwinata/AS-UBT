@@ -224,10 +224,50 @@ return new class extends Migration
             $table->timestamps(3);
             $table->index('no_invoice');
         });
+
+        // 8. INTEGRASI SIAKAD 1: api_link (Konfigurasi Endpoint)
+        Schema::create('api_link', function (Blueprint $table) {
+            $table->id();
+            $table->string('jenis', 50)->default('penyewa');
+            $table->string('kategori', 50)->comment('nonkip / kip');
+            $table->string('link', 255);
+            $table->string('nama', 100);
+            $table->dateTime('last_synced_at')->nullable();
+            $table->integer('total_records')->default(0);
+            $table->timestamps();
+        });
+
+        // 9. INTEGRASI SIAKAD 2: siakad_mahasiswa_stg (Staging Pra-Registrasi)
+        Schema::create('siakad_mahasiswa_stg', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('api_link_id');
+            $table->string('kategori_beasiswa', 50)->comment('nonkip / kip');
+            $table->string('nama_beasiswa', 100)->nullable();
+            $table->string('nomor_registrasi', 50)->unique();
+            $table->string('nama_lengkap', 191);
+            $table->string('nik', 16)->nullable();
+            $table->string('email', 100)->nullable();
+            $table->string('nomor_telepon', 50)->nullable();
+            $table->string('program_studi', 100)->nullable();
+            $table->string('fakultas', 100)->nullable();
+            $table->char('jenis_kelamin', 1)->nullable();
+            $table->integer('status_klaim')->default(0);
+            $table->integer('status_verifikasi_subsidi')->default(0);
+            $table->string('verified_by')->nullable();
+            $table->dateTime('verified_at')->nullable();
+            $table->text('catatan_admin')->nullable();
+            $table->json('payload_raw')->nullable();
+            $table->timestamp('synced_at')->useCurrent();
+            $table->timestamps();
+            $table->index('nomor_registrasi');
+            $table->foreign('api_link_id')->references('id')->on('api_link')->onDelete('cascade');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('siakad_mahasiswa_stg');
+        Schema::dropIfExists('api_link');
         Schema::dropIfExists('transaksi');
         Schema::dropIfExists('pembayaran_detail');
         Schema::dropIfExists('pembayaran');
@@ -675,7 +715,56 @@ class Pembayaran extends Model
 }
 
 // ==========================================
-// 6. app/Models/PaymentScheme.php
+// 6. app/Models/ApiLink.php (Integrasi SIAKAD UBT)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
+
+class ApiLink extends Model
+{
+    protected $table = 'api_link';
+    protected $guarded = ['id'];
+    protected $casts = [
+        'last_synced_at' => 'datetime',
+        'total_records' => 'integer',
+    ];
+
+    public function mahasiswaStaging(): HasMany
+    {
+        return $this->hasMany(SiakadMahasiswaStg::class, 'api_link_id');
+    }
+}
+
+// ==========================================
+// 7. app/Models/SiakadMahasiswaStg.php (Staging Pra-Registrasi)
+// ==========================================
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
+
+class SiakadMahasiswaStg extends Model
+{
+    protected $table = 'siakad_mahasiswa_stg';
+    protected $guarded = ['id'];
+    protected $casts = [
+        'status_klaim' => 'integer',
+        'status_verifikasi_subsidi' => 'integer',
+        'verified_at' => 'datetime',
+        'synced_at' => 'datetime',
+        'payload_raw' => 'array',
+    ];
+
+    public function apiLink(): BelongsTo
+    {
+        return $this->belongsTo(ApiLink::class, 'api_link_id');
+    }
+}
+
+// ==========================================
+// 8. app/Models/PaymentScheme.php
 // ==========================================
 namespace App\\Models;
 
@@ -1122,6 +1211,127 @@ class AdminAsramaController extends Controller
 
             return back()->with('success', "Permintaan {$noRequest} berhasil disahkan ke Master Invoice {$officialInvoice}.");
         });
+    }
+}
+
+// ==============================================================
+// 6. app/Http/Controllers/Admin/SiakadSyncController.php (Integrasi SIAKAD API)
+// ==============================================================
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\ApiLink;
+use App\Models\SiakadMahasiswaStg;
+use App\Services\SiakadSyncService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+
+class SiakadSyncController extends Controller
+{
+    protected SiakadSyncService $syncService;
+
+    public function __construct(SiakadSyncService $syncService)
+    {
+        $this->syncService = $syncService;
+    }
+
+    public function triggerSync(Request $request): JsonResponse
+    {
+        $results = $this->syncService->syncAll();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Sinkronisasi API SIAKAD UBT (mahasiswa-btt-006 & 002) berhasil dijalankan.',
+            'results' => $results,
+        ]);
+    }
+
+    public function verifySubsidi(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:1,-1', // 1 = Disetujui, -1 = Standar
+            'catatan' => 'nullable|string|max:500',
+        ]);
+
+        $stg = SiakadMahasiswaStg::findOrFail($id);
+        $stg->update([
+            'status_verifikasi_subsidi' => (int) $validated['status'],
+            'verified_by' => $request->user()?->name ?? 'Staf Keuangan Asrama',
+            'verified_at' => now(),
+            'catatan_admin' => $validated['catatan'] ?? null,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Status hak subsidi beasiswa berhasil diverifikasi.',
+            'data' => $stg,
+        ]);
+    }
+}
+
+// ==============================================================
+// 7. app/Services/SiakadSyncService.php (Engine HTTP Sync SIAKAD)
+// ==============================================================
+namespace App\Services;
+
+use App\Models\ApiLink;
+use App\Models\SiakadMahasiswaStg;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class SiakadSyncService
+{
+    public function syncAll(): array
+    {
+        $links = ApiLink::all();
+        $results = [];
+        foreach ($links as $apiLink) {
+            $results[] = $this->syncByLink($apiLink);
+        }
+        return $results;
+    }
+
+    public function syncByLink(ApiLink $apiLink): array
+    {
+        try {
+            $response = Http::timeout(15)->get($apiLink->link);
+            if (!$response->successful()) {
+                throw new \Exception("HTTP Status " . $response->status());
+            }
+
+            $payload = $response->json();
+            $items = is_array($payload) ? ($payload['data'] ?? $payload) : [];
+            $savedCount = 0;
+
+            foreach ($items as $item) {
+                $noReg = $item['nim'] ?? $item['nomor_registrasi'] ?? $item['no_pmb'] ?? null;
+                if (!$noReg) continue;
+
+                SiakadMahasiswaStg::updateOrCreate(
+                    ['nomor_registrasi' => $noReg],
+                    [
+                        'api_link_id' => $apiLink->id,
+                        'kategori_beasiswa' => $apiLink->kategori,
+                        'nama_beasiswa' => $apiLink->nama,
+                        'nama_lengkap' => $item['nama'] ?? $item['namalengkap'] ?? 'Tanpa Nama',
+                        'nik' => $item['nik'] ?? $item['noktp'] ?? null,
+                        'email' => $item['email'] ?? null,
+                        'nomor_telepon' => $item['no_hp'] ?? $item['nohp'] ?? null,
+                        'program_studi' => $item['prodi'] ?? $item['program_studi'] ?? null,
+                        'fakultas' => $item['fakultas'] ?? null,
+                        'jenis_kelamin' => strtoupper(substr($item['jenis_kelamin'] ?? 'L', 0, 1)),
+                        'payload_raw' => $item,
+                        'synced_at' => now(),
+                    ]
+                );
+                $savedCount++;
+            }
+
+            $apiLink->update(['last_synced_at' => now(), 'total_records' => $savedCount]);
+            return ['status' => 'success', 'nama' => $apiLink->nama, 'total_synced' => $savedCount];
+        } catch (\Throwable $e) {
+            Log::error("SIAKAD Sync Error [{$apiLink->nama}]: " . $e->getMessage());
+            return ['status' => 'error', 'nama' => $apiLink->nama, 'message' => $e->getMessage()];
+        }
     }
 }
 `;

@@ -1,80 +1,126 @@
-# Rencana Evaluasi & Penyelarasan Dokumentasi Ekosistem Portal Asrama UBT
+# Rencana Implementasi: Integrasi SIAKAD & Protokol Sinkronisasi SIDARA (Skenario 1 & 2)
 
-Evaluasi komprehensif untuk memutakhirkan dokumentasi teknis, menghapus spesifikasi ekosistem usang (legacy REST API & duplikasi panduan setup), serta membersihkan berkas sampah temporer di seluruh repositori.
-
----
-
-## User Review & Critical Decisions
-
-> [!IMPORTANT]
-> Berdasarkan hasil audit repositori, sistem telah sepenuhnya beroperasi pada stack **Laravel 11 + Inertia.js 2.0 + React 19 + Tailwind CSS v4**. Namun, terdapat beberapa ketidaksesuaian kritis pada dokumentasi yang perlu diselaraskan:
-> 1. **Eliminasi Rute REST API Fiktif**: Bab 5 pada dokumen spesifikasi utama masih mencantumkan belasan endpoint REST API tradisional yang tidak ada di `routes/web.php` maupun `routes/api.php`. Kita akan menyelaraskannya dengan rute Controller Inertia nyata.
-> 2. **Konsolidasi Panduan Setup**: Terdapat 5 dokumen setup terpisah yang saling tumpang tindih dan masih menulis instruksi usang seperti `composer create-project` (padahal repositori ini sudah merupakan aplikasi utuh siap jalan). Kita akan merapikannya menjadi panduan definitif.
-> 3. **Pembersihan Root Artifacts**: Terdapat berkas `bun.lock` dan lebih dari 50 skrip patch `.cjs` sisa pengujian lama yang tidak lagi memiliki nilai fungsional.
-
-- **Keputusan 1**: Menyelaraskan `ASRAMA_UBT_SYSTEM_DOCUMENTATION.md` dan `docs/ARCHITECTURE.md` agar 100% mencerminkan arsitektur Inertia Monolith dan model database Eloquent yang sebenarnya.
-- **Keputusan 2**: Mengonsolidasikan panduan setup lokal (Laragon & XAMPP) menjadi satu panduan terpadu yang jelas, menghapus panduan duplikat yang membingungkan pengembang.
-- **Keputusan 3**: Menghapus `bun.lock` serta seluruh skrip patch sementara (`*.cjs`, `*.txt`, `sourcemap.*`) dari root direktori.
+Rencana arsitektur dan teknis penerapan keterhubungan satu pintu antara API SIAKAD UBT dan ekosistem SIDARA Synchronization & Booking Migration Protocol mengacu pada **SCENARIO-mappings.md** serta keputusan klarifikasi pengguna:
+1. **Skenario 1 (Maba Baru Onboarding - Deteksi NIM Resmi)**:
+   - Jika calon mahasiswa mendaftar via form PMB namun di API SIAKAD/SIDARA telah diterbitkan NIM resmi, sistem menampilkan **Modal Notifikasi Pengalihan SSO** yang memandu mahasiswa masuk melalui jalur SSO Kampus terintegrasi.
+2. **Skenario 2 (Mahasiswa Eksisting Bukan Penghuni via SSO)**:
+   - Mahasiswa aktif kampus yang login via SSO dan terverifikasi di SIAKAD/SIDARA namun belum tercatat di master `penyewa` diarahkan ke **Fast-Track Pendaftaran** (langsung ke Step 2 Pemilihan Kamar & Tagihan) **hanya jika field output API memadai** (Nama, NIK, No. HP, Prodi, Fakultas lengkap). Jika belum memadai, diarahkan ke Step 1 untuk melengkapi field yang kurang.
+3. **Mekanisme Pencocokan**:
+   - Pencocokan otomatis dilakukan pada level data staging `siakad_mahasiswa_stg` via korelasi nomor registrasi PMB dan NIK.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Arsitektur Ekosistem SIAKAD, SIDARA & Asrama UBT
 
-- **Tujuan**: Menghadirkan dokumentasi teknis yang akurat, mutakhir, dan bebas kontradiksi, sehingga tim pengembang baru dapat langsung memahami alur data tanpa tersesat oleh spesifikasi lama yang sudah ditinggalkan.
-- **Target Sasaran**: Pengembang backend Laravel, pengembang frontend React, auditor kepatuhan SOP asrama, dan DevOps/administrator server.
-- **Manfaat**: Mencegah salah paham arsitektur (REST vs Inertia), mempercepat proses *onboarding* lokal di Laragon/XAMPP, dan menjaga kebersihan repositori produksi.
-
----
-
-## 2. User Experience & Visual Design
-
-### A. Alur Dokumentasi yang Bersih (Documentation Information Architecture)
-
-1. **Root Readme & Quickstart**:
-   - Menyediakan panduan 1-klik untuk menjalankan sistem baik di lingkungan **Laragon** (`laragon-setup.bat`) maupun **XAMPP** (`xampp-setup.bat`).
-   - Panduan eksekusi ganda: Terminal 1 (`npm run dev`) dan Terminal 2 (`php artisan serve`).
-
-2. **System Specification Document (`ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`)**:
-   - Bagian Tech Stack: Diperbarui menjadi Laravel 11, Inertia.js 2.0, React 19, Tailwind CSS v4.
-   - Bagian Komunikasi: Menguraikan alur kerja Inertia.js (`Inertia::render`, Props Injection, `router.post`) dan membatasi REST API murni hanya untuk Webhook Bank & WhatsApp.
-   - Bagian Field & Table Mapping: Diselaraskan dengan tabel migration aktual (`billing_invoices`, `maba_profiles`, `delinquencies`, `tariffs`, dll).
-
-3. **Domain Legal & Regulasi (`docs/JUKLAK_REFERENCE.md` & `AGENTS.md`)**:
-   - Dipertahankan secara ketat: Aturan penomoran versi e-KYC KTP/Selfie, private storage bucket, signed URLs 15 menit, dan regulasi Lembar Ratifikasi Kolektif F-22 (JUKLAK-02 & JUKLAK-03).
-
----
-
-## 3. Keputusan Teknis & Evaluasi Ekosistem
-
-- **Evaluasi 1: REST API vs Inertia Monolith**
-  - *Kondisi Lama*: Dokumen mencantumkan `POST /api/admissions/register`, `POST /api/payments/manual-transfer`, dsb.
-  - *Kondisi Nyata*: Seluruh komunikasi form menggunakan Inertia Controller (`MabaDashboardController@updateProfile`, `InvoiceController@configure`, `AdminAsramaController@verifyInvoice`).
-  - *Tindakan*: Menghapus tabel REST API fiktif dan menggantinya dengan **Inertia Endpoint & Props Contract Table**.
-
-- **Evaluasi 2: Panduan Setup Terfragmentasi**
-  - *Kondisi Lama*: Ada `LARAGON_SETUP.md`, `XAMPP_SETUP.md`, `LARAVEL_INERTIA_REACT_GUIDE.md`, `docs/LARAVEL_DEVELOPMENT_ECOSYSTEM_GUIDE.md`, `docs/LARAVEL_INERTIA_SETUP.md`.
-  - *Tindakan*: Mengonsolidasikan instruksi ke dalam panduan terstruktur, menghapus berkas redundan yang masih memuat langkah usang `composer create-project laravel/laravel`.
-
-- **Evaluasi 3: Berkas Ekosistem Bun & Skrip Patch .cjs**
-  - *Kondisi Lama*: Ada `bun.lock` dan 50+ berkas patch seperti `patch_maba_step1.cjs`, `fix_comma.cjs`, `patch_tariff_manager.cjs`.
-  - *Kondisi Nyata*: Perubahan kode telah permanen tersimpan di dalam berkas sumber `src/` dan `resources/`. Skrip patch tersebut sudah tidak pernah dijalankan lagi.
-  - *Tindakan*: Menghapus `bun.lock` dan seluruh berkas `.cjs` serta `.txt` sampah di root direktori.
+```
+                    [ PANGKALAN DATA SIAKAD & SIDARA KAMPUS UBT ]
+                           (Satu-Satunya Pintu Data Akademik)
+                                           │
+                                           ▼ (Protokol Sinkronisasi Terjadwal / On-Demand)
+                   [ BACKEND LARAVEL: SiakadSyncService & SIDARA Engine ]
+                                           │
+                        ┌──────────────────┴──────────────────┐
+                        ▼                                     ▼
+             [ TABEL MASTER: api_link ]          [ TABEL STAGING: siakad_mahasiswa_stg ]
+             - endpoint mahasiswa-btt-006        - nomor_registrasi (PMB) & nik
+             - endpoint mahasiswa-btt-002        - nim_resmi & has_active_nim
+                                                 - is_api_fields_complete (Kelengkapan Data)
+                                           │
+         ┌─────────────────────────────────┴─────────────────────────────────┐
+         ▼                                                                   ▼
+┌─────────────────────────────────────────┐       ┌─────────────────────────────────────────┐
+│     SKENARIO 1: MABA BARU ONBOARDING    │       │     SKENARIO 2: MAHASISWA EKSISTING     │
+│       (Login via Formulir PMB)          │       │           (Login via SSO UBT)           │
+├─────────────────────────────────────────┤       ├─────────────────────────────────────────┤
+│ 1. Input Nomor PMB                      │       │ 1. Login Kredensial SSO (NIM Valid)     │
+│ 2. Cek apakah NIM Resmi terbit?         │       │ 2. Cek status di tabel penyewa:         │
+│    ├── SUDAH (has_active_nim = true):   │       │    ├── AKTIF: Masuk Dashboard Eksisting │
+│    │   Modal: "NIM Resmi Terbit!" ──────┼──────►│    └── NULL (Bukan Penghuni):            │
+│    │   Alihkan ke SSO (NIM Terisi)      │       │        Evaluasi kelengkapan field API:  │
+│    └── BELUM: Lanjut Onboarding Reguler │       │        ├── LENGKAP: Fast-Track (Step 2) │
+│        (Admisi 6-Langkah Standar)       │       │        └── BELUM: Form Step 1 (Lengkapi)│
+└─────────────────────────────────────────┘       └─────────────────────────────────────────┘
+```
 
 ---
 
-## 4. Rencana Kerja Bertahap (Execution Roadmap)
+## 2. Struktur Data & Perubahan Model
 
-### Tahap 1: Pemutakhiran Dokumen Induk Sistem
-- Perbarui `ASRAMA_UBT_SYSTEM_DOCUMENTATION.md` untuk mengoreksi Tech Stack, menghapus endpoint REST API usang di Bagian 5, dan menggantinya dengan spesifikasi Inertia Controller & Props.
-- Sinkronkan `docs/ARCHITECTURE.md` dengan entitas model Eloquent aktual.
+### A. Penambahan Atribut pada `SiakadMahasiswaStgRecord` (`src/types/asrama.ts`)
+* `nim_resmi?: string`: Nomor Induk Mahasiswa resmi yang telah diterbitkan sistem SIAKAD/SIDARA (contoh: `2601015001`).
+* `has_active_nim: boolean`: Penanda apakah mahasiswa sudah memiliki NIM aktif sehingga wajib menggunakan SSO.
+* `is_api_fields_complete: boolean`: Flag evaluasi apakah data dasar (Nama, NIK, No. HP, Prodi, Fakultas, Jenis Kelamin) sudah lengkap dari payload API SIAKAD.
 
-### Tahap 2: Konsolidasi Panduan Lingkungan Pengembang
-- Rapikan panduan Laragon dan XAMPP agar langsung merujuk pada script otomasi yang sudah ada (`laragon-setup.bat` dan `xampp-setup.bat`).
-- Hapus panduan-panduan migrasi mentah yang redundan (`LARAVEL_INERTIA_REACT_GUIDE.md`, `docs/LARAVEL_INERTIA_SETUP.md`).
+### B. Pembaruan Initial Data (`src/data/initialData.ts`)
+* Menambahkan variasi data uji coba pada `INITIAL_SIAKAD_STAGING`:
+  1. **PMB2026-08942 (Maximilian)**: Terdeteksi memiliki NIM resmi `2601015001` (`has_active_nim = true`) untuk menguji pemicu Skenario 1 (Modal Pengalihan ke SSO).
+  2. **PMB-BTT-002-001 (Muhammad Fadhil)**: Maba murni belum memiliki NIM resmi (`has_active_nim = false`, `nim_resmi = undefined`) untuk menguji alur pendaftaran PMB standar.
+  3. **2240101088 (Ahmad Zaky)**: Mahasiswa aktif kampus di SIDARA, bukan penghuni asrama (`penyewa = null`), data API lengkap (`is_api_fields_complete = true`) untuk menguji Fast-Track Step 2.
+  4. **2240101099 (Rina Anggraini)**: Mahasiswa aktif kampus di SIDARA, data API belum lengkap NIK/kontak (`is_api_fields_complete = false`) untuk menguji fallback pengisian Step 1.
 
-### Tahap 3: Pembersihan Berkas Sampah (Repository Hygiene)
-- Hapus `bun.lock`.
-- Hapus seluruh berkas temporary patch (`*.cjs`, `patch.txt`, `patch2.txt`, `plan.txt`, `temp.txt`, `tariff_backup.txt`, `sourcemap.*`).
+---
 
-### Tahap 4: Verifikasi & Uji Integritas Sistem
-- Jalankan `compile_applet` dan `lint_applet` untuk memastikan pembersihan berkas tidak memengaruhi build runtime aplikasi.
+## 3. Komponen Antarmuka & UX Design (Sesuai Frontend Design Skill)
+
+### A. Modal Notifikasi "NIM Resmi Terbit" di `LoginDualTab.tsx`
+* **Trigger**: Calon mahasiswa submit form PMB atau memilih nomor registrasi yang memiliki `has_active_nim === true`.
+* **Visual**:
+  - Dialog modal fokus dengan backdrop blur halus (`bg-slate-900/60 backdrop-blur-sm`).
+  - Badge identitas: `SIAKAD & SIDARA INTEGRATION PROTOCOL`.
+  - Informasi kartu transparan berisi perbandingan No. PMB lama vs NIM resmi baru yang terbit.
+  - Aksi 1-klik: *"Masuk via SSO Menggunakan NIM Ini →"* yang secara otomatis:
+    1. Menutup modal.
+    2. Mengalihkan tampilan ke Tab Login SSO.
+    3. Mengisi kolom username SSO dengan NIM resmi secara instan.
+    4. Memberikan toast feedback bantuan kredensial.
+
+### B. Evaluasi & Fast-Track Mahasiswa Eksisting (Bukan Penghuni) via SSO
+* **Trigger**: Mahasiswa aktif login via SSO dan query `penyewa` menghasilkan NULL (Bukan Penghuni Aktif).
+* **Percabangan Logika**:
+  - **Jika Field API Memadai (`is_api_fields_complete === true`)**:
+    - Dialog konfirmasi pengalihan menampilkan opsi: *"Biodata Akademik SIAKAD Lengkap — Langsung Pilih Kamar (Fast-Track)"*.
+    - Sistem mengarahkan langsung ke **Step 2 (Rincian Tagihan & Pemilihan Kamar)**, mengunci biodata Step 1 sebagai data terverifikasi SIAKAD, memotong friksi pengisian ulang.
+  - **Jika Field API Belum Memadai (`is_api_fields_complete === false`)**:
+    - Sistem menampilkan banner informatif: *"Data Akademik SIAKAD Terhubung — Mohon lengkapi NIK dan Kontak Darurat"*.
+    - Sistem mengarahkan ke **Step 1** dengan kolom yang tersedia terisi otomatis, dan menandai kolom yang belum lengkap dengan border aksen lembut.
+
+---
+
+## 4. Proposed Changes by Files
+
+### Frontend & Logic Integration
+- **`src/types/asrama.ts`**:
+  - Tambahkan field `nim_resmi`, `has_active_nim`, dan `is_api_fields_complete` pada interface `SiakadMahasiswaStgRecord`.
+- **`src/data/initialData.ts`**:
+  - Perbarui mock data `INITIAL_SIAKAD_STAGING` agar mencakup kasus uji Skenario 1 dan 2 (lengkap vs belum lengkap).
+- **`src/components/auth/LoginDualTab.tsx`**:
+  - Tambahkan pengecekan `has_active_nim` pada `handleMabaSubmit`.
+  - Buat komponen modal notifikasi `NimDetectedModal` dengan auto-redirect ke SSO.
+  - Tambahkan evaluasi `is_api_fields_complete` pada modal `showRedirectModal` SSO untuk membedakan Fast-Track (Step 2) vs Form Melengkapi Biodata (Step 1).
+- **`src/App.tsx`**:
+  - Perbarui handler `handleLoginSuccess` untuk mendukung rute awal `initialStep = 2` saat mahasiswa eksisting bukan penghuni memenuhi syarat Fast-Track.
+- **`src/components/maba/MabaDashboard.tsx`**:
+  - Berikan visual penanda khusus saat mahasiswa masuk via Fast-Track SSO (misal: badge *"Data Akademik Terverifikasi Penuh dari SIDARA"*).
+
+### Dokumentasi
+- **`docs/scenario-mappings.md` & `docs/scenario-mappings.en.md`**:
+  - Perbarui matriks Skenario 1 dan 2 dengan klausul deteksi NIM resmi dan evaluasi kelengkapan field API.
+- **`docs/ARCHITECTURE.md` & `ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`**:
+  - Tambahkan alur teknis integrasi SIDARA Synchronization Protocol.
+
+---
+
+## 5. Verification Plan
+
+1. **Pengujian Skenario 1 (Maba Memiliki NIM Resmi)**:
+   - Pilih preset PMB `PMB2026-08942` pada form pendaftaran maba.
+   - Verifikasi modal *"NIM Resmi SIAKAD Terbit"* muncul dan menampilkan NIM `2601015001`.
+   - Klik tombol pengalihan dan verifikasi tab SSO aktif dengan NIM terisi otomatis.
+2. **Pengujian Skenario 2A (Eksisting Bukan Penghuni - Data Lengkap)**:
+   - Login SSO dengan akun mahasiswa bukan penghuni yang datanya lengkap.
+   - Verifikasi sistem langsung melompati Step 1 dan membuka Step 2 (Pemilihan Kamar & Durasi Sewa).
+3. **Pengujian Skenario 2B (Eksisting Bukan Penghuni - Data Belum Lengkap)**:
+   - Login SSO dengan akun mahasiswa bukan penghuni yang datanya belum lengkap.
+   - Verifikasi sistem membuka Step 1 dengan notifikasi untuk melengkapi field yang kurang.
+4. **Verifikasi Build**:
+   - Jalankan `lint_applet` (`tsc --noEmit`) dan `compile_applet` untuk memastikan tidak ada galat kompilasi.

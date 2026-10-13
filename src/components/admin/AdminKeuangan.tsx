@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { CreditCard, CheckCircle2, XCircle, RefreshCw, Zap, ShieldCheck, DollarSign, Search, AlertTriangle, ArrowRight, Settings2, Layers, Database, ArrowRightLeft, FileCheck, ArrowUpRight } from 'lucide-react';
-import { BillingInvoice, TariffItem, PaymentScheme } from '../../types/asrama';
+import { CreditCard, CheckCircle2, XCircle, RefreshCw, Zap, ShieldCheck, DollarSign, Search, AlertTriangle, ArrowRight, Settings2, Layers, Database, ArrowRightLeft, FileCheck, ArrowUpRight, Link2 } from 'lucide-react';
+import { BillingInvoice, TariffItem, PaymentScheme, ApiLinkRecord, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { TariffManager } from './TariffManager';
+import { SiakadSyncManager } from './SiakadSyncManager';
+import { INITIAL_API_LINKS, INITIAL_SIAKAD_STAGING } from '../../data/initialData';
 
 interface AdminKeuanganProps {
   invoices: BillingInvoice[];
@@ -11,6 +13,10 @@ interface AdminKeuanganProps {
   setTariffs?: (tariffs: TariffItem[]) => void;
   paymentSchemes?: PaymentScheme[];
   setPaymentSchemes?: (schemes: PaymentScheme[]) => void;
+  apiLinks?: ApiLinkRecord[];
+  siakadStaging?: SiakadMahasiswaStgRecord[];
+  onTriggerSiakadSync?: () => void;
+  onVerifySubsidi?: (stgId: number, status: 1 | -1, notes?: string) => void;
 }
 
 export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({ 
@@ -20,10 +26,14 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
   tariffs = [],
   setTariffs = () => {},
   paymentSchemes = [],
-  setPaymentSchemes = () => {}
+  setPaymentSchemes = () => {},
+  apiLinks = INITIAL_API_LINKS,
+  siakadStaging = INITIAL_SIAKAD_STAGING,
+  onTriggerSiakadSync = () => {},
+  onVerifySubsidi = () => {}
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'LEDGER' | 'BRIDGING' | 'MASTER'>('LEDGER');
+  const [activeTab, setActiveTab] = useState<'LEDGER' | 'BRIDGING' | 'MASTER' | 'SIAKAD'>('LEDGER');
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
@@ -48,14 +58,22 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
             <span className="text-xs text-slate-200">• Portal SI-GABUNG 54</span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight mt-1">
-            {activeTab === 'LEDGER' ? 'Verifikasi Pembayaran & Ledger Deposit' : activeTab === 'BRIDGING' ? 'Bridging Staging & Integrasi Database Web Admin' : 'Konfigurasi Master Tarif & Skema Cicilan'}
+            {activeTab === 'LEDGER' 
+              ? 'Verifikasi Pembayaran & Ledger Deposit' 
+              : activeTab === 'BRIDGING' 
+              ? 'Bridging Staging & Integrasi Database Web Admin' 
+              : activeTab === 'MASTER'
+              ? 'Konfigurasi Master Tarif & Skema Cicilan'
+              : 'Manajemen Integrasi API SIAKAD UBT'}
           </h2>
           <p className="text-xs text-teal-100 mt-1">
             {activeTab === 'LEDGER' 
               ? 'Sesuai DFD Level 1 (P3 & P4): Validasi 3 digit kode unik transfer manual & log automatic webhook VA.'
               : activeTab === 'BRIDGING'
               ? 'Arsitektur Bridging Otonom: Sinkronisasi 3 tabel pendaftaran mandiri Maba (request_*) ke 3 tabel master berjalan (pembayaran, pembayaran_detail, transaksi, penyewa).'
-              : 'Otoritas Finansial Terpusat: Penetapan SK tarif sewa, deposit jaminan, perlengkapan awal, dan regulasi tenor cicilan.'}
+              : activeTab === 'MASTER'
+              ? 'Otoritas Finansial Terpusat: Penetapan SK tarif sewa, deposit jaminan, perlengkapan awal, dan regulasi tenor cicilan.'
+              : 'Sinkronisasi 2 Endpoint SIAKAD: Penarikan data calon mahasiswa pra-registrasi dan audit manual kelayakan subsidi beasiswa.'}
           </p>
         </div>
 
@@ -126,6 +144,19 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
           <DollarSign className="w-4 h-4 text-emerald-600" />
           <span>Master Tarif & Skema Cicilan</span>
           <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">Otoritas CRUD</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('SIAKAD')}
+          className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+            activeTab === 'SIAKAD' 
+              ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50 rounded-t-xl' 
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          <Link2 className="w-4 h-4 text-indigo-600" />
+          <span>API SIAKAD & Subsidi</span>
+          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">2 Endpoint Link</span>
         </button>
       </div>
 
@@ -655,6 +686,18 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: API SIAKAD & VERIFIKASI SUBSIDI */}
+      {activeTab === 'SIAKAD' && (
+        <div className="animate-in fade-in duration-200">
+          <SiakadSyncManager
+            apiLinks={apiLinks}
+            stagingList={siakadStaging}
+            onTriggerSync={onTriggerSiakadSync}
+            onVerifySubsidi={onVerifySubsidi}
+          />
         </div>
       )}
     </div>

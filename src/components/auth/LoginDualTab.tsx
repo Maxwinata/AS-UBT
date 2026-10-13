@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldCheck, LogIn, Sparkles, KeyRound, AlertCircle, ArrowRight, CheckCircle2, Database, AlertTriangle, Building, RefreshCw, X, Loader2 } from 'lucide-react';
+import { ShieldCheck, LogIn, Sparkles, KeyRound, AlertCircle, ArrowRight, CheckCircle2, Database, AlertTriangle, Building, RefreshCw, X, Loader2, Link2, GraduationCap } from 'lucide-react';
+import { toast } from 'sonner';
 import { UserRole } from '../../types/asrama';
+import { INITIAL_SIAKAD_STAGING } from '../../data/initialData';
 
 interface LoginDualTabProps {
   onLoginSuccess: (role: UserRole, nim: string, nama: string, notice?: string, scenario?: string) => void;
@@ -23,20 +25,23 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
   const [mabaBirthDate, setMabaBirthDate] = useState('2007-04-12');
 
   // Form State SSO Eksisting
-  const [ssoUsername, setSsoUsername] = useState('2240101088'); // Default to Non-Active Resident to demonstrate the pathway requirement
+  const [ssoUsername, setSsoUsername] = useState('2240101088'); // Default to Non-Active Resident (Ahmad Zaky)
   const [ssoPassword, setSsoPassword] = useState('••••••••••••');
-  const [selectedSsoAccount, setSelectedSsoAccount] = useState<'NON_ACTIVE' | 'ACTIVE_RESIDENT' | 'ACTIVE_RESIDENT_INSTALLMENT' | 'ACTIVE_RESIDENT_RENEWAL'>('NON_ACTIVE');
+  const [selectedSsoAccount, setSelectedSsoAccount] = useState<
+    'NON_ACTIVE_COMPLETE' | 'NON_ACTIVE_INCOMPLETE' | 'ACTIVE_RESIDENT' | 'OFFICIAL_NIM_MIGRATED' | 'ACTIVE_RESIDENT_INSTALLMENT' | 'ACTIVE_RESIDENT_RENEWAL'
+  >('NON_ACTIVE_COMPLETE');
 
   // Database Verification Overlay/Modal state
   const [isCheckingSsoDb, setIsCheckingSsoDb] = useState(false);
   const [ssoCheckStep, setSsoCheckStep] = useState<number>(0); // 0 = idle, 1 = SSO auth, 2 = DB query, 3 = Evaluated
   const [showRedirectModal, setShowRedirectModal] = useState<boolean>(false);
+  const [showNimDetectedModal, setShowNimDetectedModal] = useState<boolean>(false);
+  const [detectedNimStudent, setDetectedNimStudent] = useState<any>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedScenario, setSelectedScenario] = useState<'NEW' | 'INVOICE_FORMED'>('NEW');
 
-  
   const handleSsoRedirectClick = () => {
     setIsRedirectingSso(true);
     setTimeout(() => {
@@ -52,11 +57,24 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
 
     setTimeout(() => {
       setIsLoading(false);
-      if (pmbNoReg.trim().length < 5) {
+      const cleanReg = pmbNoReg.trim();
+      if (cleanReg.length < 5) {
         setErrorMessage('Nomor Registrasi PMB / NIM awal tidak ditemukan di database SIAKAD UBT.');
         return;
       }
-      onLoginSuccess('maba', pmbNoReg, 'Maximilian Wimin Winata', undefined, selectedScenario);
+      const matched = INITIAL_SIAKAD_STAGING.find(
+        (s) => s.nomor_registrasi.toLowerCase() === cleanReg.toLowerCase() || (s.nik && s.nik === cleanReg)
+      );
+
+      // SKENARIO 1: Deteksi apakah calon mahasiswa sudah memiliki NIM resmi di SIAKAD & SIDARA!
+      if (matched && matched.has_active_nim && matched.nim_resmi) {
+        setDetectedNimStudent(matched);
+        setShowNimDetectedModal(true);
+        return;
+      }
+
+      const studentName = matched ? matched.nama_lengkap : 'Maximilian Wimin Winata';
+      onLoginSuccess('maba', cleanReg, studentName, undefined, selectedScenario);
     }, 600);
   };
 
@@ -80,7 +98,15 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
         setSsoCheckStep(3); // Step 3: Result Evaluated
         setIsCheckingSsoDb(false);
 
-        if (selectedSsoAccount === 'NON_ACTIVE' || ssoUsername.includes('88') || ssoUsername.toLowerCase().includes('max')) {
+        const isNotActiveResident =
+          selectedSsoAccount.startsWith('NON_ACTIVE') ||
+          selectedSsoAccount === 'OFFICIAL_NIM_MIGRATED' ||
+          ssoUsername.includes('88') ||
+          ssoUsername.includes('99') ||
+          ssoUsername.startsWith('260') ||
+          ssoUsername.toLowerCase().includes('max');
+
+        if (isNotActiveResident) {
           // NOT AN ACTIVE RESIDENT -> Show Modal explaining redirection to Pendaftaran
           setShowRedirectModal(true);
         } else {
@@ -93,11 +119,23 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
 
   const handleProceedToRegistration = () => {
     setShowRedirectModal(false);
+    const matched = INITIAL_SIAKAD_STAGING.find(
+      (s) => s.nomor_registrasi === ssoUsername || s.nim_resmi === ssoUsername
+    );
+    const studentName = matched ? matched.nama_lengkap : 'Mahasiswa Aktif UBT';
+    const isComplete = matched ? matched.is_api_fields_complete !== false : true;
+    const scenario = isComplete ? 'FAST_TRACK' : 'INCOMPLETE_DATA';
+
     onLoginSuccess(
       'maba',
       ssoUsername,
-      'Maximilian Wimin Winata',
-      `SSO Login Berhasil: Terverifikasi di SIAKAD UBT (NIM ${ssoUsername}), namun terdeteksi BELUM TERDAFTAR sebagai Penghuni Aktif Asrama. Sesuai regulasi, Anda diarahkan untuk menyelesaikan tahapan proses pendaftaran.`
+      studentName,
+      `SSO Login Berhasil: Terverifikasi di SIAKAD & SIDARA (NIM ${ssoUsername}). Status hunian asrama: Belum Terdaftar Penghuni Aktif. ${
+        isComplete
+          ? 'Data akademik memadai: Jalur Fast-Track ke Pemilihan Kamar (Langkah 2) diaktifkan.'
+          : 'Data kontak/NIK perlu dilengkapi sebelum pemilihan kamar.'
+      }`,
+      scenario
     );
   };
 
@@ -233,23 +271,69 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedSsoAccount('NON_ACTIVE');
+                      setSelectedSsoAccount('NON_ACTIVE_COMPLETE');
                       setSsoUsername('2240101088');
                     }}
-                    className={`p-2.5 rounded-lg border text-left transition-all ${
-                      selectedSsoAccount === 'NON_ACTIVE'
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      selectedSsoAccount === 'NON_ACTIVE_COMPLETE'
+                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500 text-emerald-950 font-bold'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[11px] mb-0.5">
+                      <span className="font-mono text-emerald-900">NIM: 2240101088</span>
+                      <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                        FAST-TRACK (LENGKAP)
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-600 font-normal">
+                      Ahmad Zaky • Data SIAKAD Lengkap (Langsung Step 2)
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSsoAccount('NON_ACTIVE_INCOMPLETE');
+                      setSsoUsername('2240101099');
+                    }}
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      selectedSsoAccount === 'NON_ACTIVE_INCOMPLETE'
                         ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500 text-amber-950 font-bold'
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-amber-900">NIM: 2240101088</span>
+                      <span className="font-mono text-amber-900">NIM: 2240101099</span>
                       <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        BUKAN PENGHUNI
+                        BELUM LENGKAP
                       </span>
                     </div>
                     <div className="text-[10px] text-slate-600 font-normal">
-                      Maximilian Winata • Belum Terdaftar Asrama (Ke Pendaftaran)
+                      Rina Anggraini • NIK/Kontak Kurang (Ke Step 1 Biodata)
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSsoAccount('OFFICIAL_NIM_MIGRATED');
+                      setSsoUsername('2601015001');
+                    }}
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      selectedSsoAccount === 'OFFICIAL_NIM_MIGRATED'
+                        ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500 text-indigo-950 font-bold'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[11px] mb-0.5">
+                      <span className="font-mono text-indigo-900">NIM: 2601015001</span>
+                      <span className="bg-indigo-100 text-indigo-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                        TERBIT DARI PMB
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-600 font-normal">
+                      Maximilian Winata • Migrasi Resmi PMB2026-08942
                     </div>
                   </button>
 
@@ -259,20 +343,20 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                       setSelectedSsoAccount('ACTIVE_RESIDENT');
                       setSsoUsername('2240101004');
                     }}
-                    className={`p-2.5 rounded-lg border text-left transition-all ${
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                       selectedSsoAccount === 'ACTIVE_RESIDENT'
-                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500 text-emerald-950 font-bold'
+                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-950 font-bold'
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-emerald-900">NIM: 2240101004</span>
-                      <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                      <span className="font-mono text-blue-900">NIM: 2240101004</span>
+                      <span className="bg-blue-100 text-blue-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
                         PENGHUNI AKTIF
                       </span>
                     </div>
                     <div className="text-[10px] text-slate-600 font-normal">
-                      Ahmad Raihan • Kamar 101 Gedung A (Ke Dashboard Eksisting)
+                      Ahmad Raihan • Kamar 101 Gedung A (Dashboard Eksisting)
                     </div>
                   </button>
                   {import.meta.env.DEV && (
@@ -414,6 +498,72 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white font-mono shadow-sm"
                   required
                 />
+                
+                {/* Presets dari API SIAKAD Staging */}
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                    <span className="flex items-center gap-1 text-teal-800 font-bold">
+                      <Link2 className="w-3 h-3 text-teal-600" />
+                      Uji Data Terhubung API SIAKAD:
+                    </span>
+                    <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 text-left">
+                    <button
+                      type="button"
+                      onClick={() => setPmbNoReg('PMB2026-08942')}
+                      className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        pmbNoReg === 'PMB2026-08942'
+                          ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">Maximilian Wimin Winata</div>
+                        <div className="text-[10px] text-slate-500 font-mono">PMB2026-08942 · TI (SNBP)</div>
+                      </div>
+                      <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono font-bold shrink-0 ml-2">
+                        API 006 (Beasiswa Khusus)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPmbNoReg('PMB-BTT-002-001')}
+                      className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        pmbNoReg === 'PMB-BTT-002-001'
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">Muhammad Fadhil Ramadhan</div>
+                        <div className="text-[10px] text-slate-500 font-mono">PMB-BTT-002-001 · Agribisnis</div>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold shrink-0 ml-2">
+                        API 002 (KIP)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPmbNoReg('PMB-BTT-002-002')}
+                      className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        pmbNoReg === 'PMB-BTT-002-002'
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">Siti Aisyah Nurfadilah</div>
+                        <div className="text-[10px] text-slate-500 font-mono">PMB-BTT-002-002 · Manajemen</div>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold shrink-0 ml-2">
+                        API 002 (KIP)
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -518,61 +668,172 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
         </div>
       )}
 
-      {/* MODAL REDIRECTION FOR NON-ACTIVE RESIDENT SSO */}
-      {showRedirectModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-slate-200 shadow-2xl space-y-5">
-            <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center border border-amber-300">
-              <AlertTriangle className="w-6 h-6" />
+      {/* MODAL DETEKSI NIM RESMI SIAKAD/SIDARA (SKENARIO 1) */}
+      {showNimDetectedModal && detectedNimStudent && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-indigo-200 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-2xl flex items-center justify-center border border-indigo-200">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300">
+                SIAKAD & SIDARA INTEGRATION
+              </span>
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
-                  STATUS: BELUM PENGHUNI AKTIF
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
+                  Terdeteksi di Pangkalan Data Kampus
                 </span>
-                <span className="text-xs text-slate-500 font-mono">NIM: {ssoUsername}</span>
               </div>
-              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                Akses SSO Berhasil — Diarahkan ke Form Pendaftaran
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight leading-snug">
+                NIM Resmi Anda Telah Diterbitkan!
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Kredensial SSO SIAKAD UBT atas nama <strong className="text-slate-900">Maximilian Wimin Winata</strong> ({ssoUsername}) terverifikasi valid.
-                Namun, hasil query pada <strong>DB_ASRAMA_UBT</strong> menunjukkan Anda <strong>belum terdaftar sebagai Penghuni Aktif</strong>.
+                Calon mahasiswa atas nama <strong className="text-slate-900">{detectedNimStudent.nama_lengkap}</strong> telah resmi terbit Nomor Induk Mahasiswa (NIM) oleh Universitas pada sistem SIAKAD & SIDARA UBT.
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-2 text-xs">
-              <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                <Building className="w-4 h-4 text-teal-700" />
-                <span>Tahapan Pendaftaran Wajib Mahasiswa Asrama:</span>
+            {/* Kotak Transformasi Identitas */}
+            <div className="bg-gradient-to-r from-slate-50 to-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-indigo-100/80 pb-2">
+                <span className="text-slate-500 text-[11px]">Nomor Registrasi PMB:</span>
+                <span className="font-mono font-semibold text-slate-700">{detectedNimStudent.nomor_registrasi}</span>
               </div>
-              <ul className="text-slate-600 space-y-1 pl-5 list-disc text-[11px]">
-                <li>Langkah 1: Pengisian Form Pendaftaran & e-KYC (Private Disk)</li>
-                <li>Langkah 2: Pemilihan Durasi Sewa & Skema Uang Deposit (1x / Cicil)</li>
-                <li>Langkah 3: Pembayaran Tagihan Unik & Verifikasi Bank</li>
-                <li>Langkah 4: Plotting Kamar Asrama Otomatis</li>
-                <li>Langkah 5: TTD Digital Kontrak Sewa OTP WhatsApp</li>
-                <li>Langkah 6: Penerbitan E-Ticket Check-In Kamar</li>
-              </ul>
+              <div className="flex items-center justify-between border-b border-indigo-100/80 pb-2">
+                <span className="text-slate-500 text-[11px]">Program Studi & Fakultas:</span>
+                <span className="font-medium text-slate-800 text-right">{detectedNimStudent.program_studi} · {detectedNimStudent.fakultas}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-indigo-200 shadow-xs">
+                <span className="text-indigo-950 font-bold text-xs flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  NIM Resmi (SIDARA):
+                </span>
+                <span className="font-mono font-extrabold text-sm text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-300">
+                  {detectedNimStudent.nim_resmi}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <strong>Protokol Satu Pintu Ekosistem:</strong> Anda tidak lagi perlu mendaftar via formulir PMB. Silakan login langsung menggunakan akun <strong>Single Sign-On (SSO)</strong> kampus Anda.
+              </div>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowRedirectModal(false)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-300"
+                onClick={() => setShowNimDetectedModal(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-300 cursor-pointer"
               >
-                Batal
+                Tutup
               </button>
               <button
                 type="button"
-                onClick={handleProceedToRegistration}
-                className="w-full sm:w-auto bg-emerald-900 hover:bg-emerald-800 text-white text-xs font-bold px-6 py-3 rounded-xl shadow-md flex items-center justify-center space-x-2"
+                onClick={() => {
+                  const targetNim = detectedNimStudent.nim_resmi;
+                  setShowNimDetectedModal(false);
+                  setShowPmbModal(false);
+                  setViewMode('sso');
+                  setSsoUsername(targetNim);
+                  setSelectedSsoAccount('OFFICIAL_NIM_MIGRATED');
+                  toast.success(`Beralih ke SSO UBT dengan NIM resmi: ${targetNim}`);
+                }}
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-colors"
               >
-                <span>Lanjutkan ke Form Pendaftaran Asrama →</span>
+                <span>Beralih ke Login SSO UBT ({detectedNimStudent.nim_resmi}) →</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL REDIRECTION FOR NON-ACTIVE RESIDENT SSO (SKENARIO 2) */}
+      {showRedirectModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-slate-200 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            {(() => {
+              const matched = INITIAL_SIAKAD_STAGING.find(
+                (s) => s.nomor_registrasi === ssoUsername || s.nim_resmi === ssoUsername
+              );
+              const studentName = matched ? matched.nama_lengkap : 'Mahasiswa Aktif UBT';
+              const isComplete = matched ? matched.is_api_fields_complete !== false : true;
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center border border-amber-300">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border border-amber-300">
+                      STATUS: BELUM PENGHUNI AKTIF
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs text-slate-500 font-mono">
+                      NIM: {ssoUsername} · {matched?.program_studi || 'SIAKAD UBT'}
+                    </div>
+                    <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                      Akses SSO Terverifikasi — Alur Pendaftaran Asrama
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Kredensial SSO SIAKAD & SIDARA atas nama <strong className="text-slate-900">{studentName}</strong> ({ssoUsername}) terverifikasi sah. Namun sistem mencatat Anda <strong>belum terdaftar sebagai Penghuni Aktif Asrama</strong>.
+                    </p>
+                  </div>
+
+                  {isComplete ? (
+                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-2 text-xs">
+                      <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Data Profil SIAKAD Lengkap — Jalur Fast-Track Aktif:</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                        Data diri, NIK, dan Program Studi telah ditarik penuh dari SIAKAD/SIDARA. Anda dapat <strong>langsung memilih kamar & durasi sewa (Langkah 2)</strong> tanpa mengisi ulang biodata e-KYC dari awal!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl space-y-2 text-xs">
+                      <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                        <Building className="w-4 h-4 text-blue-700" />
+                        <span>Data Dasar Terhubung — Perlu Lengkapi NIK & Kontak:</span>
+                      </div>
+                      <p className="text-[11px] text-blue-800 leading-relaxed">
+                        Data akademik Anda terhubung dengan SIAKAD, namun nomor NIK atau kontak darurat belum lengkap pada pangkalan data. Anda diarahkan ke <strong>Langkah 1</strong> untuk melengkapi data sebelum pemilihan kamar.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowRedirectModal(false)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-300 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleProceedToRegistration}
+                      className={`w-full sm:w-auto text-white text-xs font-bold px-6 py-3 rounded-xl shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-colors ${
+                        isComplete
+                          ? 'bg-emerald-800 hover:bg-emerald-700'
+                          : 'bg-blue-700 hover:bg-blue-800'
+                      }`}
+                    >
+                      <span>
+                        {isComplete
+                          ? 'Lanjut Fast-Track ke Pemilihan Kamar (Langkah 2) →'
+                          : 'Lengkapi Biodata Pendaftaran (Langkah 1) →'}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

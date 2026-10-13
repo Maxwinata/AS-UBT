@@ -155,9 +155,46 @@ Maba menandatangani kontrak digital dan menerima e-Ticket QR Code.
 - **`pembayaran_detail`**:
   - `id` (PK)
   - `no_invoice` ➔ FK ke `pembayaran.no_invoice`
-- **`transaksi`**:
+- **`api_link`**:
   - `id` (PK)
-  - `no_invoice` ➔ FK ke `pembayaran.no_invoice`
-  - `penyewa_id` ➔ FK ke `penyewa.id`
+  - `kategori` (`nonkip` / `kip`)
+  - `link` (URL endpoint SIAKAD)
+- **`siakad_mahasiswa_stg`**:
+  - `id` (PK)
+  - `api_link_id` ➔ FK ke `api_link.id`
+  - `nomor_registrasi` (UK, No PMB / NIM Calon)
+  - `status_klaim` (0 = Belum Registrasi Asrama, 1 = Telah Mengisi Formulir)
+  - `status_verifikasi_subsidi` (0 = Menunggu Review, 1 = Disetujui, -1 = Standar)
 
-Dengan arsitektur ini, integrasi database antara kemandirian pendaftaran Maba dan kepatuhan akuntansi Web Admin berjalan harmonis tanpa risiko inkonsistensi data.
+---
+
+## 6. Arsitektur Integrasi API SIAKAD UBT (api_link & siakad_mahasiswa_stg)
+
+### A. Endpoint Terdaftar
+Sistem mengintegrasikan dua endpoint resmi dari pangkalan data SIAKAD UBT:
+1. **Beasiswa Khusus / Non-KIP**: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006` (Kategori: `nonkip`)
+2. **KIP-Kuliah**: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002` (Kategori: `kip`)
+
+### B. Alur Penarikan & Staging Data
+```
+[ SERVER SIAKAD UBT ]
+       │
+       ▼ (Cron Worker / Manual Trigger Admin)
+[ LARAVEL BACKEND: SiakadSyncService ]
+       │
+       ▼ (Upsert Payload JSON)
+[ TABEL STAGING: siakad_mahasiswa_stg ]
+       │
+       ├─────────────────────────────────┐
+       ▼                                 ▼
+[ FRONTEND MABA ]               [ WEB ADMIN KEUANGAN ]
+- Auto-fill biodata saat login   - Panel Manajemen API SIAKAD
+- Deteksi otomatis beasiswa     - Audit kelayakan subsidi (1-Klik)
+- Validasi data pendaftaran     - Proteksi audit keuangan kampus
+```
+
+### C. Auto-Fill Formulir & Tata Kelola Subsidi
+1. **Auto-Fill Saat Login**: Saat calon mahasiswa memasukkan Nomor Registrasi PMB (misal: `PMB2026-08942` atau `PMB-BTT-002-001`), frontend secara instan mencocokkan ke `siakad_mahasiswa_stg` dan mengisi otomatis: Nama Lengkap, NIK, No. HP, Program Studi, Fakultas, dan Kategori Beasiswa.
+2. **Pengesahan Akuntabilitas Subsidi**: Mengacu pada keputusan integrasi beasiswa (Opsi 2 & 3), status beasiswa langsung ditampilkan sebagai label profil resmi calon mahasiswa. Namun pemotongan tarif/subsidi kamar tetap memerlukan verifikasi staf Keuangan pada panel `SiakadSyncManager` guna menjamin audit pelaporan keuangan yayasan.
+
+Dengan arsitektur ini, integrasi database antara kemandirian pendaftaran Maba, sinkronisasi SIAKAD, dan kepatuhan akuntansi Web Admin berjalan harmonis tanpa risiko inkonsistensi data.

@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana evaluasi, perapihan dokumentasi yang usang, dan pembersihan file artefak kadaluarsa pada repositori Portal Asrama UBT.",
-  "updatedAt":  "2026-10-09T03:30:35.059455779Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Rencana arsitektur dan teknis integrasi API SIAKAD UBT sebagai satu pintu sinkronisasi ekosistem SIDARA, mencakup deteksi otomatis NIM resmi pada calon mahasiswa baru (pengalihan ke SSO) dan alur fast-track pendaftaran untuk mahasiswa eksisting bukan penghuni yang login via SSO dengan validasi kelengkapan field API.",
+  "updatedAt": "2026-10-13T10:51:13.682884314Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

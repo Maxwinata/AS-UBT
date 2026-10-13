@@ -9,10 +9,11 @@ export const SchemaDiagram: React.FC = () => {
   const [activeScenario, setActiveScenario] = useState<string>('ALL');
 
   const SCENARIOS = [
-    { id: 'ALL', label: 'Semua Overview (Bridging + Master)', nodes: [] },
+    { id: 'ALL', label: 'Semua Overview (Bridging + Master + SIAKAD)', nodes: [] },
     { id: 'SCENARIO_1', label: '1. Pendaftaran Mandiri Maba (Staging)', nodes: ['penyewa', 'request_pembayaran', 'request_pembayaran_detail', 'request_transaksi'] },
     { id: 'SCENARIO_2', label: '2. Eksekusi Promosi Admin (Bridging)', nodes: ['request_pembayaran', 'pembayaran', 'pembayaran_detail', 'transaksi'] },
     { id: 'SCENARIO_3', label: '3. Master Berjalan Penghuni Aktif', nodes: ['penyewa', 'kamar', 'pembayaran', 'transaksi'] },
+    { id: 'SCENARIO_4', label: '4. Integrasi API SIAKAD UBT (Pra-Registrasi)', nodes: ['api_link', 'siakad_mahasiswa_stg', 'penyewa'] },
   ];
 
   const handleToggleExpandAll = () => {
@@ -21,7 +22,8 @@ export const SchemaDiagram: React.FC = () => {
     } else {
       const allIds = [
         "penyewa", "kamar", "request_pembayaran", "request_pembayaran_detail",
-        "request_transaksi", "pembayaran", "pembayaran_detail", "transaksi"
+        "request_transaksi", "pembayaran", "pembayaran_detail", "transaksi",
+        "api_link", "siakad_mahasiswa_stg"
       ];
       setExpandedNodes(new Set(allIds));
     }

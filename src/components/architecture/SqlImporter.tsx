@@ -178,6 +178,54 @@ CREATE TABLE IF NOT EXISTS \`transaksi\` (
   \`updated_at\` TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   INDEX \`idx_trx_invoice\` (\`no_invoice\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- 8. TABEL INTEGRASI SIAKAD 1: api_link (Konfigurasi Endpoint)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS \`api_link\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`jenis\` VARCHAR(50) DEFAULT 'penyewa',
+  \`kategori\` VARCHAR(50) NOT NULL COMMENT 'nonkip / kip',
+  \`link\` VARCHAR(255) NOT NULL,
+  \`nama\` VARCHAR(100) NOT NULL,
+  \`last_synced_at\` DATETIME NULL,
+  \`total_records\` INT DEFAULT 0,
+  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seed Data api_link sesuai tangkapan layar phpMyAdmin
+INSERT INTO \`api_link\` (\`id\`, \`jenis\`, \`kategori\`, \`link\`, \`nama\`) VALUES
+(1, 'penyewa', 'nonkip', 'https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006', 'Beasiswa Khusus'),
+(2, 'penyewa', 'kip', 'https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002', 'KIP')
+ON DUPLICATE KEY UPDATE \`link\`=VALUES(\`link\`), \`nama\`=VALUES(\`nama\`);
+
+-- --------------------------------------------------------
+-- 9. TABEL INTEGRASI SIAKAD 2: siakad_mahasiswa_stg (Staging Pra-Registrasi)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS \`siakad_mahasiswa_stg\` (
+  \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  \`api_link_id\` INT NOT NULL,
+  \`kategori_beasiswa\` VARCHAR(50) NOT NULL COMMENT 'nonkip / kip',
+  \`nama_beasiswa\` VARCHAR(100) NULL COMMENT 'Beasiswa Khusus / KIP',
+  \`nomor_registrasi\` VARCHAR(50) NOT NULL UNIQUE COMMENT 'No PMB / NIM Calon',
+  \`nama_lengkap\` VARCHAR(191) NOT NULL,
+  \`nik\` VARCHAR(16) NULL,
+  \`email\` VARCHAR(100) NULL,
+  \`nomor_telepon\` VARCHAR(50) NULL,
+  \`program_studi\` VARCHAR(100) NULL,
+  \`fakultas\` VARCHAR(100) NULL,
+  \`jenis_kelamin\` CHAR(1) NULL,
+  \`status_klaim\` INT DEFAULT 0 COMMENT '0=Belum Mendaftar, 1=Telah Mengisi Form Maba',
+  \`status_verifikasi_subsidi\` INT DEFAULT 0 COMMENT '0=Menunggu Review Admin, 1=Disetujui, -1=Ditolak',
+  \`verified_by\` BIGINT NULL COMMENT 'ID Admin yang memvalidasi subsidi',
+  \`verified_at\` DATETIME NULL,
+  \`catatan_admin\` TEXT NULL,
+  \`payload_raw\` JSON NULL COMMENT 'Cadangan data asli dari API',
+  \`synced_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX \`idx_stg_noreg\` (\`nomor_registrasi\`),
+  INDEX \`idx_stg_kategori\` (\`kategori_beasiswa\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `;
 
   const parseSql = (rawSql: string) => {

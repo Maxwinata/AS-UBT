@@ -1,6 +1,6 @@
 import { Toaster, toast } from 'sonner';
 import React, { useState } from 'react';
-import { UserRole, MabaProfile, BillingInvoice, RoomPlot, DigitalContract, ETicket, ModificationLog, TariffItem, PaymentScheme } from './types/asrama';
+import { UserRole, MabaProfile, BillingInvoice, RoomPlot, DigitalContract, ETicket, ModificationLog, TariffItem, PaymentScheme, ApiLinkRecord, SiakadMahasiswaStgRecord } from './types/asrama';
 import {
   INITIAL_MABA,
   INITIAL_INVOICE,
@@ -9,6 +9,8 @@ import {
   INITIAL_TICKET,
   initialTariffs,
   initialPaymentSchemes,
+  INITIAL_API_LINKS,
+  INITIAL_SIAKAD_STAGING,
 } from './data/initialData';
 import { Header } from './components/Header';
 import { SidebarGuide } from './components/SidebarGuide';
@@ -38,6 +40,37 @@ export default function App() {
   const [contract, setContract] = useState<DigitalContract>(INITIAL_CONTRACT);
   const [ticket, setTicket] = useState<ETicket>(INITIAL_TICKET);
   const [ssoNoticeBanner, setSsoNoticeBanner] = useState<string | null>(null);
+  const [apiLinks, setApiLinks] = useState<ApiLinkRecord[]>(INITIAL_API_LINKS);
+  const [siakadStaging, setSiakadStaging] = useState<SiakadMahasiswaStgRecord[]>(INITIAL_SIAKAD_STAGING);
+
+  const handleTriggerSiakadSync = () => {
+    setApiLinks(prev => prev.map(link => ({
+      ...link,
+      last_synced_at: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'medium' }),
+      total_records: link.kategori === 'kip' ? 65 : 48
+    })));
+  };
+
+  const handleVerifySubsidi = (stgId: number, status: 1 | -1, notes?: string) => {
+    setSiakadStaging(prev => prev.map(item => {
+      if (item.id === stgId) {
+        const updated = {
+          ...item,
+          status_verifikasi_subsidi: status,
+          verified_by: status === 1 ? 'Staf Keuangan Asrama' : undefined,
+          verified_at: status === 1 ? new Date().toISOString() : undefined,
+          catatan_admin: notes
+        };
+        if (status === 1) {
+          toast.success(`[SUBSIDI DISETUJUI] Calon mahasiswa ${item.nama_lengkap} (${item.nomor_registrasi}) resmi berhak atas subsidi tarif ${item.nama_beasiswa}!`);
+        } else {
+          toast.info(`[SUBSIDI DITOLAK] Calon mahasiswa ${item.nama_lengkap} ditetapkan menggunakan tarif asrama standar.`);
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
   const [modificationLogs, setModificationLogs] = useState<ModificationLog[]>([
     {
       id: 'L1',
@@ -90,16 +123,141 @@ export default function App() {
       const isSimulateNoNim = nim.startsWith('REG') || nim.startsWith('PMB');
       const finalNim = isSimulateNoNim ? '' : nim;
       
+      const siakadMatch = siakadStaging.find(
+        (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim)
+      );
+      const isKip = siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : false;
+      const studentName = siakadMatch ? siakadMatch.nama_lengkap : nama;
+      const studentProdi = siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi;
+      const studentFakultas = siakadMatch ? siakadMatch.fakultas : INITIAL_MABA.fakultas;
+      const studentPhone = siakadMatch?.nomor_telepon || INITIAL_MABA.noHpWa;
+      const studentNik = siakadMatch?.nik || INITIAL_MABA.nik;
+
+      if (siakadMatch) {
+        toast.success(`[SIAKAD CONNECTED] Data ${studentName} (${siakadMatch.nama_beasiswa}) berhasil ditarik otomatis ke formulir pendaftaran!`, { duration: 4500 });
+      }
+      
       if (scenario === 'NEW') {
-        setMabaProfile({ ...INITIAL_MABA, nim: finalNim, noPmb: nim, nama, kycVerified: false, kycSubmitted: false, ktpUrl: undefined, selfieUrl: undefined });
-        setInvoices([{ ...INITIAL_INVOICE, nim: finalNim || nim, nama, status: 'UNPAID' }]);
+        setMabaProfile({
+          ...INITIAL_MABA,
+          nim: finalNim,
+          noPmb: nim,
+          nama: studentName,
+          prodi: studentProdi,
+          fakultas: studentFakultas,
+          noHpWa: studentPhone,
+          nik: studentNik,
+          isKipStudent: isKip,
+          kategori: isKip ? 'KIP' : 'Reguler',
+          kipNumber: isKip ? nim : undefined,
+          kycVerified: false,
+          kycSubmitted: false,
+          ktpUrl: undefined,
+          selfieUrl: undefined
+        });
+        setInvoices([{
+          ...INITIAL_INVOICE,
+          nim: finalNim || nim,
+          nama: studentName,
+          isKip,
+          status: 'UNPAID'
+        }]);
         setTicket(INITIAL_TICKET);
         setContract(INITIAL_CONTRACT);
       } else if (scenario === 'INVOICE_FORMED') {
-        setMabaProfile({ ...INITIAL_MABA, nim: finalNim, noPmb: nim, nama, kycVerified: true, kycSubmitted: true, ktpUrl: 'mock.jpg', selfieUrl: 'mock.jpg' });
-        setInvoices([{ ...INITIAL_INVOICE, nim: finalNim || nim, nama, status: 'UNPAID', totalBayar: 3600142, durasiBulan: 6, isCicilanDeposit: false }]);
+        setMabaProfile({
+          ...INITIAL_MABA,
+          nim: finalNim,
+          noPmb: nim,
+          nama: studentName,
+          prodi: studentProdi,
+          fakultas: studentFakultas,
+          noHpWa: studentPhone,
+          nik: studentNik,
+          isKipStudent: isKip,
+          kategori: isKip ? 'KIP' : 'Reguler',
+          kipNumber: isKip ? nim : undefined,
+          kycVerified: true,
+          kycSubmitted: true,
+          ktpUrl: 'mock.jpg',
+          selfieUrl: 'mock.jpg'
+        });
+        setInvoices([{
+          ...INITIAL_INVOICE,
+          nim: finalNim || nim,
+          nama: studentName,
+          isKip,
+          status: 'UNPAID',
+          totalBayar: isKip ? 1600000 : 3600142,
+          durasiBulan: 6,
+          isCicilanDeposit: false
+        }]);
         setTicket(INITIAL_TICKET);
         setContract(INITIAL_CONTRACT);
+      } else if (scenario === 'FAST_TRACK') {
+        // SKENARIO 2A: Mahasiswa Eksisting (Bukan Penghuni) - Data SIAKAD & SIDARA Lengkap
+        // Melewati Step 1 e-KYC (auto-verified dari SSO), langsung ke Step 2 Pemilihan Kamar & Tagihan
+        setMabaProfile({
+          ...INITIAL_MABA,
+          nim: finalNim || nim,
+          noPmb: siakadMatch?.nomor_registrasi || nim,
+          nama: studentName,
+          prodi: studentProdi,
+          fakultas: studentFakultas,
+          noHpWa: studentPhone,
+          nik: studentNik,
+          isKipStudent: isKip,
+          kategori: isKip ? 'KIP' : 'Reguler',
+          kipNumber: isKip ? nim : undefined,
+          kycVerified: true, // Terverifikasi SSO SIDARA
+          kycSubmitted: true,
+          ktpUrl: 'sso_siakad_verified.jpg',
+          selfieUrl: 'sso_siakad_verified.jpg',
+          isFastTrackSso: true,
+          ssoSource: 'SIAKAD_SIDARA',
+        });
+        setInvoices([{
+          ...INITIAL_INVOICE,
+          nim: finalNim || nim,
+          nama: studentName,
+          isKip,
+          status: 'UNPAID',
+          totalBayar: isKip ? 1600000 : 3600142,
+          durasiBulan: 6,
+          isCicilanDeposit: false,
+        }]);
+        setTicket(INITIAL_TICKET);
+        setContract(INITIAL_CONTRACT);
+        toast.success(`[FAST-TRACK DIAKTIFKAN] Biodata mahasiswa aktif ${studentName} terverifikasi penuh dari SIDARA. Langsung ke pemilihan kamar & durasi sewa!`, { duration: 5000 });
+      } else if (scenario === 'INCOMPLETE_DATA') {
+        // SKENARIO 2B: Mahasiswa Eksisting (Bukan Penghuni) - Data Belum Lengkap
+        setMabaProfile({
+          ...INITIAL_MABA,
+          nim: finalNim || nim,
+          noPmb: siakadMatch?.nomor_registrasi || nim,
+          nama: studentName,
+          prodi: studentProdi,
+          fakultas: studentFakultas,
+          noHpWa: studentPhone,
+          nik: studentNik,
+          isKipStudent: isKip,
+          kategori: isKip ? 'KIP' : 'Reguler',
+          kipNumber: isKip ? nim : undefined,
+          kycVerified: false,
+          kycSubmitted: false,
+          isFastTrackSso: false,
+          ssoSource: 'SIAKAD_SIDARA',
+        });
+        setInvoices([{
+          ...INITIAL_INVOICE,
+          nim: finalNim || nim,
+          nama: studentName,
+          isKip,
+          status: 'UNPAID',
+        }]);
+        setTicket(INITIAL_TICKET);
+        setContract(INITIAL_CONTRACT);
+        toast.info(`[LENGKAPI BIODATA] Kredensial SSO SIDARA terhubung (${studentName}). Mohon lengkapi NIK dan kontak pada formulir Step 1.`, { duration: 5000 });
       }
     } else if (nim && nama) {
       // 1. Try to restore saved progress from localStorage (Auto-Resume)
@@ -115,12 +273,30 @@ export default function App() {
           console.error("Failed to parse saved progress", error);
         }
       } else {
-        // 2. Fallback to basic assignment if no saved progress
-        setMabaProfile((prev) => ({
-          ...prev,
-          nim: nim,
-          nama: nama,
-        }));
+        const siakadMatch = siakadStaging.find(
+          (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim)
+        );
+        if (siakadMatch) {
+          setMabaProfile((prev) => ({
+            ...prev,
+            nim: nim.startsWith('PMB') ? '' : nim,
+            noPmb: nim,
+            nama: siakadMatch.nama_lengkap,
+            prodi: siakadMatch.program_studi || prev.prodi,
+            fakultas: siakadMatch.fakultas || prev.fakultas,
+            noHpWa: siakadMatch.nomor_telepon || prev.noHpWa,
+            nik: siakadMatch.nik || prev.nik,
+            isKipStudent: siakadMatch.kategori_beasiswa === 'kip',
+            kategori: siakadMatch.kategori_beasiswa === 'kip' ? 'KIP' : 'Reguler',
+            kipNumber: siakadMatch.kategori_beasiswa === 'kip' ? nim : undefined,
+          }));
+        } else {
+          setMabaProfile((prev) => ({
+            ...prev,
+            nim: nim,
+            nama: nama,
+          }));
+        }
       }
     }
   };
@@ -205,6 +381,7 @@ export default function App() {
               <MabaDashboard
                 tariffs={tariffs}
                 paymentSchemes={paymentSchemes}
+                siakadStaging={siakadStaging}
                 profile={mabaProfile}
                 invoice={currentInvoice}
                 room={rooms[1]} // Gedung B Kamar 204
@@ -253,6 +430,10 @@ export default function App() {
                 setTariffs={handleSetTariffs}
                 paymentSchemes={paymentSchemes}
                 setPaymentSchemes={handleSetPaymentSchemes}
+                apiLinks={apiLinks}
+                siakadStaging={siakadStaging}
+                onTriggerSiakadSync={handleTriggerSiakadSync}
+                onVerifySubsidi={handleVerifySubsidi}
               />
             )}
 

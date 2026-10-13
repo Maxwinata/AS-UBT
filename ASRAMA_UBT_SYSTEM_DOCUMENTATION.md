@@ -247,3 +247,18 @@ Selain Resume Step Pendaftaran (Langkah 1 s.d 6), mekanisme auto-resume telah di
 1. **Penyimpanan Draft Form e-KYC (Maba Dashboard - Step 1)**: Semua input biodata pendaftaran (serta progres unggah KTP/Selfie) akan disimpan sementara (draft). Jika Maba tidak sengaja mereload halaman atau menutup browser sebelum menekan "Simpan & Lanjut ke Pembayaran", data yang sudah diinput tidak akan hilang.
 2. **Auto-Resume Proses Perpanjangan Sewa (Mahasiswa Eksisting)**: Skenario: Mahasiswa Eksisting ingin memperpanjang sewa kamar (Fase B). Mereka sudah memilih durasi sewa, namun belum mengkonfirmasi pembayaran bulan berikutnya. Solusi: Ketika masuk kembali ke Dashboard Eksisting, sistem dapat menampilkan komponen banner/pop-up persisten yang memberi tahu "Anda memiliki draf perpanjangan sewa yang belum diselesaikan", dan memberikan tombol yang membawa mereka langsung ke tahap pembayaran akhir tagihan tanpa harus mengulang navigasi.
 3. **Auto-Resume Skema Cicilan Deposit Bulan Berikutnya**: Skenario: Maba sebelumnya memilih opsi skema Cicilan Uang Deposit (membayar Rp 375.000 awal, lalu sisanya Rp 375.000 di bulan ke-2). Solusi: Pada saat memasuki bulan kedua, ketika Maba (yang sudah resmi menjadi Penghuni Aktif) login ke dalam sistem portal, alur login secara otomatis akan diarahkan terlebih dahulu ke halaman pelunasan tagihan sisa cicilan deposit tersebut sebelum mengizinkan mereka masuk ke Beranda utama (Fase B/Dashboard Eksisting).
+
+### 15. Integrasi Basis Data API SIAKAD UBT (`api_link` & `siakad_mahasiswa_stg`)
+Sistem portal terhubung secara harmonis dengan dua endpoint API resmi pangkalan data SIAKAD UBT:
+1. **Endpoint API 1 (Beasiswa Khusus / Non-KIP)**:
+   - URL: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-006`
+   - Kategori: `nonkip`, Label: `Beasiswa Khusus`
+2. **Endpoint API 2 (KIP)**:
+   - URL: `https://siakad.ubtsu.ac.id/api/mahasiswa-btt-002`
+   - Kategori: `kip`, Label: `KIP`
+
+#### Arsitektur Staging & Auto-Fill:
+* **Tabel Staging Pra-Registrasi**: Data hasil sinkronisasi API dari kedua endpoint disimpan di tabel `siakad_mahasiswa_stg` (terhubung ke tabel master konfigurasi `api_link`). Data tidak langsung mencemari tabel `penyewa` utama sampai mahasiswa bersangkutan benar-benar melakukan admisi.
+* **Auto-Fill Saat Login**: Ketika calon mahasiswa memasukkan Nomor Registrasi PMB (misal: `PMB2026-08942` atau `PMB-BTT-002-001`), sistem secara otomatis mencocokkan ke database staging dan mengisi field profil (Nama Lengkap, NIK, No. HP, Program Studi, Fakultas, dan Jalur Masuk).
+* **Tata Kelola Akuntabilitas Beasiswa (Opsi 2 & 3)**: Mahasiswa jalur KIP atau Beasiswa Khusus langsung memiliki badge status resmi pada profilnya. Namun pemotongan subsidi tarif/deposit kamar memerlukan pengesahan manual (1-klik) oleh staf Admin Keuangan melalui panel `SiakadSyncManager`, menjamin akuntabilitas audit keuangan asrama.
+

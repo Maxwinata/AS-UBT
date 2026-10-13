@@ -83,6 +83,8 @@ export interface MabaProfile {
   ktpUrl?: string;
   selfieUrl?: string;
   kycVerified: boolean;
+  isFastTrackSso?: boolean;
+  ssoSource?: 'SIAKAD_SIDARA' | 'PMB';
 }
 
 export interface BillingInvoice {
@@ -430,5 +432,40 @@ export interface PembayaranRecord {
   details?: PembayaranDetailRecord[];
   transaksi?: TransaksiRecord;
   penyewa?: PenyewaRecord;
+}
+
+export interface ApiLinkRecord {
+  id: number;
+  jenis: string;
+  kategori: 'nonkip' | 'kip';
+  link: string;
+  nama: string;
+  last_synced_at?: string;
+  total_records?: number;
+  status_connection?: 'connected' | 'error' | 'syncing';
+}
+
+export interface SiakadMahasiswaStgRecord {
+  id: number;
+  api_link_id: number;
+  kategori_beasiswa: 'nonkip' | 'kip';
+  nama_beasiswa: string;
+  nomor_registrasi: string;
+  nim_resmi?: string; // Jika NIM resmi telah terbit di SIAKAD & SIDARA
+  has_active_nim?: boolean; // True jika mahasiswa telah terbit NIM aktif
+  is_api_fields_complete?: boolean; // True jika field biodata dari output API memadai
+  nama_lengkap: string;
+  nik: string;
+  email: string;
+  nomor_telepon: string;
+  program_studi: string;
+  fakultas: string;
+  jenis_kelamin: 'L' | 'P';
+  status_klaim: number; // 0 = Belum Mendaftar, 1 = Telah Klaim / Mengisi Form Maba
+  status_verifikasi_subsidi: number; // 0 = Menunggu Review Admin, 1 = Disetujui, -1 = Ditolak / Standar
+  verified_by?: string;
+  verified_at?: string;
+  catatan_admin?: string;
+  synced_at: string;
 }
 
