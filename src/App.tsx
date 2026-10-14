@@ -52,23 +52,25 @@ export default function App() {
   };
 
   const handleVerifySubsidi = (stgId: number, status: 1 | -1, notes?: string) => {
-    setSiakadStaging(prev => prev.map(item => {
-      if (item.id === stgId) {
-        const updated = {
-          ...item,
+    const item = siakadStaging.find(s => s.id === stgId);
+    if (item) {
+      if (status === 1) {
+        toast.success(`[SUBSIDI DISETUJUI] Calon mahasiswa ${item.nama_lengkap} (${item.nomor_registrasi}) resmi berhak atas subsidi tarif ${item.nama_beasiswa}!`);
+      } else {
+        toast.info(`[SUBSIDI DITOLAK] Calon mahasiswa ${item.nama_lengkap} ditetapkan menggunakan tarif asrama standar.`);
+      }
+    }
+    setSiakadStaging(prev => prev.map(it => {
+      if (it.id === stgId) {
+        return {
+          ...it,
           status_verifikasi_subsidi: status,
           verified_by: status === 1 ? 'Staf Keuangan Asrama' : undefined,
           verified_at: status === 1 ? new Date().toISOString() : undefined,
           catatan_admin: notes
         };
-        if (status === 1) {
-          toast.success(`[SUBSIDI DISETUJUI] Calon mahasiswa ${item.nama_lengkap} (${item.nomor_registrasi}) resmi berhak atas subsidi tarif ${item.nama_beasiswa}!`);
-        } else {
-          toast.info(`[SUBSIDI DITOLAK] Calon mahasiswa ${item.nama_lengkap} ditetapkan menggunakan tarif asrama standar.`);
-        }
-        return updated;
       }
-      return item;
+      return it;
     }));
   };
   const [modificationLogs, setModificationLogs] = useState<ModificationLog[]>([
@@ -323,20 +325,28 @@ export default function App() {
   };
 
   const handleVerifyInvoiceFromAdmin = (invoiceId: string, action: 'APPROVE_AND_MIGRATE' | 'APPROVE_BOOKING' | 'REJECT' | 'MIGRATE_ONLY') => {
+    const target = invoices.find(inv => inv.invoiceId === invoiceId);
+    const reqNo = target?.noRequest || invoiceId;
+    if (action === 'APPROVE_AND_MIGRATE') {
+      toast.success(`[BRIDGING PROMOTION BERHASIL]\nPermintaan ${reqNo} disahkan ke Master Pembayaran!\n\n1. request_pembayaran ➔ pembayaran (${invoiceId})\n2. request_pembayaran_detail ➔ pembayaran_detail\n3. request_transaksi ➔ transaksi (Kas Asrama)\n4. Master penyewa aktif (operator_id = Admin Keuangan)`);
+    } else if (action === 'APPROVE_BOOKING') {
+      toast.info(`[BOOKING BERHASIL]\nPembayaran tagihan ${reqNo} disetujui sebagai BOOKING sementara.\nMenunggu sinkronisasi NIM resmi untuk aktivasi master penyewa.`);
+    } else if (action === 'MIGRATE_ONLY') {
+      toast.success(`[PROMOSI MASTER BERHASIL]\nMaba dengan Invoice ${invoiceId} berhasil dipromosikan ke master penyewa aktif.`);
+    } else {
+      toast.error(`[PERMINTAAN DITOLAK]\nPermintaan ${reqNo} ditolak. Status dikembalikan ke UNPAID.`);
+    }
+
     setInvoices((prev) =>
       prev.map((inv) => {
         if (inv.invoiceId === invoiceId) {
           if (action === 'APPROVE_AND_MIGRATE') {
-            toast.success(`[BRIDGING PROMOTION BERHASIL]\nPermintaan ${inv.noRequest || invoiceId} disahkan ke Master Pembayaran!\n\n1. request_pembayaran ➔ pembayaran (${invoiceId})\n2. request_pembayaran_detail ➔ pembayaran_detail\n3. request_transaksi ➔ transaksi (Kas Asrama)\n4. Master penyewa aktif (operator_id = Admin Keuangan)`);
             return { ...inv, status: 'PAID', isMigrated: true, paidAt: new Date().toISOString() };
           } else if (action === 'APPROVE_BOOKING') {
-            toast.info(`[BOOKING BERHASIL]\nPembayaran tagihan ${inv.noRequest || invoiceId} disetujui sebagai BOOKING sementara.\nMenunggu sinkronisasi NIM resmi untuk aktivasi master penyewa.`);
             return { ...inv, status: 'PAID', isMigrated: false, paidAt: new Date().toISOString() };
           } else if (action === 'MIGRATE_ONLY') {
-            toast.success(`[PROMOSI MASTER BERHASIL]\nMaba dengan Invoice ${invoiceId} berhasil dipromosikan ke master penyewa aktif.`);
             return { ...inv, isMigrated: true };
           } else {
-            toast.error(`[PERMINTAAN DITOLAK]\nPermintaan ${inv.noRequest || invoiceId} ditolak. Status dikembalikan ke UNPAID.`);
             return { ...inv, status: 'UNPAID', paidAt: undefined, isMigrated: false };
           }
         }
@@ -356,7 +366,7 @@ export default function App() {
     );
     // Sync the global mabaProfile mock for demo purposes
     setMabaProfile((prev) => ({ ...prev, nim: newNim }));
-    alert(`[SIDARA SYNC SUCCESS]\n\nNIM ${newNim} berhasil disinkronisasi untuk Invoice ${invoiceId}.\nStatus otomatis bermigrasi dari BOOKING menjadi PENYEWA (Master).`);
+    toast.success(`[SIDARA SYNC SUCCESS] NIM ${newNim} berhasil disinkronisasi untuk Invoice ${invoiceId}. Status otomatis bermigrasi dari BOOKING menjadi PENYEWA (Master).`);
   };
 
   const currentInvoice = invoices[0] || INITIAL_INVOICE;

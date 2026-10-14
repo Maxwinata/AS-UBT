@@ -404,23 +404,21 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   };
 
   const updateProfileField = (field: string, value: any) => {
-    setProfile((prev: any) => {
-      const updated = { ...prev, [field]: value };
-      if (onUpdateProfile) {
-        onUpdateProfile(updated);
-      }
-      return updated;
-    });
+    const updated = { ...latestProfileRef.current, [field]: value };
+    latestProfileRef.current = updated;
+    setProfile(updated);
+    if (onUpdateProfile) {
+      onUpdateProfile(updated);
+    }
   };
 
   const updateProfileObject = (updates: Partial<MabaProfile>) => {
-    setProfile((prev: any) => {
-      const updated = { ...prev, ...updates };
-      if (onUpdateProfile) {
-        onUpdateProfile(updated);
-      }
-      return updated;
-    });
+    const updated = { ...latestProfileRef.current, ...updates };
+    latestProfileRef.current = updated;
+    setProfile(updated);
+    if (onUpdateProfile) {
+      onUpdateProfile(updated);
+    }
   };
 
   // SIAKAD Match & Auto-Fill Helper
@@ -1583,7 +1581,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   // Computed Completion Status for Step 1 Visual Indicators
   const isCard1Complete = Boolean(profile.nama && profile.noPmb && profile.jenisKelamin && profile.prodi && profile.fakultas);
   const isCard2Complete = Boolean(profile.ktpUrl && profile.selfieUrl); // Upload KTP & Selfie
-  const isCard3Complete = Boolean(profile.email?.trim() && profile.noHpWa?.trim() && profile.alamatKtpJalan?.trim() && profile.alamatKtpKota?.trim()); // Kontak Pribadi & Alamat
+  const isCard3Complete = Boolean(profile.email?.trim() && profile.noHpWa?.trim() && profile.alamatKtpJalan?.trim() && (profile.alamatKtpKabupatenKota?.trim() || profile.alamatKtpKota?.trim())); // Kontak Pribadi & Alamat
   const isCard4Complete = Boolean(profile.kontakDaruratNama?.trim() && profile.kontakDaruratHubungan?.trim() && profile.kontakDaruratNoHp?.trim() && profile.kontakDaruratAlamat?.trim()); // Kontak Darurat
   const isCard5Complete = Boolean(profile.tipeKamar && profile.preferensiLantai); // Preferensi Asrama
 

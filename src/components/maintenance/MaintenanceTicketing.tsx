@@ -277,6 +277,20 @@ export const MaintenanceTicketing: React.FC<MaintenanceTicketingProps> = ({
 
   // Simulate Technician Lifecycle Progression (Interactive Demo)
   const handleSimulateProgress = (ticketId: string) => {
+    const targetTicket = tickets.find(t => t.id === ticketId);
+    if (!targetTicket) return;
+
+    if (targetTicket.status === 'SUBMITTED') {
+      toast.info(`Tiket ${targetTicket.ticketCode} status berubah: DIVERIFIKASI & DIJADWALKAN`);
+    } else if (targetTicket.status === 'VERIFIED') {
+      toast.warning(`Tiket ${targetTicket.ticketCode} status berubah: SEDANG DIKERJAKAN TEKNISI`);
+    } else if (targetTicket.status === 'IN_PROGRESS') {
+      toast.success(`Tiket ${targetTicket.ticketCode} status berubah: SELESAI DIPERBAIKI!`);
+    } else {
+      toast.info('Tiket ini sudah berstatus Selesai.');
+      return;
+    }
+
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket;
 
@@ -296,7 +310,6 @@ export const MaintenanceTicketing: React.FC<MaintenanceTicketingProps> = ({
           note: 'Laporan diverifikasi oleh Bagian Sarpras. Ditugaskan ke tim teknisi lapangan.',
           actor: 'Koordinator Sarpras Asrama'
         };
-        toast.info(`Tiket ${ticket.ticketCode} status berubah: DIVERIFIKASI & DIJADWALKAN`);
         return {
           ...ticket,
           status: 'VERIFIED',
@@ -318,7 +331,6 @@ export const MaintenanceTicketing: React.FC<MaintenanceTicketingProps> = ({
           note: 'Teknisi tiba di lokasi kerusakan dan memulai perbaikan fisik fasilitas.',
           actor: ticket.assignedTechnician?.name || 'Teknisi Lapangan'
         };
-        toast.warning(`Tiket ${ticket.ticketCode} status berubah: SEDANG DIKERJAKAN TEKNISI`);
         return {
           ...ticket,
           status: 'IN_PROGRESS',
@@ -334,7 +346,6 @@ export const MaintenanceTicketing: React.FC<MaintenanceTicketingProps> = ({
           note: 'Pekerjaan perbaikan selesai secara tuntas, fungsi fasilitas telah diuji coba dan normal.',
           actor: ticket.assignedTechnician?.name || 'Teknisi Lapangan'
         };
-        toast.success(`Tiket ${ticket.ticketCode} status berubah: SELESAI DIPERBAIKI!`);
         return {
           ...ticket,
           status: 'COMPLETED',
@@ -342,10 +353,8 @@ export const MaintenanceTicketing: React.FC<MaintenanceTicketingProps> = ({
           technicianNotes: 'Perbaikan telah selesai 100%. Fasilitas siap digunakan kembali oleh penghuni asrama.',
           statusHistory: [...ticket.statusHistory, updatedHistory]
         };
-      } else {
-        toast.info('Tiket ini sudah berstatus Selesai.');
-        return ticket;
       }
+      return ticket;
     }));
   };
 
