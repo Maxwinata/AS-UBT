@@ -408,7 +408,9 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
     latestProfileRef.current = updated;
     setProfile(updated);
     if (onUpdateProfile) {
-      onUpdateProfile(updated);
+      queueMicrotask(() => {
+        onUpdateProfile(updated);
+      });
     }
   };
 
@@ -417,7 +419,9 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
     latestProfileRef.current = updated;
     setProfile(updated);
     if (onUpdateProfile) {
-      onUpdateProfile(updated);
+      queueMicrotask(() => {
+        onUpdateProfile(updated);
+      });
     }
   };
 
@@ -1100,6 +1104,25 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       const sisaCicilanDeposit = biayaDepositTotal - biayaDepositTermin1;
       const kodeUnik = invoice.kodeUnik || 42;
       const totalBayar = biayaSewaInitial + biayaDepositTermin1 + biayaPerlengkapanAwal + kodeUnik;
+
+      // Check if invoice values are already identical to avoid unnecessary update loops
+      if (
+        invoice.durasiBulan === durasiKontrak &&
+        invoice.skemaBayarSewa === skemaSewa &&
+        invoice.opsiCicilan === opsi &&
+        invoice.isCicilanDeposit === isCicilanDeposit &&
+        invoice.tarifPerBulan === tarifSewa &&
+        invoice.biayaSewa === biayaSewaInitial &&
+        invoice.biayaSewaTotalKontrak === biayaSewaTotalKontrak &&
+        invoice.sisaSewaKontrak === sisaSewaKontrak &&
+        invoice.biayaDeposit === biayaDepositTermin1 &&
+        invoice.biayaDepositTotal === biayaDepositTotal &&
+        invoice.sisaCicilanDeposit === sisaCicilanDeposit &&
+        invoice.biayaPerlengkapanAwal === biayaPerlengkapanAwal &&
+        invoice.totalBayar === totalBayar
+      ) {
+        return;
+      }
 
       const updatedInv: BillingInvoice = {
         ...invoice,
@@ -3680,12 +3703,12 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-bold text-slate-800 text-sm">Pilih Metode Pembayaran</h4>
-                <p className="text-xs text-slate-500">Metode Transfer Manual BSI merupakan kanal pembayaran utama resmi yang aktif.</p>
+                <p className="text-xs text-slate-500">Metode Transfer Manual BANK MANDIRI merupakan kanal pembayaran utama resmi yang aktif.</p>
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* METODE UTAMA: Transfer Manual BSI */}
+              {/* METODE UTAMA: Transfer Manual BANK MANDIRI */}
               <div 
                 className={`border-2 rounded-2xl p-5 transition-all relative ${
                   invoice.status === 'PAID' 
@@ -3700,7 +3723,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                     <span className="inline-block text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-teal-700 text-white mb-1.5 shadow-2xs">
                       Kanal Utama Resmi
                     </span>
-                    <h5 className="font-extrabold text-slate-900 text-base">Transfer Manual (Bank BSI)</h5>
+                    <h5 className="font-extrabold text-slate-900 text-base">Transfer Manual (BANK MANDIRI)</h5>
                   </div>
                   <div className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
                     Verifikasi 1×24 Jam
@@ -3708,11 +3731,22 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-3 mb-3 text-center">
-                  <div className="text-[11px] text-slate-500 font-medium">Nomor Rekening Tujuan:</div>
-                  <div className="font-mono font-bold text-base text-slate-900 tracking-wide mt-0.5">
-                    7123 456 789
+                  <div className="text-[11px] text-slate-500 font-medium">Nomor Rekening Tujuan (Mandiri):</div>
+                  <div className="font-mono font-bold text-lg text-slate-900 tracking-wider mt-0.5 flex items-center justify-center gap-2">
+                    <span>1050508988809</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText('1050508988809');
+                        toast.success('Nomor rekening Bank Mandiri disalin ke clipboard!');
+                      }}
+                      className="text-teal-600 hover:text-teal-800 p-1 rounded hover:bg-teal-50 transition-colors"
+                      title="Salin nomor rekening"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="text-[11px] text-slate-600 font-semibold mt-0.5">a.n. Asrama Universitas Bunda Thamrin</div>
+                  <div className="text-xs text-slate-700 font-bold mt-1">a.n. Asrama Universitas Bunda Thamrin</div>
                 </div>
 
                 <div className="text-[11px] text-slate-600 space-y-1 mb-4">
@@ -4125,9 +4159,9 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                     <div className="flex items-start gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                       <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
                       <div>
-                        <h5 className="font-bold text-slate-900 text-xs sm:text-sm">Metode Pembayaran Transfer Manual BSI (Utama)</h5>
+                        <h5 className="font-bold text-slate-900 text-xs sm:text-sm">Metode Pembayaran Transfer Manual BANK MANDIRI (Kanal Utama)</h5>
                         <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                          Lakukan transfer ke Rekening Resmi Asrama Bank BSI (7123 456 789) sesuai nominal tepat hingga <strong>3 digit kode unik</strong>. Unggah foto struk/tangkapan layar m-banking untuk diverifikasi oleh Bagian Keuangan dalam 1×24 jam.
+                          Lakukan transfer ke Rekening Resmi Asrama <strong>BANK MANDIRI (No. Rekening 1050508988809) a.n. Asrama Universitas Bunda Thamrin</strong> sesuai nominal total tepat beserta <strong>3 digit kode unik</strong>. Unggah foto struk/tangkapan layar m-banking untuk diverifikasi oleh Bagian Keuangan dalam 1×24 jam.
                         </p>
                       </div>
                     </div>

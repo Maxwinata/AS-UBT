@@ -320,9 +320,45 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
-  const handleUpdateInvoice = (updated: BillingInvoice) => {
-    setInvoices((prev) => prev.map((inv) => (inv.invoiceId === updated.invoiceId ? updated : inv)));
-  };
+  const handleUpdateInvoice = React.useCallback((updated: BillingInvoice) => {
+    queueMicrotask(() => {
+      setInvoices((prev) => prev.map((inv) => (inv.invoiceId === updated.invoiceId ? updated : inv)));
+    });
+  }, []);
+
+  const handleUpdateProfile = React.useCallback((updatedProfile: MabaProfile) => {
+    queueMicrotask(() => {
+      setMabaProfile(updatedProfile);
+      const currentInv = invoices[0];
+      if (
+        updatedProfile.nim &&
+        !updatedProfile.nim.startsWith('REG') &&
+        updatedProfile.nim !== 'Belum tersedia' &&
+        currentInv &&
+        updatedProfile.nim !== currentInv.nim
+      ) {
+        setInvoices(prev => prev.map(inv => inv.invoiceId === currentInv.invoiceId ? { ...inv, nim: updatedProfile.nim } : inv));
+      }
+    });
+  }, [invoices]);
+
+  const handleUpdateContract = React.useCallback((updated: DigitalContract) => {
+    queueMicrotask(() => {
+      setContract(updated);
+    });
+  }, []);
+
+  const handleUpdateTicket = React.useCallback((updated: ETicket) => {
+    queueMicrotask(() => {
+      setTicket(updated);
+    });
+  }, []);
+
+  const handleClearSsoNotice = React.useCallback(() => {
+    queueMicrotask(() => {
+      setSsoNoticeBanner(null);
+    });
+  }, []);
 
   const handleVerifyInvoiceFromAdmin = (invoiceId: string, action: 'APPROVE_AND_MIGRATE' | 'APPROVE_BOOKING' | 'REJECT' | 'MIGRATE_ONLY') => {
     const target = invoices.find(inv => inv.invoiceId === invoiceId);
@@ -411,16 +447,11 @@ export default function App() {
                 contract={contract}
                 ticket={ticket}
                 ssoNoticeBanner={ssoNoticeBanner || undefined}
-                onClearSsoNotice={() => setSsoNoticeBanner(null)}
+                onClearSsoNotice={handleClearSsoNotice}
                 onUpdateInvoice={handleUpdateInvoice}
-                onUpdateContract={setContract}
-                onUpdateTicket={setTicket}
-                onUpdateProfile={(updatedProfile) => {
-                  setMabaProfile(updatedProfile);
-                  if (updatedProfile.nim && updatedProfile.nim !== currentInvoice.nim) {
-                    setInvoices(prev => prev.map(inv => inv.invoiceId === currentInvoice.invoiceId ? { ...inv, nim: updatedProfile.nim } : inv));
-                  }
-                }}
+                onUpdateContract={handleUpdateContract}
+                onUpdateTicket={handleUpdateTicket}
+                onUpdateProfile={handleUpdateProfile}
               />
             )}
 

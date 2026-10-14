@@ -1197,7 +1197,7 @@ class AdminAsramaController extends Controller
                 'no_transaksi' => $trxNo,
                 'tanggal_transaksi' => $reqTrx ? $reqTrx->tanggal_transaksi : now(),
                 'jumlah_uang' => $reqTrx ? $reqTrx->jumlah_uang : $req->total_bayar,
-                'metode_pembayaran' => $reqTrx ? $reqTrx->metode_pembayaran : 'Transfer Bank BSI',
+                'metode_pembayaran' => $reqTrx ? $reqTrx->metode_pembayaran : 'Transfer Bank Mandiri',
                 'file_bukti' => $reqTrx ? $reqTrx->file_bukti : null,
                 'jenis_transaksi' => 'Asrama',
                 'operator_id' => $adminId,

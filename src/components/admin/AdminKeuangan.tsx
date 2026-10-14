@@ -389,7 +389,7 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
                   <span>Unggah Mutasi Mandiri</span>
                 </div>
                 <div className="text-xs text-slate-300 mt-2 space-y-1">
-                  <div className="font-semibold text-white">Upload Bukti Transfer Bank BSI</div>
+                  <div className="font-semibold text-white">Upload Bukti Transfer Bank Mandiri</div>
                   <div className="text-[11px] text-slate-400">
                     Menulis ke <code className="text-amber-300 font-mono">request_transaksi</code> (file_bukti, jumlah_uang, no_transaksi sementara). Status permintaan menjadi pending verifikasi.
                   </div>
@@ -488,7 +488,7 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
 
                         <td className="p-3.5">
                           <div className="text-[11px] font-semibold text-slate-800">
-                            {inv.metodeBayar === 'VIRTUAL_ACCOUNT' ? 'Virtual Account BSI' : 'Transfer Manual BSI'}
+                            {inv.metodeBayar === 'VIRTUAL_ACCOUNT' ? 'Virtual Account BNI' : 'Transfer Manual Bank Mandiri'}
                           </div>
                           <div className="text-[10px] text-slate-500 font-mono">
                             Nominal: {formatRupiah(inv.totalBayar)}
