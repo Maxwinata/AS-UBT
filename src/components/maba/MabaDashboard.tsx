@@ -114,12 +114,11 @@ const getInitialStep = (
   if (room && invoice.status === 'PAID' && hasValidNim) return 5;
   if (invoice.status === 'PAID') return 4;
   if (invoice.status === 'PENDING_VERIFICATION') return 3;
-  if (profile.kycVerified && invoice.status === 'UNPAID') {
-    if (profile.isFastTrackSso) return 2; // Mahasiswa Fast-Track SSO langsung diarahkan ke Step 2
-    if (invoice.totalBayar > 0) return 3;
+  if ((profile.kycVerified || profile.kycSubmitted) && invoice.status === 'UNPAID') {
+    if (invoice.totalBayar > 0 && invoice.durasiBulan) return 3;
     return 2;
   }
-  if (profile.kycVerified) return 3;
+  if (profile.kycVerified || profile.kycSubmitted) return 2;
   return 1;
 };
 
@@ -405,19 +404,23 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   };
 
   const updateProfileField = (field: string, value: any) => {
-    const updated = { ...profile, [field]: value };
-    setProfile(updated);
-    if (onUpdateProfile) {
-      onUpdateProfile(updated);
-    }
+    setProfile((prev: any) => {
+      const updated = { ...prev, [field]: value };
+      if (onUpdateProfile) {
+        onUpdateProfile(updated);
+      }
+      return updated;
+    });
   };
 
   const updateProfileObject = (updates: Partial<MabaProfile>) => {
-    const updated = { ...profile, ...updates };
-    setProfile(updated);
-    if (onUpdateProfile) {
-      onUpdateProfile(updated);
-    }
+    setProfile((prev: any) => {
+      const updated = { ...prev, ...updates };
+      if (onUpdateProfile) {
+        onUpdateProfile(updated);
+      }
+      return updated;
+    });
   };
 
   // SIAKAD Match & Auto-Fill Helper
@@ -1242,6 +1245,22 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   };
 
   const handleStepNavigation = (step: AdmissionStep) => {
+    const isStep1Done = profile.kycSubmitted || profile.kycVerified;
+
+    // OPSI 2 (Soft-Lock): Step 2 terbuka untuk pratinjau & simulasi skema pembayaran.
+    // Namun Step 3 (Pembayaran & Terbit Tagihan) ke atas DIKUNCI sampai Step 1 diselesaikan.
+    if (step >= 3 && !isStep1Done) {
+      toast.error(
+        'Tahap Pembayaran (Step 3) terkunci! Simulasi skema pembayaran Anda tersimpan, namun Anda wajib melengkapi Formulir Validasi Identitas (unggah e-KTP, selfie, & data orang tua) di Step 1 untuk menerbitkan invoice pembayaran resmi.',
+        { duration: 6000 }
+      );
+      setCurrentStep(1);
+      setTimeout(() => {
+        document.getElementById('step-1-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      return;
+    }
+
     setCurrentStep(step);
     setTimeout(() => {
       document.getElementById(`step-${step}-panel`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1713,25 +1732,20 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       )}
 
       {ssoNoticeBanner && typeof ssoNoticeBanner === 'string' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 flex items-start gap-3 shadow-sm relative overflow-hidden mb-6">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 pr-6">
-            <h4 className="text-blue-900 font-bold text-xs sm:text-sm mb-0.5">
-              {ssoNoticeBanner.startsWith('SSO Login Berhasil') ? 'SSO Login Berhasil' : 'Pemberitahuan Sistem'}
-            </h4>
-            <p className="text-blue-800 text-[11px] sm:text-xs leading-relaxed">
-              {ssoNoticeBanner.startsWith('SSO Login Berhasil:') 
-                ? ssoNoticeBanner.replace('SSO Login Berhasil: ', '') 
-                : ssoNoticeBanner}
+        <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs relative mb-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Info className="w-4 h-4 text-blue-600 shrink-0" />
+            <p className="text-blue-900 text-xs font-medium truncate">
+              {ssoNoticeBanner}
             </p>
           </div>
           {onClearSsoNotice && (
             <button 
               onClick={onClearSsoNotice}
-              className="absolute top-2 right-2 text-blue-400 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-full transition-colors"
+              className="text-blue-400 hover:text-blue-700 p-1 rounded-md transition-colors shrink-0 cursor-pointer"
+              title="Tutup pemberitahuan"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -1754,10 +1768,10 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
               <h4 className="text-xs sm:text-sm font-bold text-slate-800 leading-tight">
                 {[
                   { step: 1, label: 'Validasi Identitas' },
-                  { step: 2, label: 'Pilih Skema' },
-                  { step: 3, label: 'Pembayaran' },
+                  { step: 2, label: 'Pilih Skema Pembayaran' },
+                  { step: 3, label: 'Pembayaran & Verifikasi' },
                   { step: 4, label: 'Tanda Tangan Kontrak' },
-                  { step: 5, label: 'Penerbitan' },
+                  { step: 5, label: 'Penerbitan Kontrak' },
                   { step: 6, label: 'Cetak BASTK' }
                 ].find(s => s.step === currentStep)?.label || 'Proses'}
               </h4>
@@ -1776,73 +1790,80 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           {/* MACRO PHASES (Scrollable on mobile) */}
           <div id="macro-stepper-container" className="flex overflow-x-auto hide-scrollbar bg-slate-50 border-b border-slate-200 p-2 gap-2">
             {[
-            { id: 1, label: 'Tahap 1: Registrasi', icon: ShieldCheck, isDone: currentStep > 1, isActive: expandedMacro === 1 },
-            { id: 2, label: 'Tahap 2: Booking & Pembayaran', icon: CreditCard, isDone: currentStep > 3, isActive: expandedMacro === 2 },
-            { id: 3, label: 'Tahap 3: Kontrak', icon: FileSignature, isDone: currentStep > 5, isActive: expandedMacro === 3 },
-            { id: 4, label: 'Tahap 4: e-Ticket', icon: QrCode, isDone: currentStep === 6 && (ticket?.status === 'ACTIVE' || ticket?.status === 'USED'), isActive: expandedMacro === 4 }
-          ].map(phase => (
-            <button 
-              id={`macro-step-${phase.id}`}
-              key={phase.id} 
-              onClick={() => setExpandedMacro(phase.id)}
-              className={`flex items-center px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                phase.isActive 
-                  ? 'bg-teal-600 text-white shadow-md' 
-                  : phase.isDone 
-                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
-                    : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {phase.isDone ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <phase.icon className="w-4 h-4 mr-2" />}
-              {phase.label}
-            </button>
-          ))}
-        </div>
-
-        {/* MICRO STEPS & SOP BUTTON */}
-        <div className="p-3 md:p-4 flex flex-row items-center justify-between gap-3 overflow-x-auto hide-scrollbar relative">
-          <div className="flex flex-nowrap items-center gap-2 md:gap-3 flex-1">
-            {[
-              { step: 1, macroId: 1, label: 'Validasi Identitas', icon: FileCheck },
-              { step: 2, macroId: 2, label: 'Pilih Skema', icon: CreditCard },
-              { step: 3, macroId: 2, label: 'Pembayaran', icon: CheckCircle2 },
-              { step: 4, macroId: 3, label: 'Tanda Tangan', icon: PenTool },
-              { step: 5, macroId: 3, label: 'Penerbitan', icon: Ticket },
-              { step: 6, macroId: 4, label: 'BASTK', icon: Printer }
-            ].filter(item => item.macroId === expandedMacro).map((item, index, array) => {
-              const isCompleted = currentStep > item.step || (item.step === 6 && showBastk);
-              const isCurrent = currentStep === item.step;
-              const Icon = item.icon;
-              return (
-                <div key={item.step} className="flex items-center shrink-0">
-                  <button
-                    onClick={() => handleStepNavigation(item.step as AdmissionStep)}
-                    className={`flex items-center space-x-1.5 md:space-x-2 px-2 py-1.5 md:px-3 md:py-1.5 rounded-lg transition-all ${
-                      isCurrent 
-                        ? 'bg-teal-50 border border-teal-200 text-teal-700' 
-                        : isCompleted
-                        ? 'text-teal-600 hover:bg-teal-50'
-                        : 'text-slate-400 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
-                      isCompleted ? 'bg-teal-500 border-teal-500 text-white' : 
-                      isCurrent ? 'bg-teal-600 border-teal-600 text-white' : 
-                      'bg-white border-slate-300'
-                    }`}>
-                      {isCompleted ? <CheckCircle2 className="w-3 h-3 md:w-3.5 md:h-3.5" /> : item.step}
-                    </div>
-                    <span className={`text-[11px] md:text-xs font-bold ${isCurrent ? 'text-teal-700' : isCompleted ? 'text-teal-600' : 'text-slate-500'}`}>
-                      {item.label}
-                    </span>
-                  </button>
-                  {index < array.length - 1 && (
-                    <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-slate-300 mx-1 md:mx-1" />
-                  )}
-                </div>
-              );
-            })}
+              { id: 1, label: 'Tahap 1: Registrasi & Identitas', icon: ShieldCheck, isDone: currentStep > 1, isActive: expandedMacro === 1, isLocked: false },
+              { id: 2, label: 'Tahap 2: Skema & Pembayaran (Booking)', icon: CreditCard, isDone: currentStep > 3, isActive: expandedMacro === 2, isLocked: false },
+              { id: 3, label: 'Tahap 3: Kontrak Asrama', icon: FileSignature, isDone: currentStep > 5, isActive: expandedMacro === 3, isLocked: !(profile.kycSubmitted || profile.kycVerified) },
+              { id: 4, label: 'Tahap 4: e-Ticket & BASTK', icon: QrCode, isDone: currentStep === 6 && (ticket?.status === 'ACTIVE' || ticket?.status === 'USED'), isActive: expandedMacro === 4, isLocked: !(profile.kycSubmitted || profile.kycVerified) }
+            ].map(phase => (
+              <button 
+                id={`macro-step-${phase.id}`}
+                key={phase.id} 
+                onClick={() => setExpandedMacro(phase.id)}
+                className={`flex items-center px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  phase.isActive 
+                    ? 'bg-teal-600 text-white shadow-md' 
+                    : phase.isDone 
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                      : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {phase.isDone ? <CheckCircle2 className="w-4 h-4 mr-2" /> : phase.isLocked ? <Lock className="w-3.5 h-3.5 mr-2 text-slate-400" /> : <phase.icon className="w-4 h-4 mr-2" />}
+                {phase.label}
+                {phase.isLocked && <span className="ml-1.5 text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-normal">Kunci</span>}
+              </button>
+            ))}
           </div>
+
+          {/* MICRO STEPS & SOP BUTTON */}
+          <div className="p-3 md:p-4 flex flex-row items-center justify-between gap-3 overflow-x-auto hide-scrollbar relative">
+            <div className="flex flex-nowrap items-center gap-2 md:gap-3 flex-1">
+              {[
+                { step: 1, macroId: 1, label: 'Validasi Identitas', icon: FileCheck, isLocked: false },
+                { step: 2, macroId: 2, label: 'Pilih Skema', icon: CreditCard, isLocked: false },
+                { step: 3, macroId: 2, label: 'Pembayaran', icon: CheckCircle2, isLocked: !(profile.kycSubmitted || profile.kycVerified) },
+                { step: 4, macroId: 3, label: 'Tanda Tangan', icon: PenTool, isLocked: !(profile.kycSubmitted || profile.kycVerified) },
+                { step: 5, macroId: 3, label: 'Penerbitan', icon: Ticket, isLocked: !(profile.kycSubmitted || profile.kycVerified) },
+                { step: 6, macroId: 4, label: 'BASTK', icon: Printer, isLocked: !(profile.kycSubmitted || profile.kycVerified) }
+              ].filter(item => item.macroId === expandedMacro).map((item, index, array) => {
+                const isCompleted = currentStep > item.step || (item.step === 6 && showBastk);
+                const isCurrent = currentStep === item.step;
+                const isLocked = item.isLocked && !isCompleted;
+                const Icon = item.icon;
+                return (
+                  <div key={item.step} className="flex items-center shrink-0">
+                    <button
+                      onClick={() => handleStepNavigation(item.step as AdmissionStep)}
+                      title={isLocked ? 'Selesaikan Tahap 1 (Validasi Identitas) untuk membuka tahap ini' : undefined}
+                      className={`flex items-center space-x-1.5 md:space-x-2 px-2 py-1.5 md:px-3 md:py-1.5 rounded-lg transition-all ${
+                        isCurrent 
+                          ? 'bg-teal-50 border border-teal-200 text-teal-700' 
+                          : isCompleted
+                          ? 'text-teal-600 hover:bg-teal-50'
+                          : isLocked
+                          ? 'text-slate-400 bg-slate-50/70 border border-dashed border-slate-200 hover:bg-slate-100 cursor-pointer'
+                          : 'text-slate-400 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+                        isCompleted ? 'bg-teal-500 border-teal-500 text-white' : 
+                        isCurrent ? 'bg-teal-600 border-teal-600 text-white' : 
+                        isLocked ? 'bg-slate-100 border-slate-300 text-slate-400' :
+                        'bg-white border-slate-300'
+                      }`}>
+                        {isCompleted ? <CheckCircle2 className="w-3 h-3 md:w-3.5 md:h-3.5" /> : isLocked ? <Lock className="w-2.5 h-2.5 text-slate-400" /> : item.step}
+                      </div>
+                      <span className={`text-[11px] md:text-xs font-bold ${isCurrent ? 'text-teal-700' : isCompleted ? 'text-teal-600' : isLocked ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {item.label}
+                      </span>
+                      {isLocked && <Lock className="w-3 h-3 text-slate-400 ml-0.5" />}
+                    </button>
+                    {index < array.length - 1 && (
+                      <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-slate-300 mx-1 md:mx-1" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           
           <div className="shrink-0 border-l border-slate-200 pl-3 md:pl-4 sticky right-0 bg-white shadow-[-8px_0_12px_-4px_rgba(255,255,255,0.9)] md:shadow-none">
             <button 
@@ -1909,13 +1930,8 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                   Registrasi Data Penghuni Asrama & Validasi Identitas
                 </h2>
                 
-                <p className="hidden sm:block text-slate-500 text-[11px] sm:text-xs md:text-sm max-w-3xl leading-relaxed">
-                  Lengkapi formulir data diri, kontak darurat wali, preferensi kamar asrama, serta unggah dokumen identitas resmi untuk verifikasi keamanan dan kepenghunian Asrama Universitas Bunda Thamrin.
-                </p>
-                
-                {/* Mobile-only compact subtitle */}
-                <p className="sm:hidden text-slate-500 text-[10px] leading-snug">
-                  Lengkapi formulir data diri & unggah dokumen identitas resmi.
+                <p className="text-slate-500 text-xs sm:text-sm max-w-2xl leading-relaxed">
+                  Lengkapi data diri, kontak wali, dan dokumen identitas resmi untuk verifikasi kepenghunian asrama.
                 </p>
               </div>
 
@@ -1994,33 +2010,69 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           )}
 
           {profile.kycSubmitted && profile.correctionStatus !== 'unlocked' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">TERKUNCI</span>
-                  <h3 className="font-bold text-amber-950 text-sm">Data Formulir Telah Dikunci untuk Validasi</h3>
-                </div>
-                <p className="text-xs text-amber-800 mt-1 max-w-3xl">
-                  Data Anda telah tersimpan dan siap diproses. Jika ada perubahan data kontak/wali, Anda dapat mengajukan permohonan koreksi data kepada administrator asrama atau membuka kunci untuk simulasi ulang.
-                </p>
+            <div className="bg-amber-50/80 border border-amber-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">TERKUNCI</span>
+                <span className="text-xs sm:text-sm font-semibold text-amber-950">
+                  Data formulir telah dikunci untuk verifikasi identitas.
+                </span>
+                <span className="hidden md:inline text-amber-800/80 text-xs">
+                  (Ajukan koreksi jika ada data wali/identitas yang perlu diperbarui)
+                </span>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
                 <button
                   type="button"
                   onClick={() => {
                     updateProfileObject({ kycSubmitted: false, kycVerified: false });
                     toast.success('Kunci formulir dibuka untuk pengeditan dan simulasi.');
                   }}
-                  className="bg-white border border-amber-300 text-amber-900 px-4 py-2 rounded-xl font-bold text-xs hover:bg-amber-100 transition-colors"
+                  className="bg-white border border-amber-300 text-amber-900 px-3 py-1.5 rounded-lg font-semibold text-xs hover:bg-amber-100 transition-colors cursor-pointer"
                 >
-                  Buka Kunci (Simulasi)
+                  Buka Kunci
                 </button>
                 <button
                   type="button"
                   onClick={() => setCorrectionModalOpen(true)}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-slate-800 transition-colors"
+                  className="bg-slate-900 text-white px-3.5 py-1.5 rounded-lg font-semibold text-xs hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  Ajukan Koreksi Data
+                  Ajukan Koreksi
+                </button>
+              </div>
+            </div>
+          )}
+          {/* SMART PRE-FILL SIAKAD & SIDARA NOTIFICATION BANNER */}
+          {(profile.ssoSource === 'SIAKAD_SIDARA' || profile.ssoIdFromSidara || (profile.nim && !profile.nim.startsWith('REG'))) && !profile.kycSubmitted && (
+            <div className="bg-teal-50/70 border border-teal-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-800">
+                  <span className="font-bold text-teal-950">Data SIAKAD Tersinkronisasi ({profile.nim})</span>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <span className="text-slate-600 text-[11px] sm:text-xs">
+                    Lengkapi e-KYC (KTP & Selfie) dan kontak wali untuk mengunci pemesanan kamar.
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenSop(1, e)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-teal-50 text-teal-800 text-xs font-semibold border border-teal-200 transition-colors cursor-pointer shadow-xs"
+                  title="Lihat kebijakan kepenghunian & panduan e-KYC"
+                >
+                  <Info className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Ketentuan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStepNavigation(2)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  <span>Lihat Skema (Step 2) →</span>
                 </button>
               </div>
             </div>
@@ -2125,46 +2177,17 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 {/* Expanded Form View */}
                 <div className={`mt-5 grid grid-cols-2 gap-4 transition-all duration-300 ${isAcademicExpanded ? 'block' : 'hidden'}`}>
                   {/* SIAKAD Auto-Fill Helper Bar */}
-                  <div className="col-span-2 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
+                  <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-teal-100 text-teal-800 rounded-lg shrink-0">
                         <Link2 className="w-4 h-4" />
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-indigo-950 flex flex-wrap items-center gap-2">
-                          <span>Sinkronisasi Data SIAKAD UBT</span>
-                          <span className="text-[10px] font-mono text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded font-bold">
-                            {profile.isKipStudent ? 'Jalur: KIP (mahasiswa-btt-002)' : 'Jalur: Beasiswa Khusus (mahasiswa-btt-006)'}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-600 mt-0.5">
-                          {matchedSiakadRecord ? (
-                            <span>
-                              Terhubung dengan data pra-registrasi: <strong className="text-slate-900">{matchedSiakadRecord.nama_lengkap}</strong> ({matchedSiakadRecord.nomor_registrasi}) · {matchedSiakadRecord.program_studi}
-                            </span>
-                          ) : (
-                            <span>Ketikkan No. Registrasi PMB atau NIM untuk auto-fill biodata dari database SIAKAD.</span>
-                          )}
-                        </div>
-                        {matchedSiakadRecord && (
-                          <div className="text-[10px] font-medium mt-1">
-                            {matchedSiakadRecord.status_verifikasi_subsidi === 1 ? (
-                              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Subsidi Beasiswa Terverifikasi Sah oleh Staf Keuangan
-                              </span>
-                            ) : matchedSiakadRecord.status_verifikasi_subsidi === -1 ? (
-                              <span className="text-slate-500 flex items-center gap-1">
-                                Tarif Normal Non-Subsidi Diberlakukan
-                              </span>
-                            ) : (
-                              <span className="text-amber-700 font-medium flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                Hak Subsidi Beasiswa Menunggu Review Staf Keuangan
-                              </span>
-                            )}
-                          </div>
-                        )}
+                      <div className="text-xs text-slate-700">
+                        <span className="font-bold text-slate-900">Sinkronisasi SIAKAD UBT</span>
+                        <span className="hidden sm:inline text-slate-300 mx-2">•</span>
+                        <span className="text-slate-500 text-[11px] sm:text-xs">
+                          Data akademik otomatis terhubung dari server kampus.
+                        </span>
                       </div>
                     </div>
 
@@ -2179,21 +2202,21 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                             );
                             setShowQuickCompletionModal(true);
                           }}
-                          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer animate-pulse"
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                           title="Lengkapi nomor WhatsApp dan konfirmasi jenis kelamin"
                         >
                           <PhoneCall className="w-3.5 h-3.5" />
-                          <span>Form Ringkas (WA & Gender)</span>
+                          <span>Lengkapi No. WA</span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={handleAutoFillFromSiakad}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        title="Tarik data otomatis dari endpoint SIAKAD ke formulir ini"
+                        className="bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        title="Tarik data otomatis dari SIAKAD"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Tarik Auto-Fill SIAKAD</span>
+                        <span>Sinkronkan Ulang</span>
                       </button>
                     </div>
                   </div>
@@ -2657,25 +2680,25 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                         />
                       </div>
 
-                      <div>
-                        <label className="text-slate-700 block mb-1 text-[10px] font-bold">RT / RW *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="002/004"
-                          value={profile.alamatKtpRtRw || ''}
-                          onChange={(e) => updateProfileField('alamatKtpRtRw', e.target.value)}
-                          className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
-                        />
-                      </div>
-
-                      {/* Cascading National Administrative Selector for KTP */}
+                      {/* Cascading National Administrative Selector for KTP (Provinsi, Kab/Kota, Kecamatan, RT/RW opsional, Desa/Kelurahan, Kode Pos) */}
                       <IndonesianRegionSelector
                         province={profile.alamatKtpProvinsi || ''}
                         regency={profile.alamatKtpKabupatenKota || ''}
                         district={profile.alamatKtpKecamatan || ''}
                         village={profile.alamatKtpKelurahan || ''}
                         postalCode={profile.alamatKtpKodePos || ''}
+                        rtRw={profile.alamatKtpRtRw || ''}
+                        onRtRwChange={(rt) => updateProfileField('alamatKtpRtRw', rt)}
+                        onRegionChange={(values) => {
+                          updateProfileObject({
+                            alamatKtpProvinsi: values.province,
+                            alamatKtpKabupatenKota: values.regency,
+                            alamatKtpKecamatan: values.district,
+                            alamatKtpKelurahan: values.village,
+                            alamatKtpKodePos: values.postalCode || '',
+                            ...(values.rtRw !== undefined ? { alamatKtpRtRw: values.rtRw } : {}),
+                          });
+                        }}
                         onProvinceChange={(prov) => updateProfileField('alamatKtpProvinsi', prov)}
                         onRegencyChange={(reg) => updateProfileField('alamatKtpKabupatenKota', reg)}
                         onDistrictChange={(dist) => updateProfileField('alamatKtpKecamatan', dist)}
@@ -2740,19 +2763,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                             />
                           </div>
 
-                          <div>
-                            <label className="text-slate-700 block mb-1 text-[10px] font-bold">RT / RW (Domisili) *</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="001/002"
-                              value={profile.alamatDomisiliRtRw || ''}
-                              onChange={(e) => updateProfileField('alamatDomisiliRtRw', e.target.value)}
-                              className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
-                            />
-                          </div>
-
-                          {/* Cascading National Administrative Selector for Domisili */}
+                          {/* Cascading National Administrative Selector for Domisili (Provinsi, Kab/Kota, Kecamatan, RT/RW opsional, Desa/Kelurahan, Kode Pos) */}
                           <IndonesianRegionSelector
                             labelSuffix="(Domisili)"
                             province={profile.alamatDomisiliProvinsi || ''}
@@ -2760,6 +2771,18 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                             district={profile.alamatDomisiliKecamatan || ''}
                             village={profile.alamatDomisiliKelurahan || ''}
                             postalCode={profile.alamatDomisiliKodePos || ''}
+                            rtRw={profile.alamatDomisiliRtRw || ''}
+                            onRtRwChange={(rt) => updateProfileField('alamatDomisiliRtRw', rt)}
+                            onRegionChange={(values) => {
+                              updateProfileObject({
+                                alamatDomisiliProvinsi: values.province,
+                                alamatDomisiliKabupatenKota: values.regency,
+                                alamatDomisiliKecamatan: values.district,
+                                alamatDomisiliKelurahan: values.village,
+                                alamatDomisiliKodePos: values.postalCode || '',
+                                ...(values.rtRw !== undefined ? { alamatDomisiliRtRw: values.rtRw } : {}),
+                              });
+                            }}
                             onProvinceChange={(prov) => updateProfileField('alamatDomisiliProvinsi', prov)}
                             onRegencyChange={(reg) => updateProfileField('alamatDomisiliKabupatenKota', reg)}
                             onDistrictChange={(dist) => updateProfileField('alamatDomisiliKecamatan', dist)}
@@ -3190,28 +3213,57 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           <div className="border-b border-slate-200 pb-4">
             <h3 className="text-xs sm:text-[15px] font-bold text-slate-900 flex items-center space-x-2">
               <Calculator className="w-5 h-5 text-teal-600" />
-              <span>Step 2: Konfigurasi Skema Pembayaran</span>
+              <span>Tahap 2: Pemilihan Skema Pembayaran & Booking Asrama</span>
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Rincian biaya dan skema cicilan dihitung otomatis berdasarkan regulasi <strong>Konfigurasi Master Tarif & Skema Cicilan</strong> yang aktif.
+              Tahap ini merupakan pemilihan skema masa sewa (Semesteran / Tahunan) dan opsi cicilan deposit untuk penerbitan tagihan resmi (Booking Asrama). Rincian biaya dihitung otomatis berdasarkan <strong>Master Tarif & Skema Cicilan</strong> yang aktif.
             </p>
           </div>
 
-          {profile.isFastTrackSso && (
-            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          {!(profile.kycSubmitted || profile.kycVerified) ? (
+            <div className="bg-gradient-to-r from-amber-50 via-blue-50 to-indigo-50 border border-amber-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <div className="p-2 bg-amber-100 text-amber-800 rounded-lg shrink-0 mt-0.5 sm:mt-0">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-amber-950 flex items-center gap-2">
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded">
+                      MODE PRATINJAU & SIMULASI SKEMA
+                    </span>
+                    <span className="text-[11px] text-slate-600 font-normal">
+                      NIM: {profile.nim}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
+                    Anda bebas menguji dan memilih skema durasi sewa serta cicilan deposit untuk melihat simulasi total tagihan. <strong>Penerbitan tagihan resmi & pembayaran (Step 3)</strong> akan aktif setelah Anda melengkapi berkas di Step 1.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Lengkapi Step 1 Sekarang</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg shrink-0">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="font-bold text-emerald-950 flex items-center gap-2">
-                    <span>Jalur Fast-Track SSO SIDARA Aktif</span>
+                    <span>Tahap 1 Selesai (Validasi Identitas & Data Orang Tua)</span>
                     <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
                       NIM: {profile.nim}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-0.5">
-                    Data biodata mahasiswa aktif telah terverifikasi lengkap dari pangkalan data SIAKAD & SIDARA UBT. Tahapan pengisian profil e-KYC (Langkah 1) dilewati secara otomatis.
+                    Validasi identitas, foto e-KTP, selfie, serta biodata orang tua/wali atas nama <strong>{profile.nama}</strong> telah lengkap. Silakan pilih skema durasi sewa dan opsi pembayaran untuk melanjutkan proses pendaftaran.
                   </p>
                 </div>
               </div>
@@ -3220,7 +3272,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 onClick={() => setCurrentStep(1)}
                 className="text-[11px] font-bold text-teal-800 hover:text-teal-950 hover:underline shrink-0 cursor-pointer"
               >
-                Lihat / Periksa Biodata Step 1 &rarr;
+                Lihat Ringkasan Step 1 &rarr;
               </button>
             </div>
           )}
@@ -3583,12 +3635,27 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-300 cursor-pointer transition-colors"
+            >
+              ← Kembali ke Formulir Step 1
+            </button>
             <button
               onClick={() => handleStepNavigation(3)}
-              className="bg-teal-700 hover:bg-teal-800 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center space-x-2"
+              className={`w-full sm:w-auto font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center space-x-2 ${
+                (profile.kycSubmitted || profile.kycVerified)
+                  ? 'bg-teal-700 hover:bg-teal-800 text-white cursor-pointer'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+              }`}
             >
-              <span>Lanjut Pilih Metode Pembayaran (Step 3)</span>
+              <span>
+                {(profile.kycSubmitted || profile.kycVerified)
+                  ? 'Lanjut Pilih Metode Pembayaran (Step 3)'
+                  : 'Simpan Skema & Lanjut ke Pembayaran (Step 3)'}
+              </span>
               <CreditCard className="w-4 h-4" />
             </button>
           </div>
@@ -4013,6 +4080,16 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                         <h5 className="font-bold text-slate-900 text-xs sm:text-sm mb-1">Auto-Save & Koreksi Data</h5>
                         <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed">
                           Selama pengisian, data tersimpan otomatis. Apabila Anda terputus dari jaringan, Anda dapat melanjutkannya nanti. Jika telah <i>Disubmit</i> namun ada kesalahan, gunakan tombol <strong>Ajukan Koreksi Data</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3.5 bg-teal-50/70 p-4 rounded-2xl border border-teal-100">
+                      <div className="w-6 h-6 rounded-full bg-teal-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">5</div>
+                      <div>
+                        <h5 className="font-bold text-teal-950 text-xs sm:text-sm mb-1">Sinkronisasi SIAKAD & Alur Tahap 2</h5>
+                        <p className="text-[11px] sm:text-xs text-teal-900/90 leading-relaxed">
+                          Data akademik telah disinkronkan otomatis. Anda dapat meninjau simulasi tarif & opsi cicilan di <strong>Tahap 2</strong> kapan saja. Namun penerbitan invoice resmi serta penguncian kamar mensyaratkan e-KYC (KTP & Selfie) Tahap 1 terverifikasi.
                         </p>
                       </div>
                     </div>

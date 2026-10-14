@@ -202,9 +202,9 @@ export default function App() {
         }]);
         setTicket(INITIAL_TICKET);
         setContract(INITIAL_CONTRACT);
-      } else if (scenario === 'FAST_TRACK') {
-        // SKENARIO 2A: Mahasiswa Eksisting (Bukan Penghuni) - Data SIAKAD & SIDARA Lengkap
-        // Melewati Step 1 e-KYC (auto-verified dari SSO), langsung ke Step 2 Pemilihan Kamar & Tagihan
+      } else if (scenario === 'SMART_PREFILL' || scenario === 'FAST_TRACK') {
+        // SKENARIO 2A: Mahasiswa Eksisting (Bukan Penghuni) - Smart Pre-Fill SIAKAD & SIDARA
+        // Data akademik terisi otomatis, wajib melengkapi foto e-KTP, selfie, dan data orang tua di Step 1
         setMabaProfile({
           ...INITIAL_MABA,
           nim: finalNim || nim,
@@ -219,11 +219,12 @@ export default function App() {
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
           kipNumber: isKip ? nim : undefined,
-          kycVerified: true, // Terverifikasi SSO SIDARA
-          kycSubmitted: true,
-          ktpUrl: 'sso_siakad_verified.jpg',
-          selfieUrl: 'sso_siakad_verified.jpg',
-          isFastTrackSso: true,
+          kycVerified: false, // Wajib unggah KTP fisik & selfie di Step 1
+          kycSubmitted: false,
+          ktpUrl: undefined,
+          selfieUrl: undefined,
+          isFastTrackSso: false,
+          isKycRequired: true,
           ssoSource: 'SIAKAD_SIDARA',
         });
         setInvoices([{
@@ -238,7 +239,7 @@ export default function App() {
         }]);
         setTicket(INITIAL_TICKET);
         setContract(INITIAL_CONTRACT);
-        toast.success(`[FAST-TRACK DIAKTIFKAN] Biodata mahasiswa aktif ${studentName} terverifikasi penuh dari SIDARA. Langsung ke pemilihan kamar & durasi sewa!`, { duration: 5000 });
+        toast.success(`[SMART PRE-FILL SIAKAD] Data akademik mahasiswa ${studentName} terhubung. Sesuai regulasi, wajib unggah e-KTP & lengkapi data orang tua di Tahap 1 sebelum membuka Skema Pembayaran.`, { duration: 6000 });
       } else if (scenario === 'INCOMPLETE_DATA') {
         // SKENARIO 2B: Mahasiswa Eksisting (Bukan Penghuni) - Data Belum Lengkap
         setMabaProfile({

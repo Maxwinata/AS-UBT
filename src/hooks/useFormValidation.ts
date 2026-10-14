@@ -23,7 +23,6 @@ export function useFormValidation(profile: MabaProfile, ktpUrl?: string, selfieU
 
     // Mandatory KTP Address
     if (!p.alamatKtpJalan?.trim()) newErrors.alamatKtpJalan = 'Jalan / Dusun (KTP) wajib diisi';
-    if (!p.alamatKtpRtRw?.trim()) newErrors.alamatKtpRtRw = 'RT/RW (KTP) wajib diisi';
     if (!p.alamatKtpKelurahan?.trim()) newErrors.alamatKtpKelurahan = 'Desa/Kelurahan (KTP) wajib diisi';
     if (!p.alamatKtpKecamatan?.trim()) newErrors.alamatKtpKecamatan = 'Kecamatan (KTP) wajib diisi';
     if (!p.alamatKtpKabupatenKota?.trim()) newErrors.alamatKtpKabupatenKota = 'Kabupaten/Kota (KTP) wajib diisi';
@@ -32,7 +31,6 @@ export function useFormValidation(profile: MabaProfile, ktpUrl?: string, selfieU
     // Mandatory Domicile Address (if different from KTP)
     if (p.isAlamatDomisiliSamaDenganKtp === false && p.alamatDomisiliJalan) {
       if (!p.alamatDomisiliJalan?.trim()) newErrors.alamatDomisiliJalan = 'Jalan / Dusun (Domisili) wajib diisi';
-      if (!p.alamatDomisiliRtRw?.trim()) newErrors.alamatDomisiliRtRw = 'RT/RW (Domisili) wajib diisi';
       if (!p.alamatDomisiliKelurahan?.trim()) newErrors.alamatDomisiliKelurahan = 'Desa/Kelurahan (Domisili) wajib diisi';
       if (!p.alamatDomisiliKecamatan?.trim()) newErrors.alamatDomisiliKecamatan = 'Kecamatan (Domisili) wajib diisi';
       if (!p.alamatDomisiliKabupatenKota?.trim()) newErrors.alamatDomisiliKabupatenKota = 'Kabupaten/Kota (Domisili) wajib diisi';

@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana implementasi standarisasi skema API SIAKAD UBT (BTT-006 dan BTT-002) ke sistem Asrama UBT, mencakup integrasi sso_id_from_sidara sebagai foreign key, klasifikasi Maba vs Eksisting berdasarkan awalan NIM, dan form ringkas pelengkap nomor WhatsApp & jenis kelamin.",
-  "updatedAt": "2026-10-13T11:06:20.159278466Z",
+  "summary": "Rencana implementasi penyederhanaan narasi panjang pada Modal Verifikasi SSO dan Banner Dashboard Tahap 1 menjadi format satu baris padat serta penyediaan tombol bantuan/kebijakan terpisah guna meningkatkan estetika dan keterbacaan antarmuka.",
+  "updatedAt": "2026-10-14T07:51:23.337814906Z",
   "requestFeedback": true,
   "userFacing": true
 }

@@ -28,16 +28,6 @@ export function AddressForm({ profile, setProfile }: AddressFormProps) {
               className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
             />
           </div>
-          <div>
-            <label className="text-slate-700 block mb-1 text-[11px] font-bold">RT / RW *</label>
-            <input
-              type="text"
-              required
-              value={profile.alamatKtpRtRw || ''}
-              onChange={(e) => setProfile({ ...profile, alamatKtpRtRw: e.target.value })}
-              className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
-            />
-          </div>
 
           <IndonesianRegionSelector
             province={profile.alamatKtpProvinsi || ''}
@@ -45,6 +35,19 @@ export function AddressForm({ profile, setProfile }: AddressFormProps) {
             district={profile.alamatKtpKecamatan || ''}
             village={profile.alamatKtpKelurahan || ''}
             postalCode={profile.alamatKtpKodePos || ''}
+            rtRw={profile.alamatKtpRtRw || ''}
+            onRtRwChange={(rt) => setProfile({ ...profile, alamatKtpRtRw: rt })}
+            onRegionChange={(values) =>
+              setProfile({
+                ...profile,
+                alamatKtpProvinsi: values.province,
+                alamatKtpKabupatenKota: values.regency,
+                alamatKtpKecamatan: values.district,
+                alamatKtpKelurahan: values.village,
+                alamatKtpKodePos: values.postalCode || '',
+                ...(values.rtRw !== undefined ? { alamatKtpRtRw: values.rtRw } : {}),
+              })
+            }
             onProvinceChange={(prov) => setProfile({ ...profile, alamatKtpProvinsi: prov })}
             onRegencyChange={(reg) => setProfile({ ...profile, alamatKtpKabupatenKota: reg })}
             onDistrictChange={(dist) => setProfile({ ...profile, alamatKtpKecamatan: dist })}
@@ -109,16 +112,6 @@ export function AddressForm({ profile, setProfile }: AddressFormProps) {
                 className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
               />
             </div>
-            <div>
-              <label className="text-slate-700 block mb-1 text-[11px] font-bold">RT / RW *</label>
-              <input
-                type="text"
-                required
-                value={profile.alamatDomisiliRtRw || ''}
-                onChange={(e) => setProfile({ ...profile, alamatDomisiliRtRw: e.target.value })}
-                className="w-full bg-white border border-slate-300 focus:ring-2 focus:ring-teal-500 rounded-lg px-3 py-2 text-slate-900 font-medium text-xs"
-              />
-            </div>
 
             <IndonesianRegionSelector
               labelSuffix="(Domisili)"
@@ -127,6 +120,19 @@ export function AddressForm({ profile, setProfile }: AddressFormProps) {
               district={profile.alamatDomisiliKecamatan || ''}
               village={profile.alamatDomisiliKelurahan || ''}
               postalCode={profile.alamatDomisiliKodePos || ''}
+              rtRw={profile.alamatDomisiliRtRw || ''}
+              onRtRwChange={(rt) => setProfile({ ...profile, alamatDomisiliRtRw: rt })}
+              onRegionChange={(values) =>
+                setProfile({
+                  ...profile,
+                  alamatDomisiliProvinsi: values.province,
+                  alamatDomisiliKabupatenKota: values.regency,
+                  alamatDomisiliKecamatan: values.district,
+                  alamatDomisiliKelurahan: values.village,
+                  alamatDomisiliKodePos: values.postalCode || '',
+                  ...(values.rtRw !== undefined ? { alamatDomisiliRtRw: values.rtRw } : {}),
+                })
+              }
               onProvinceChange={(prov) => setProfile({ ...profile, alamatDomisiliProvinsi: prov })}
               onRegencyChange={(reg) => setProfile({ ...profile, alamatDomisiliKabupatenKota: reg })}
               onDistrictChange={(dist) => setProfile({ ...profile, alamatDomisiliKecamatan: dist })}

@@ -40,7 +40,7 @@ export interface MabaProfile {
 
   // Alamat KTP (Asal)
   alamatKtpJalan: string;
-  alamatKtpRtRw: string;
+  alamatKtpRtRw?: string;
   alamatKtpKelurahan: string;
   alamatKtpKecamatan: string;
   alamatKtpKabupatenKota: string; 
@@ -50,7 +50,7 @@ export interface MabaProfile {
   // Alamat Domisili (Kontak)
   isAlamatDomisiliSamaDenganKtp: boolean;
   alamatDomisiliJalan: string;
-  alamatDomisiliRtRw: string;
+  alamatDomisiliRtRw?: string;
   alamatDomisiliKelurahan: string;
   alamatDomisiliKecamatan: string;
   alamatDomisiliKabupatenKota: string;

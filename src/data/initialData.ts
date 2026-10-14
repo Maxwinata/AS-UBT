@@ -457,7 +457,7 @@ export const INITIAL_SIAKAD_STAGING: SiakadMahasiswaStgRecord[] = [
     nomor_registrasi: '2240101088',
     nim_resmi: '2240101088',
     has_active_nim: true,
-    is_api_fields_complete: true, // Skenario 2A: Mahasiswa Eksisting (Bukan Penghuni) - Data Lengkap -> Fast-Track
+    is_api_fields_complete: true, // Skenario 2A: Mahasiswa Eksisting (Bukan Penghuni) - Data SIAKAD Lengkap -> Smart Pre-Fill (Wajib KTP & Orang Tua)
     nama_lengkap: 'Ahmad Zaky Maulana',
     nik: '1271081405020003',
     angkatan: '2022',
