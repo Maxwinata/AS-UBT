@@ -29,7 +29,7 @@ import { MaintenanceTicketing } from './components/maintenance/MaintenanceTicket
 
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('maba');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Logged in by default to show working app instantly
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); // Default to false so user lands on login page first
 
   // Data Store
   const [mabaProfile, setMabaProfile] = useState<MabaProfile>(INITIAL_MABA);

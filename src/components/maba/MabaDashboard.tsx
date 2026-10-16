@@ -4342,18 +4342,24 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       
       {/* WA SIMULATOR MODAL */}
       {showWaSimulator && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row relative">
-            <button onClick={() => setShowWaSimulator(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10 bg-white/50 p-1 rounded-full backdrop-blur">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[92dvh] sm:max-h-[88vh] shadow-2xl flex flex-col md:flex-row overflow-hidden relative border border-slate-100 min-h-0">
+            {/* Close Button with touch target >= 44px */}
+            <button
+              type="button"
+              onClick={() => setShowWaSimulator(false)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 z-30 bg-white/80 hover:bg-white p-2.5 rounded-full shadow-xs transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Tutup Modal"
+            >
+              <X className="w-5 h-5" />
             </button>
             
-            {/* Left: Smartphone Simulator */}
-            <div className="bg-slate-100 p-6 md:w-1/2 border-r border-slate-200 flex flex-col items-center justify-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-200 rounded-full blur-3xl opacity-50 -ml-10 -mb-10"></div>
+            {/* Left: Smartphone Simulator (Desktop only >= md) */}
+            <div className="hidden md:flex bg-slate-100 p-6 md:w-[45%] lg:w-1/2 border-r border-slate-200 flex-col items-center justify-center relative overflow-hidden shrink-0">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-200 rounded-full blur-3xl opacity-50 -ml-10 -mb-10 pointer-events-none"></div>
               
-              <div className="w-[260px] h-[520px] bg-white rounded-[2.5rem] border-[10px] border-slate-800 overflow-hidden relative shadow-xl z-10 flex flex-col">
+              <div className="w-[260px] h-[480px] bg-white rounded-[2.5rem] border-[10px] border-slate-800 overflow-hidden relative shadow-xl z-10 flex flex-col">
                  {/* Notch */}
                  <div className="absolute top-0 inset-x-0 h-5 bg-slate-800 rounded-b-2xl mx-16 z-20"></div>
                  {/* WA Header */}
@@ -4367,33 +4373,33 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                     </div>
                  </div>
                  {/* Chat Area */}
-                 <div className="bg-[#E5DDD5] flex-1 p-3 space-y-4 overflow-y-auto custom-scrollbar flex flex-col">
-                    <div className="text-center my-2">
-                      <span className="bg-[#D4EAF4] text-slate-600 text-[9px] px-2 py-1 rounded-md font-medium uppercase tracking-wider">Hari Ini</span>
+                 <div className="bg-[#E5DDD5] flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar flex flex-col">
+                    <div className="text-center my-1">
+                      <span className="bg-[#D4EAF4] text-slate-600 text-[9px] px-2 py-0.5 rounded-md font-medium uppercase tracking-wider">Hari Ini</span>
                     </div>
                     
                     {/* Message 1: Student */}
-                    <div className="bg-white p-2.5 rounded-lg rounded-tl-none text-xs text-slate-800 shadow-sm max-w-[90%] relative animate-in slide-in-from-left-2 duration-300">
+                    <div className="bg-white p-2.5 rounded-lg rounded-tl-none text-xs text-slate-800 shadow-sm max-w-[92%] relative">
                        <span className="font-bold text-[#075E54] block mb-1">Asrama UBT</span>
                        [SIMULASI WHATSAPP MAHASISWA]<br/><br/>
                        Halo <strong>{profile.nama}</strong>,<br/>
                        Kode OTP untuk pengesahan kontrak Asrama Anda (F-19 & F-02):<br/>
-                       <span className="block my-2 text-center text-lg font-black tracking-widest text-slate-900 bg-slate-100 py-1 rounded border border-slate-200">123456</span>
+                       <span className="block my-2 text-center text-lg font-black tracking-widest text-slate-900 bg-slate-100 py-1 rounded border border-slate-200 font-mono">123456</span>
                        Tujuan: Memastikan nomor HP/WhatsApp Anda valid. Berlaku 5 menit.
                        <span className="block text-[9px] text-right text-slate-400 mt-1">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
 
                     {/* Message 2: Parent (Only if ELEKTRONIK_OTP) */}
                     {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' ? (
-                      <div className="bg-white p-2.5 rounded-lg rounded-tl-none text-xs text-slate-800 shadow-sm max-w-[90%] relative animate-in slide-in-from-left-2 duration-500 delay-150 fill-mode-both">
+                      <div className="bg-white p-2.5 rounded-lg rounded-tl-none text-xs text-slate-800 shadow-sm max-w-[92%] relative">
                          <span className="font-bold text-[#075E54] block mb-1">Asrama UBT</span>
                          [SIMULASI WHATSAPP WALI]<br/><br/>
                          Kode OTP Wali untuk persetujuan kontrak Asrama (F-20 & F-19) atas nama <strong>{profile.nama}</strong>:<br/>
-                         <span className="block my-2 text-center text-lg font-black tracking-widest text-slate-900 bg-slate-100 py-1 rounded border border-slate-200">654321</span>
+                         <span className="block my-2 text-center text-lg font-black tracking-widest text-slate-900 bg-slate-100 py-1 rounded border border-slate-200 font-mono">654321</span>
                          <span className="block text-[9px] text-right text-slate-400 mt-1">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
                     ) : (
-                      <div className="bg-[#E1F5FE] p-2.5 rounded-lg text-xs text-slate-800 shadow-sm max-w-[90%] border border-[#B3E5FC]">
+                      <div className="bg-[#E1F5FE] p-2.5 rounded-lg text-xs text-slate-800 shadow-sm max-w-[92%] border border-[#B3E5FC]">
                         <span className="font-bold text-sky-800 block mb-1">Info Metode Persetujuan Wali</span>
                         Metode terpilih: <strong>{profile.metodePersetujuanOrtu || 'Dokumen Fisik F-20'}</strong>.<br/>
                         Persetujuan wali dilakukan terpisah (melalui formulir fisik di loket / panggilan video daring).
@@ -4403,81 +4409,153 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
               </div>
             </div>
             
-            {/* Right: Input Form */}
-            <div className="p-8 md:w-1/2 flex flex-col bg-white">
-              <div className="flex-1">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
-                  <MessageCircle className="w-6 h-6" />
+            {/* Right / Main Container: Header + Scrollable Content + Sticky Action Footer */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white overflow-hidden">
+              {/* Scrollable Form Content */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 overscroll-contain">
+                <div className="flex items-center gap-3 pr-8">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 leading-tight">Verifikasi OTP WhatsApp</h3>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                      {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP'
+                        ? 'Masukkan 6 digit kode OTP Mahasiswa dan 6 digit kode OTP Wali yang dikirimkan.'
+                        : 'Masukkan 6 digit kode OTP Mahasiswa untuk memvalidasi nomor kontak terdaftar dan mengesahkan tanda tangan elektronik.'}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-2">Verifikasi OTP WhatsApp</h3>
-                <p className="text-sm text-slate-500 mb-6">
-                  {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP'
-                    ? 'Masukkan 6 digit kode OTP Mahasiswa dan 6 digit kode OTP Wali yang dikirimkan.'
-                    : 'Masukkan 6 digit kode OTP Mahasiswa untuk memvalidasi nomor kontak terdaftar dan mengesahkan tanda tangan elektronik.'}
-                </p>
-                
-                <div className="space-y-5">
+
+                {/* Mobile / Tablet Compact WhatsApp Preview Banner (< md) */}
+                <div className="md:hidden bg-[#075E54]/5 border border-[#075E54]/20 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-[#075E54] text-white flex items-center justify-center text-xs">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-[#075E54]">Simulasi Pesan WhatsApp Masuk</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' ? '2 Pesan Aktif' : '1 Pesan Aktif'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] text-slate-500 font-semibold uppercase">OTP Mahasiswa</div>
+                        <div className="font-mono font-black text-base text-slate-900 tracking-wider">123456</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStudentOtp('123456')}
+                        className="bg-teal-50 hover:bg-teal-100 text-teal-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-teal-200 transition-colors cursor-pointer"
+                      >
+                        Isi ke Kolom
+                      </button>
+                    </div>
+
+                    {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' ? (
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-slate-500 font-semibold uppercase">OTP Wali</div>
+                          <div className="font-mono font-black text-base text-slate-900 tracking-wider">654321</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setParentOtp('654321')}
+                          className="bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-amber-200 transition-colors cursor-pointer"
+                        >
+                          Isi ke Kolom
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-600 flex items-center">
+                        Metode Wali: Dokumen Fisik F-20 (Tanpa OTP Wali)
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* OTP Inputs with Individual Quick Fill Buttons */}
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-slate-700 text-xs font-bold uppercase tracking-wider">
+                        OTP Mahasiswa (6-Digit) *
+                      </label>
+                      <button 
+                        type="button" 
+                        onClick={() => setStudentOtp('123456')}
+                        className="text-xs text-teal-700 font-bold hover:text-teal-900 hover:underline bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200 transition-colors cursor-pointer"
+                      >
+                        Isi 123456
+                      </button>
+                    </div>
+                    <input 
+                      type="text" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={studentOtp}
+                      onChange={e => setStudentOtp(e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-900 font-black tracking-[0.4em] sm:tracking-[0.5em] text-center focus:ring-2 focus:ring-teal-500 text-lg sm:text-xl shadow-inner transition-shadow font-mono" 
+                    />
+                  </div>
+
+                  {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' ? (
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
-                        <label className="text-slate-700 text-xs font-bold uppercase tracking-wider">OTP Mahasiswa (6-Digit)</label>
+                        <label className="text-slate-700 text-xs font-bold uppercase tracking-wider">
+                          OTP Wali (6-Digit) *
+                        </label>
                         <button 
                           type="button" 
-                          onClick={() => setStudentOtp('123456')}
-                          className="text-xs text-teal-700 font-bold hover:underline"
+                          onClick={() => setParentOtp('654321')}
+                          className="text-xs text-amber-800 font-bold hover:text-amber-950 hover:underline bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 transition-colors cursor-pointer"
                         >
-                          Isi 123456
+                          Isi 654321
                         </button>
                       </div>
                       <input 
                         type="text" 
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         maxLength={6}
-                        placeholder="123456"
-                        value={studentOtp}
-                        onChange={e => setStudentOtp(e.target.value.replace(/\D/g, ''))}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-slate-900 font-black tracking-[0.5em] text-center focus:ring-2 focus:ring-emerald-500 text-xl shadow-inner transition-shadow" 
+                        placeholder="654321"
+                        value={parentOtp}
+                        onChange={e => setParentOtp(e.target.value.replace(/\D/g, ''))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-900 font-black tracking-[0.4em] sm:tracking-[0.5em] text-center focus:ring-2 focus:ring-teal-500 text-lg sm:text-xl shadow-inner transition-shadow font-mono" 
                       />
                     </div>
-
-                    {profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' ? (
-                      <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                          <label className="text-slate-700 text-xs font-bold uppercase tracking-wider">OTP Wali (6-Digit)</label>
-                          <button 
-                            type="button" 
-                            onClick={() => setParentOtp('654321')}
-                            className="text-xs text-amber-800 font-bold hover:underline"
-                          >
-                            Isi 654321
-                          </button>
-                        </div>
-                        <input 
-                          type="text" 
-                          maxLength={6}
-                          placeholder="654321"
-                          value={parentOtp}
-                          onChange={e => setParentOtp(e.target.value.replace(/\D/g, ''))}
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-slate-900 font-black tracking-[0.5em] text-center focus:ring-2 focus:ring-emerald-500 text-xl shadow-inner transition-shadow" 
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600">
-                        <span className="font-bold block text-slate-800 mb-1">Status Persetujuan Wali:</span>
-                        Menggunakan metode <strong>{profile.metodePersetujuanOrtu || 'Dokumen Fisik F-20'}</strong> (tidak memerlukan OTP online wali).
-                      </div>
-                    )}
+                  ) : (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600">
+                      <span className="font-bold block text-slate-800 mb-0.5">Status Persetujuan Wali:</span>
+                      Menggunakan metode <strong>{profile.metodePersetujuanOrtu || 'Dokumen Fisik F-20'}</strong> (persetujuan berkas fisik di loket, tidak memerlukan kode OTP online wali).
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-8">
+              {/* Sticky Bottom Action Bar: Permanently pinned, never cut off */}
+              <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3.5 sm:p-5 shadow-lg shrink-0">
                 <button 
+                  type="button"
                   onClick={handleVerifyOtp}
                   disabled={studentOtp.length !== 6 || (profile.metodePersetujuanOrtu === 'ELEKTRONIK_OTP' && parentOtp.length !== 6) || isVerifyingOtp}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-4 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 sm:px-6 py-3 sm:py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm active:scale-[0.99]"
                 >
                   {isVerifyingOtp ? (
-                    <>Mencocokkan Hash OTP...</>
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Mencocokkan Hash OTP...
+                    </span>
                   ) : (
-                    <><ShieldCheck className="w-5 h-5" /> Sahkan Kontrak Elektronik (F-19 & F-02)</>
+                    <>
+                      <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                      <span className="truncate">Sahkan Kontrak Elektronik (F-19 & F-02)</span>
+                    </>
                   )}
                 </button>
               </div>

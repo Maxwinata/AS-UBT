@@ -1,61 +1,65 @@
-# Rencana Implementasi: Penyederhanaan Narasi & Redesain Estetik Modal SSO & Banner Tahap 1
+# Rencana Implementasi: Redesain Responsif Modal Verifikasi OTP & Default Halaman Login Awal
 
-Rencana ini merombak teks naratif yang terlalu panjang dan bertumpuk pada Modal Verifikasi SSO dan Banner Dashboard Tahap 1, menggantikannya dengan format satu baris teks padat (*compact single-line microcopy*) dan menyediakan modal bantuan kebijakan terpisah agar tampilan antarmuka bersih, estetik, dan mudah dipindai (*scannable*).
+Rencana ini mengatasi masalah tombol "Sahkan Kontrak Elektronik" yang terpotong pada tampilan mobile dan tablet melalui pendekatan tata letak **Sticky Bottom Bar** dengan **Preview Chat WhatsApp Ringkas**, serta mengatur halaman awal aplikasi agar secara default membuka **Halaman Login** saat URL diakses untuk alur simulasi yang realistis.
 
 ---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Keputusan pengguna yang dikonfirmasi pada tahap klarifikasi:
-> - **Cakupan Pemangkasan**: Modal Verifikasi SSO (`LoginDualTab.tsx`) dan Banner Dashboard Tahap 1 (`MabaDashboard.tsx`).
-> - **Gaya Pengganti Paragraf Panjang**: Format **satu baris teks padat** (*dense single-line text*) tanpa detail panjang atau paragraf ganda.
-> - **Penanganan Regulasi Asrama**: Regulasi detail tidak lagi dipaksakan tampil di halaman utama, melainkan dipindahkan ke **tombol info/bantuan kebijakan terpisah** yang dapat dibuka sesuai kebutuhan.
+> Keputusan dan preferensi pengguna yang telah dikonfirmasi:
+> - **Gaya Tampilan Mobile/Tablet**: **Sticky Bottom Action Bar** yang terkunci di bagian bawah viewport dipadukan dengan **Preview Chat WhatsApp Ringkas** di area atas, sehingga tombol pengesahan tidak akan pernah terpotong atau terdorong ke luar layar.
+> - **Simulator WhatsApp Desktop vs Mobile**: Pada layar desktop (`md:` ke atas), simulator smartphone WhatsApp 3D tetap dipertahankan. Pada layar mobile/tablet, frame ponsel 520px digantikan dengan kartu pesan masuk WhatsApp yang ramping dan efisien.
+> - **Tata Letak Tombol Isi Otomatis**: Tombol bantuan pengisian cepat ditempatkan secara **individual per kolom input** (`Isi 123456` untuk OTP Mahasiswa dan `Isi 654321` untuk OTP Wali).
+> - **Halaman Awal Default**: Mengubah status awal `isLoggedIn` menjadi `false`, sehingga saat pengguna pertama kali membuka URL aplikasi, mereka diarahkan ke **Halaman Login Dual-Tab (Mahasiswa PMB / SSO SIDARA / Admin)** terlebih dahulu.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **Problem Statement**: Pengguna menghadapi "dinding teks" (*walls of text*) berukuran 9px–11px di modal SSO dan banner Step 1 yang menjelaskan latar belakang regulasi, pengulangan NIM/nama, dan kebijakan kepenghunian secara berulang sehingga merusak estetika visual dan memperlambat interaksi.
-- **Solusi**: 
-  1. Mentransformasikan modal verifikasi SSO menjadi kartu konfirmasi yang ringkas, elegan, dan fokus pada aksi.
-  2. Memangkas banner Smart Pre-Fill di Tahap 1 menjadi strip info ramping satu baris dengan tombol aksi cepat dan tautan bantuan kebijakan asrama terpisah.
-  3. Memastikan kepatuhan terhadap prinsip *Frontend Design Constitution* (penghapusan font 9px kerdil, hierarki tipografi proporsional, dan penataan whitespace yang lega).
+- **Problem Statement**:
+  1. Pada modal verifikasi OTP (`showWaSimulator`), frame smartphone mockup WhatsApp memiliki tinggi tetap `520px` dan modal tidak memiliki pembatasan tinggi fleksibel (`max-h`) serta scrolling vertikal internal. Akibatnya, pada layar mobile dan tablet (portrait maupun landscape), modal memanjang melebihi tinggi layar sehingga tombol **"Sahkan Kontrak Elektronik (F-19 & F-02)"** terpotong di bagian bawah dan tidak dapat ditekan.
+  2. Saat URL dibuka pada lingkungan simulasi, aplikasi langsung mendarat di Tahap 1 Formulir Mahasiswa Baru tanpa melalui proses autentikasi login awal, sehingga pengguna tidak dapat menguji alur login PMB, SSO SIDARA, maupun pergantian peran sejak awal.
+- **Solusi**:
+  1. Merombak modal verifikasi OTP WhatsApp menjadi modal responsif dengan arsitektur **Fixed Header + Scrollable Content + Sticky Action Footer**.
+  2. Menyesuaikan tampilan simulasi WhatsApp pada mobile: chat bubble ringkas di bagian atas dengan tombol salin/isi cepat, sementara form input OTP tetap lega dengan tombol aksi utama selalu terlihat di area *natural thumb reach*.
+  3. Mengubah inisialisasi state `isLoggedIn` pada `App.tsx` menjadi `false` agar alur dimulai dari halaman login.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### A. Modal Verifikasi SSO (`LoginDualTab.tsx`)
-1. **Header & Identitas**:
-   - Status badge ringkas: `SSO Terverifikasi · Pendaftaran Asrama` (bukan badge peringatan bernada cemas).
-   - Judul bersih: `Konfirmasi Pendaftaran Asrama`.
-   - Subkicker satu baris: `NIM: {ssoUsername} · {studentName} ({prodi})`.
-2. **Keterangan Satu Baris Padat (Menggantikan 2 Paragraf Panjang)**:
-   - *"Data akademik telah tersinkron otomatis. Silakan lengkapi e-KTP dan data wali pada Tahap 1."*
-3. **Akses Regulasi Terpisah**:
-   - Tautan teks ringkas: `[Lihat Ketentuan Kepenghunian]` untuk membuka modal kebijakan asrama jika pengguna menginginkan rincian pasal regulasi.
-4. **Tombol Aksi**:
-   - `Batal` dan `Lanjut ke Tahap 1 →` dengan tata letak proporsional dan responsif.
+### A. Alur Interaksi Pengesahan Kontrak (Step 4 Modal OTP)
 
-### B. Banner Smart Pre-Fill SIAKAD (`MabaDashboard.tsx`)
-1. **Pembersihan Dinding Teks**:
-   - Menghapus blok paragraf 4-baris tentang kebijakan asrama dari kartu banner utama.
-2. **Struktur Banner Ramping Satu Baris**:
-   - Baris 1: Ikon teal minimalis + Judul `Data Akademik Terhubung (SIAKAD UBT)` + Tag NIM.
-   - Baris 2: Satu baris teks padat: *"Sinkronisasi aktif. Lengkapi e-KTP & kontak wali untuk validasi kepenghunian."*
-   - Baris Aksi: Tombol `Simulasi Tarif (Step 2) →` bersanding dengan tombol `Info Kebijakan` berikon informasi.
-3. **Modal Bantuan Kebijakan Terpisah**:
-   - Dialog bantuan mandiri yang rapi, berisi poin-poin regulasi kepenghunian kampus UBT bagi mahasiswa yang membutuhkan referensi resmi.
+1. **Pemicu**: Pengguna menekan tombol "Verifikasi OTP WhatsApp" atau "Sahkan Kontrak" pada Tahap 4 (Kontrak Digital F-19 & F-02).
+2. **Tampilan Desktop (`lg:` / `md:`)**:
+   - Modal dua kolom proporsional (kiri: Simulator Smartphone WhatsApp, kanan: Formulir Input OTP & Pengesahan).
+   - Scrollbar internal jika resolusi monitor di bawah standar, memastikan tombol submit selalu berada dalam batas jendela dialog.
+3. **Tampilan Mobile & Tablet (`< md`)**:
+   - **Header Dialog**: Ikon gembok keamanan digital, judul ringkas "Verifikasi OTP", dan tombol tutup silang (`X`) berukuran touch target $\ge 44\text{px}$.
+   - **Area Preview WhatsApp Ringkas**: Banner hijau WhatsApp berikon `MessageSquare` yang menampilkan gelembung chat resmi Asrama UBT dengan kode OTP (123456 & 654321) secara langsung tanpa memakan ruang vertikal berlebih.
+   - **Area Input OTP (Scrollable)**: Dua blok input 6 digit dengan spasi huruf lebar (`tracking-[0.5em]`), angka monospaced tebal, dan tombol aksi cepat `Isi 123456` serta `Isi 654321` tepat di atas masing-masing kolom.
+   - **Sticky Bottom Action Bar**: Bilah aksi di bagian bawah modal berlatar putih dengan bayangan elevasi halus (`border-t border-slate-200 bg-white/95 backdrop-blur-md`). Tombol **"Sahkan Kontrak Elektronik (F-19 & F-02)"** selalu menempel di bagian bawah layar dan selalu siap diklik setelah OTP terisi lengkap.
+
+### B. Alur Halaman Awal (Login Gateway)
+
+1. Pengguna membuka URL aplikasi.
+2. Aplikasi menampilkan **Portal Login Dual-Tab**:
+   - Tab 1: Login Mahasiswa Baru (Nomor PMB / Registrasi).
+   - Tab 2: Single Sign-On (SSO SIDARA) untuk Mahasiswa Eksisting / Pra-Registrasi.
+   - Tombol Role Switcher Cepat (Bypass Demo/Dev) di pojok untuk kemudahan pengujian staf.
+3. Setelah login berhasil, pengguna masuk ke Dasbor Mahasiswa / Admin sesuai kredensial yang dipilih.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Trade-Off Keterbukaan Informasi vs Kerapihan Visual**:
-  - *Pendekatan Dipilih*: Memisahkan *operasional langsung* (alur pendaftaran cepat) dari *dokumentasi regulasi* (bantuan on-demand). Mahasiswa mayoritas hanya ingin melanjutkan pendaftaran tanpa membaca paragraf panjang, sementara aspek legalitas tetap tersedia melalui tombol bantuan.
-- **Tipografi & Skala Font**:
-  - Menghilangkan font berukuran 9px dan 10px yang terlalu kecil dan sulit dibaca. Menstandarkan ke skala 12px (teks pendukung) dan 14px–16px (teks utama/judul).
+- **Trade-Off Menghilangkan Frame Smartphone di Mobile**:
+  - *Pendekatan Dipilih*: Menyembunyikan frame fisik smartphone (bezel hitam tebal, notch, padding ganda) pada layar mobile/tablet, dan menggantikannya dengan komponen kartu pesan chat WhatsApp native yang responsif.
+  - *Alasan*: Frame fisik ponsel di dalam layar ponsel nyata adalah redundan visual (*skeuomorphic nesting*) yang menghabiskan 520px ruang vertikal berharga. Menggantinya dengan kartu chat ringkas menghemat ruang sebesar 65%, memastikan kolom input dan tombol aksi muat dengan nyaman.
+- **Penerapan Sticky Bottom Bar**:
+  - *Pendekatan Dipilih*: Memisahkan tombol submit dari alur scroll formulir, menempatkannya di kontainer `sticky bottom-0`.
+  - *Alasan*: Memastikan pengguna tidak perlu mencari atau menebak keberadaan tombol pengesahan, serta memenuhi prinsip ergonomi *Natural Thumb Zone* (area 40% bawah layar ponsel).
 
 ---
 
@@ -63,50 +67,40 @@ Rencana ini merombak teks naratif yang terlalu panjang dan bertumpuk pada Modal 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ALUR INTERAKSI TERESTETIK                          │
+│                           ALUR NAVIGASI & DIALOG                            │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
             ┌──────────────────────────┴──────────────────────────┐
             ▼                                                     ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────────┐
-│      MODAL SSO (LoginDualTab)        │  │     BANNER STEP 1 (Dashboard)    │
-│ • Badge: Terverifikasi SIAKAD        │  │ • Title: Data Akademik Terhubung │
-│ • Identitas: NIM · Nama · Prodi      │  │ • 1 Baris Padat: Lengkapi KTP &  │
-│ • 1 Baris Padat Instruksi Step 1     │  │   data wali untuk validasi.      │
-│ • [Tautan Kebijakan Asrama]          │  │ • [Simulasi Tarif] + [Info Rules]│
-│ • Tombol: [Batal] [Lanjut Step 1]    │  └────────────────┬─────────────────┘
+│   URL DIBUKA (isLoggedIn: false)     │  │      STEP 4: KONTRAK DIGITAL     │
+│ • Menampilkan <LoginDualTab />       │  │ • Klik "Verifikasi OTP WhatsApp" │
+│ • Pilihan Login PMB / SSO / Admin    │  └────────────────┬─────────────────┘
 └──────────────────┬───────────────────┘                   │
-                   │                                       │
-                   └───────────────────┬───────────────────┘
-                                       ▼ (Klik Info Kebijakan)
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   MODAL BANTUAN KEBIJAKAN KEPENGHUNIAN ASRAMA               │
-│ • Poin ringkas regulasi alokasi kamar & kewajiban e-KYC                     │
-│ • Informasi ketentuan kontrak dan pembayaran resmi                          │
-│ • Tombol: [Tutup Panduan]                                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
+                   │ (Login Sukses)                        ▼
+                   ▼                      ┌──────────────────────────────────┐
+┌──────────────────────────────────────┐  │     MODAL VERIFIKASI OTP BARU    │
+│    MabaDashboard (Tahap 1 s/d 6)     │  │  (Responsive Max-Height + Scroll)│
+└──────────────────────────────────────┘  └────────────────┬─────────────────┘
+                                                           │
+                      ┌────────────────────────────────────┴────────────────────────────────────┐
+                      ▼ (Mobile & Tablet < md)                                                  ▼ (Desktop >= md)
+┌──────────────────────────────────────────────────────────┐  ┌─────────────────────────────────────────────────────────┐
+│ • Banner WhatsApp Ringkas (Pesan Mahasiswa & Wali)       │  │ • Kolom Kiri: Simulator Smartphone WhatsApp Realistis   │
+│ • Scrollable Form Body (Input OTP + Tombol Isi Cepat)    │  │ • Kolom Kanan: Form Input OTP + Tombol Bantuan          │
+│ • STICKY BOTTOM BAR: [Sahkan Kontrak Elektronik]         │  │ • STICKY BOTTOM BAR: [Sahkan Kontrak Elektronik]        │
+└──────────────────────────────────────────────────────────┘  └─────────────────────────────────────────────────────────┘
 ```
 
-### Rincian Perubahan File:
-1. **`src/components/auth/LoginDualTab.tsx`**:
-   - Merombak `showRedirectModal`: menghapus paragraf narasi ganda dan menggantinya dengan satu baris padat instruksi.
-   - Menambahkan state modal bantuan kebijakan ringkas jika mahasiswa mengklik tautan info ketentuan.
+### Rincian Perubahan Kode:
+
+1. **`src/App.tsx`**:
+   - Mengubah `const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);` menjadi `useState<boolean>(false);` agar saat URL dibuka pertama kali, aplikasi menampilkan halaman login terlebih dahulu.
 2. **`src/components/maba/MabaDashboard.tsx`**:
-   - Memangkas paragraf tebal pada banner `SMART PRE-FILL SIAKAD`.
-   - Menambahkan tombol `Info Kebijakan` di samping tombol `Lihat Simulasi Tarif`.
-   - Menyediakan modal pop-up `PolicyInfoModal` yang elegan untuk menampilkan ketentuan asrama secara terpisah.
-
----
-
-## 5. Verification Plan
-
-1. **Uji Tampilan Modal SSO**:
-   - Memilih akun mahasiswa eksisting (NIM: `2240101088` / `2240101099`) saat login SSO.
-   - Memverifikasi modal tampil estetik, bersih, teks 1 baris terbaca jelas tanpa paragraf bertumpuk.
-   - Memverifikasi klik tautan info kebijakan membuka pop-up bantuan dengan benar.
-2. **Uji Tampilan Banner Tahap 1**:
-   - Masuk ke dashboard pendaftaran mahasiswa.
-   - Memverifikasi banner Smart Pre-Fill berdimensi ramping dan tidak memakan separuh tinggi layar.
-   - Menguji tombol `Info Kebijakan` dan tombol navigasi `Simulasi Tarif (Step 2)`.
-3. **Kompilasi & Validasi**:
-   - Menjalankan `compile_applet` untuk memastikan tidak ada error sintaksis atau regresi build.
+   - Merestrukturisasi modal `showWaSimulator`:
+     - Container luar: `fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm`.
+     - Container dialog: `w-full max-w-3xl max-h-[92vh] sm:max-h-[88vh] bg-white rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden relative`.
+     - Layout adaptif: Sembunyikan frame smartphone tebal pada layar `< md` (`hidden md:flex md:w-1/2`), ganti dengan banner chat bubble ringkas di bagian atas form pada mobile.
+     - Pembagian vertikal: Area konten formulir diberi `flex-1 overflow-y-auto px-4 py-4 sm:p-6 md:p-8 space-y-4`.
+     - Sticky Footer: Membungkus tombol `"Sahkan Kontrak Elektronik"` di dalam `sticky bottom-0 bg-white/95 backdrop-blur-xs border-t border-slate-200 p-4 sm:p-5 mt-auto z-10` dengan touch target $\ge 48\text{px}$.
+     - Tombol bantuan input: Menjaga tombol individual `Isi 123456` dan `Isi 654321` dengan ukuran sentuh yang ramah jari.

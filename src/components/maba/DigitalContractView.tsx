@@ -912,7 +912,7 @@ export const DigitalContractView: React.FC<Props> = ({
                   type="button"
                   disabled={isVerifyingOtp || studentOtpInput.length !== 6 || (isParentElectronicOtp && parentOtpInput.length !== 6)}
                   onClick={handleVerifyOtpAndFinalize}
-                  className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold px-10 py-3.5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2"
+                  className="w-full sm:w-auto min-h-[48px] bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold px-6 sm:px-10 py-3.5 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
                   {isVerifyingOtp ? (
                     <>
@@ -1012,11 +1012,11 @@ export const DigitalContractView: React.FC<Props> = ({
         )}
 
         {/* BOTTOM STEP NAVIGATION */}
-        <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-4 border-t border-slate-200">
           <div className="text-xs text-slate-500">
             {contract.status === 'SIGNED' ? (
               <span className="text-emerald-700 font-bold flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Dokumen Disahkan — Siap Melanjutkan ke Penerbitan e-Ticket
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> Dokumen Disahkan — Siap Melanjutkan ke Penerbitan e-Ticket
               </span>
             ) : (
               <span>Selesaikan seluruh tahapan TTE & Verifikasi OTP di atas untuk melanjutkan ke Tahap 5</span>
@@ -1027,9 +1027,9 @@ export const DigitalContractView: React.FC<Props> = ({
             type="button"
             onClick={onAdvanceStep}
             disabled={contract.status !== 'SIGNED'}
-            className={`font-bold px-7 py-3 rounded-xl text-sm transition-all shadow-md flex items-center space-x-2 ${
+            className={`font-bold px-7 py-3 rounded-xl text-sm transition-all shadow-md flex items-center justify-center space-x-2 shrink-0 min-h-[48px] ${
               contract.status === 'SIGNED'
-                ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-700/20'
+                ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-700/20 cursor-pointer active:scale-[0.99]'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           >
