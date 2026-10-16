@@ -40,32 +40,44 @@ IF %ERRORLEVEL% NEQ 0 (
 
 :: 4. Cek dan Gandakan File .env
 IF NOT EXIST ".env" (
-    echo [1/5] Menduplikat file konfigurasi .env dari .env.example...
+    echo [1/6] Menduplikat file konfigurasi .env dari .env.example...
     copy .env.example .env
 ) ELSE (
-    echo [1/5] File .env sudah ada, melewati langkah ini.
+    echo [1/6] File .env sudah ada, melewati langkah ini.
 )
 
-:: 5. Install Composer Dependencies
+:: 5. Pastikan Folder bootstrap/cache dan storage Tersedia
 echo.
-echo [2/5] Menginstal dependensi PHP via Composer...
+echo [2/6] Memeriksa dan membuat direktori penting Laravel (bootstrap/cache & storage)...
+IF NOT EXIST "bootstrap\cache" mkdir "bootstrap\cache"
+IF NOT EXIST "storage\app\public" mkdir "storage\app\public"
+IF NOT EXIST "storage\app\private_kyc" mkdir "storage\app\private_kyc"
+IF NOT EXIST "storage\framework\cache\data" mkdir "storage\framework\cache\data"
+IF NOT EXIST "storage\framework\sessions" mkdir "storage\framework\sessions"
+IF NOT EXIST "storage\framework\views" mkdir "storage\framework\views"
+IF NOT EXIST "storage\logs" mkdir "storage\logs"
+echo       + Direktori bootstrap\cache dan storage siap!
+
+:: 6. Install Composer Dependencies
+echo.
+echo [3/6] Menginstal dependensi PHP via Composer...
 call composer install
 
-:: 6. Generate APP_KEY
+:: 7. Generate APP_KEY
 echo.
-echo [3/5] Men-generate Application Key Laravel...
+echo [4/6] Men-generate Application Key Laravel...
 call php artisan key:generate
 
-:: 7. Migrasi Database
+:: 8. Migrasi Database
 echo.
-echo [4/5] Menjalankan migrasi basis data dan seeder...
+echo [5/6] Menjalankan migrasi basis data dan seeder master tarif...
 echo Pastikan servis MySQL di XAMPP Control Panel sudah AKTIF (Start)
 echo dan database "asrama_ubt_db" sudah dibuat di phpMyAdmin (http://localhost/phpmyadmin).
 call php artisan migrate --seed
 
-:: 8. Install NPM Dependencies
+:: 9. Install NPM Dependencies
 echo.
-echo [5/5] Menginstal dependensi Node.js / NPM...
+echo [6/6] Menginstal dependensi Node.js / NPM...
 call npm install
 
 echo.

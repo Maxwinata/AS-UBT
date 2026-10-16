@@ -171,6 +171,9 @@ Dokumen ini menguraikan tahapan pengembangan berkelanjutan (Continuous Developme
 ## 8. Strategi Integrasi Database (Frontend Maba & Web Admin Laravel)
 Berdasarkan kesepakatan arsitektur (**Opsi 1: Staging Tables & Migration via API**), integrasi antara portal pendaftaran (Frontend React) dengan sistem manajemen asrama (Web Admin Laravel) dilakukan dengan skema berikut:
 
+> 🧪 **Panduan Pengujian Logika Program Data Real di Laragon**:  
+> Untuk panduan teknis langkah-demi-langkah menguji alur pendaftaran nyata dan pembuktian migrasi staging ke master di phpMyAdmin/MySQL Laragon, silakan baca: [**`docs/TESTING_DATA_REAL_LARAGON.md`**](docs/TESTING_DATA_REAL_LARAGON.md) (atau versi Inggris: [`docs/TESTING_DATA_REAL_LARAGON.en.md`](docs/TESTING_DATA_REAL_LARAGON.en.md)).
+
 ### 1. Konsep "Staging Tables" (Tabel Penampungan Sementara)
 Portal pendaftaran (Frontend) **TIDAK AKAN** menimpa atau menulis langsung ke tabel master (`penyewa`, `pembayaran`, `users`). Sebaliknya, data pendaftaran akan disimpan di tabel *staging* (sementara), seperti:
 - `stg_maba` (Menyimpan profil pendaftaran, e-KYC KTP, preferensi).

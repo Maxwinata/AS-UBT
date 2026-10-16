@@ -30,6 +30,10 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
    * **Domain otomatis Laragon**: `http://asrama-ubt.test`
    * Atau via server lokal: `http://127.0.0.1:8000` (jika menggunakan `php artisan serve`).
 
+> 🧪 **Langkah Pengujian Logika Program (Data Real)**:  
+> Untuk panduan rinci langkah-demi-langkah menguji alur pendaftaran mahasiswa baru dari formulir hingga migrasi otomatis ke tabel master di MySQL Laragon, silakan baca:  
+> 👉 [**Panduan Testing Data Real di Laragon (`docs/TESTING_DATA_REAL_LARAGON.md`)**](docs/TESTING_DATA_REAL_LARAGON.md)
+
 ---
 
 ## 📁 Struktur Berkas Terkondisi (Laravel + Inertia)

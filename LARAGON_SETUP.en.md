@@ -30,6 +30,10 @@ This project is pre-configured as a **turnkey full-stack application** designed 
    * **Laragon automatic virtual host**: `http://asrama-ubt.test`
    * Or local PHP development server: `http://127.0.0.1:8000` (if running `php artisan serve`).
 
+> 🧪 **Real Data Program Logic Testing Guide**:  
+> For detailed step-by-step instructions on verifying the entire admission intake flow and its automatic staging-to-master database migration in Laragon MySQL, please read:  
+> 👉 [**Real Data Testing Guide in Laragon (`docs/TESTING_DATA_REAL_LARAGON.en.md`)**](docs/TESTING_DATA_REAL_LARAGON.en.md)
+
 ---
 
 ## 📁 Pre-Configured File Structure (Laravel + Inertia)

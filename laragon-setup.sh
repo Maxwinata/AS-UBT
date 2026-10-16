@@ -8,22 +8,33 @@ echo "====================================================================="
 echo ""
 
 if [ ! -f ".env" ]; then
-    echo "[1/6] Menduplikat file konfigurasi .env dari .env.example..."
+    echo "[1/7] Menduplikat file konfigurasi .env dari .env.example..."
     cp .env.example .env
 else
-    echo "[1/6] File .env sudah ada, melewati langkah ini."
+    echo "[1/7] File .env sudah ada, melewati langkah ini."
 fi
 
-echo "[2/6] Menginstal dependensi PHP via Composer..."
+echo "[2/7] Memeriksa dan membuat direktori penting Laravel (bootstrap/cache & storage)..."
+mkdir -p bootstrap/cache
+mkdir -p storage/app/public
+mkdir -p storage/app/private_kyc
+mkdir -p storage/framework/cache/data
+mkdir -p storage/framework/sessions
+mkdir -p storage/framework/views
+mkdir -p storage/logs
+chmod -R 775 bootstrap/cache storage 2>/dev/null || true
+echo "      + Direktori bootstrap/cache dan storage siap!"
+
+echo "[3/7] Menginstal dependensi PHP via Composer..."
 composer install
 
-echo "[3/6] Men-generate Application Key Laravel..."
+echo "[4/7] Men-generate Application Key Laravel..."
 php artisan key:generate
 
-echo "[4/6] Menjalankan migrasi basis data dan seeder master tarif..."
+echo "[5/7] Menjalankan migrasi basis data dan seeder master tarif..."
 php artisan migrate --seed
 
-echo "[5/6] Menginstal dependensi Node.js / NPM..."
+echo "[6/7] Menginstal dependensi Node.js / NPM..."
 npm install
 
 echo ""

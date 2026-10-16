@@ -159,3 +159,11 @@ The dormitory platform connects to UBT's official SIAKAD academic database acros
 - **Login-Time Auto-Fill**: Entering the PMB Registration Number (e.g., `PMB2026-08942` or `PMB-BTT-002-001`) automatically looks up the student's academic record and populates: Name, NIK, Phone, Study Program, Faculty, and Scholarship Track.
 - **Subsidy Qualification & Audit Governance**: While scholarship flags are recognized instantly on student profiles, fee waivers and subsidized deposits require manual ratification (1-click) by the Financial Admin in the `SiakadSyncManager` panel to ensure complete audit compliance for university accounts.
 
+---
+
+## 10. Real Data Testing Guide in Laragon (MySQL + Laravel + Inertia)
+
+> 🧪 **Real Data Testing Protocol**:  
+> For complete instructions on testing real database transactions, intake staging records, and their automatic promotion to master accounting ledgers in Laragon MySQL, refer to:  
+> 👉 [**Real Data Testing Guide (`docs/TESTING_DATA_REAL_LARAGON.en.md`)**](docs/TESTING_DATA_REAL_LARAGON.en.md) (or Indonesian: [`docs/TESTING_DATA_REAL_LARAGON.md`](docs/TESTING_DATA_REAL_LARAGON.md)).
+

@@ -25,7 +25,7 @@ import ERDDiagram from './ERDDiagram';
 
 export const LaravelBlueprint: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'erd' | 'migrations' | 'models' | 'controllers' | 'seeders' | 'kyc_storage' | 'env' | 'cron'>('erd');
+  const [activeTab, setActiveTab] = useState<'erd' | 'migrations' | 'models' | 'controllers' | 'seeders' | 'kyc_storage' | 'env' | 'cron' | 'testing_guide'>('testing_guide');
   const [migrationSubTab, setMigrationSubTab] = useState<'bridging' | 'core'>('bridging');
 
   const handleCopy = (text: string, key: string) => {
@@ -1610,6 +1610,18 @@ class KycStorageService
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto text-xs sm:text-sm">
         <button
+          onClick={() => setActiveTab('testing_guide')}
+          className={`px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
+            activeTab === 'testing_guide'
+              ? 'bg-emerald-600 text-white shadow-lg ring-1 ring-emerald-400'
+              : 'text-emerald-400 hover:text-white hover:bg-emerald-950/50 border border-emerald-500/30'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>Panduan Data Real Laragon</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('erd')}
           className={`px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
             activeTab === 'erd'
@@ -1708,6 +1720,229 @@ class KycStorageService
 
       {/* Code Display Area */}
       <div className="space-y-4">
+        {activeTab === 'testing_guide' && (
+          <div className="space-y-6">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 border border-emerald-500/30 p-6 rounded-3xl text-white space-y-3 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/40 flex items-center justify-center font-bold">
+                    🧪
+                  </div>
+                  <div>
+                    <h4 className="text-base sm:text-lg font-black tracking-tight text-emerald-300">
+                      Panduan Praktis Transisi: Web Simulasi ➔ Testing Data Real (Laragon MySQL)
+                    </h4>
+                    <p className="text-xs text-slate-300">
+                      Petunjuk pengujian alur pendaftaran mahasiswa baru dan pembuktian migrasi tabel penampungan sementara (staging) ke buku besar resmi (master).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+                  <span className="bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-700 text-teal-400">
+                    Host: 127.0.0.1:3306
+                  </span>
+                  <span className="bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-700 text-amber-400">
+                    DB: asrama_ubt_db
+                  </span>
+                  <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-400/30 font-bold">
+                    Turnkey Ready
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                💡 <strong>Konteks Arsitektur:</strong> Pada tahap simulasi web, seluruh perubahan status tersimpan di memori browser (React state). Untuk menguji logika program yang sesungguhnya, sistem telah menyediakan <strong>Backend Laravel 11 + Migrasi MySQL + Inertia Controllers</strong> yang siap dijalankan langsung di folder <code className="text-teal-300 font-mono">C:\laragon\www\asrama-ubt</code>.
+              </div>
+            </div>
+
+            {/* 5-Step Execution Workflow */}
+            <div className="grid grid-cols-1 gap-4">
+              {/* Step 1 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 font-black text-xs flex items-center justify-center border border-teal-500/30">
+                      1
+                    </span>
+                    <h5 className="font-bold text-white text-sm">Persiapan Lingkungan Laragon &amp; Database Riil (1-Klik)</h5>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("cd C:\\laragon\\www\\asrama-ubt && php artisan migrate:fresh --seed", "step1_cmd")}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedKey === 'step1_cmd' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'step1_cmd' ? 'Perintah Tersalin!' : 'Salin Perintah Setup'}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-2">
+                  <p>1. Buka aplikasi <strong>Laragon</strong> lalu klik tombol <strong>Start All</strong> (Apache &amp; MySQL Port 3306 aktif).</p>
+                  <p>2. Di terminal Laragon, masuk ke folder proyek dan jalankan skrip migrasi + seeder:</p>
+                  <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-teal-300 font-mono text-[11px] overflow-x-auto">
+                    <code>cd C:\laragon\www\asrama-ubt{'\n'}laragon-setup.bat{'\n'}# Atau manual: php artisan migrate:fresh --seed</code>
+                  </pre>
+                  <p className="text-slate-400 text-[11px]">
+                    * Perintah ini akan membuat database <code className="text-amber-300">asrama_ubt_db</code>, mengeksekusi 6 berkas migrasi, dan menyuntikkan data master tarif (sewa Rp 500rb, deposit Rp 500rb, admin Rp 100rb) serta kamar hunian.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 font-black text-xs flex items-center justify-center border border-blue-500/30">
+                      2
+                    </span>
+                    <h5 className="font-bold text-white text-sm">Pendaftaran Mandiri Mahasiswa Baru (Penulisan ke Tabel Staging)</h5>
+                  </div>
+                  <span className="text-[10px] bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 font-mono">
+                    operator_id = 0 (Mandiri)
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-2">
+                  <p>1. Jalankan dua server pengembangan:</p>
+                  <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-blue-300 font-mono text-[11px] overflow-x-auto">
+                    <code># Terminal 1: php artisan serve (Port 8000){'\n'}# Terminal 2: npm run dev (Vite)</code>
+                  </pre>
+                  <p>2. Buka peramban di <code className="text-teal-300 font-mono">http://127.0.0.1:8000/login</code>, pilih <strong>Tab Login Maba</strong>, masukkan no registrasi misalnya <code className="text-amber-300 font-mono">REG2026-001</code>.</p>
+                  <p>3. Selesaikan <strong>Langkah 1 (e-KYC)</strong>, <strong>Langkah 2 (Pilih Kamar)</strong>, dan <strong>Langkah 3 (Kirim Bukti Pembayaran)</strong>.</p>
+                  <p className="text-slate-400 text-[11px]">
+                    * Sistem secara otomatis memanggil <code className="text-teal-300 font-mono">InvoiceController@configure</code> dan menyimpan transaksi ke tabel penampungan sementara <code className="text-amber-300 font-mono">request_pembayaran</code> dengan status verifikasi 0.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-black text-xs flex items-center justify-center border border-amber-500/30">
+                      3
+                    </span>
+                    <h5 className="font-bold text-white text-sm">Verifikasi Database Staging di phpMyAdmin / MySQL</h5>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("SELECT id, no_request, penyewa_id, total_bayar, status_pembayaran, status_verifikasi, operator_id FROM request_pembayaran ORDER BY id DESC LIMIT 1;", "step3_sql")}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedKey === 'step3_sql' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'step3_sql' ? 'SQL Tersalin!' : 'Salin SQL Staging'}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-2">
+                  <p>Buka <strong>phpMyAdmin</strong> (<code className="text-teal-300 font-mono">http://localhost/phpmyadmin</code>) atau HeidiSQL pada database <code className="text-teal-300 font-mono">asrama_ubt_db</code>. Jalankan query pembuktian:</p>
+                  <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-amber-300 font-mono text-[11px] overflow-x-auto">
+                    <code>{`-- 1. Pastikan record pendaftaran masuk ke TABEL STAGING
+SELECT id, no_request, penyewa_id, total_bayar, status_pembayaran, status_verifikasi, operator_id 
+FROM request_pembayaran ORDER BY id DESC LIMIT 1;
+
+-- 2. Pastikan BUKU BESAR RESMI (pembayaran) masih BERSIH / bernilai 0 baris
+SELECT COUNT(*) AS total_master FROM pembayaran WHERE no_request LIKE 'REQ-%';`}</code>
+                  </pre>
+                  <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[11px] text-slate-400">
+                    <strong className="text-emerald-400">Hasil Pembuktian Staging:</strong> Kolom <code className="text-white font-mono">operator_id = 0</code> dan <code className="text-white font-mono">status_verifikasi = 0</code>. Tabel master <code className="text-white font-mono">pembayaran</code> belum tersentuh sama sekali.
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 font-black text-xs flex items-center justify-center border border-indigo-500/30">
+                      4
+                    </span>
+                    <h5 className="font-bold text-white text-sm">Eksekusi Pengesahan &amp; Promosi Master oleh Admin Keuangan</h5>
+                  </div>
+                  <span className="text-[10px] bg-indigo-900/40 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 font-mono">
+                    promoteToMaster() Execution
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-2">
+                  <p>1. Buka tab baru di peramban: <code className="text-teal-300 font-mono">http://127.0.0.1:8000/admin/dashboard</code> (Login sebagai Admin Keuangan).</p>
+                  <p>2. Pada tabel <strong>Permintaan Pembayaran Masuk (Staging)</strong>, temukan nomor <code className="text-amber-300 font-mono">REQ-...</code> yang baru diajukan.</p>
+                  <p>3. Klik tombol <strong className="text-emerald-400">"Sahkan &amp; Promosi ke Master"</strong>.</p>
+                  <p className="text-slate-400 text-[11px]">
+                    * Controller <code className="text-teal-300 font-mono">AdminAsramaController@verifyInvoice</code> akan memicu eksekusi metode <code className="text-indigo-300 font-mono">promoteToMaster()</code> di model Eloquent untuk meratifikasi data ke buku besar resmi.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 5 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-black text-xs flex items-center justify-center border border-emerald-500/30">
+                      5
+                    </span>
+                    <h5 className="font-bold text-white text-sm">Validasi Hasil Akhir pada Buku Besar Resmi MySQL</h5>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(`SELECT id, no_invoice, no_request, total_bayar, operator_id, created_at FROM pembayaran ORDER BY id DESC LIMIT 1;
+SELECT id, no_transaksi, kode_transaksi, jumlah_bayar, operator_id FROM transaksi ORDER BY id DESC LIMIT 1;`, "step5_sql")}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedKey === 'step5_sql' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'step5_sql' ? 'SQL Tersalin!' : 'Salin SQL Audit Master'}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-2">
+                  <p>Jalankan query pembuktian akhir di phpMyAdmin untuk memvalidasi promosi data:</p>
+                  <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed">
+                    <code>{`-- 1. Bukti record resmi masuk ke buku besar PEMBAYARAN
+SELECT id, no_invoice, no_request, total_bayar, operator_id, created_at 
+FROM pembayaran ORDER BY id DESC LIMIT 1;
+
+-- 2. Bukti mutasi kas penerimaan asrama resmi tercatat di TRANSAKSI
+SELECT id, no_transaksi, kode_transaksi, jumlah_bayar, operator_id 
+FROM transaksi ORDER BY id DESC LIMIT 1;
+
+-- 3. Bukti status kamar hunian terkunci
+SELECT kode_kamar, status, nama_penghuni 
+FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC LIMIT 1);`}</code>
+                  </pre>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-teal-400 font-bold block mb-1">Invoice Resmi Terbit:</span>
+                      Format <code className="text-white">INV-YYYYMM-XXXX</code> menggantikan nomor sementara.
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-emerald-400 font-bold block mb-1">Operator ID Sah:</span>
+                      Nilai <code className="text-white">operator_id = 1</code> (ID Admin Pengesah).
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-amber-400 font-bold block mb-1">Kamar Terkunci:</span>
+                      Status kamar berubah menjadi <code className="text-white">OCCUPIED</code>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Reference Footer */}
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <FileCode className="w-4 h-4 text-emerald-400" />
+                <span>Dokumen Panduan Teknis Lengkap Tersedia di:</span>
+                <code className="text-teal-300 font-mono">docs/TESTING_DATA_REAL_LARAGON.md</code>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Sesuai Regulasi Asrama UBT JUKLAK-02 &amp; JUKLAK-03
+              </span>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'erd' && (
           <div className="space-y-4">
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 flex items-center justify-between">

@@ -176,7 +176,10 @@ export const SidebarGuide: React.FC<SidebarGuideProps> = ({ currentRole, onSelec
               <div className={`p-1.5 rounded-lg ${currentRole === 'laravel_blueprint' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>
                 <Code2 className="w-4 h-4" />
               </div>
-              <span className="text-xs font-semibold">Laravel Blueprint</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold leading-tight">Laravel Blueprint</span>
+                <span className="text-[10px] text-emerald-600 font-bold leading-tight">Panduan Data Real Laragon</span>
+              </div>
             </button>
 
             <button

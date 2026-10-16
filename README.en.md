@@ -21,6 +21,7 @@ All technical and operational documentation is published primarily in **Bahasa I
 | :--- | :--- | :--- | :--- |
 | **System Specifications (PRD & SAS)** | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md) | Product requirements, 6-step flow, data models, and Inertia controller routes. |
 | **Laragon Setup Guide (Automated)** | [LARAGON_SETUP.md](LARAGON_SETUP.md) | [LARAGON_SETUP.en.md](LARAGON_SETUP.en.md) | 1-click automated setup in Laragon via `laragon-setup.bat`. |
+| **Real Data Testing Guide** | [docs/TESTING_DATA_REAL_LARAGON.md](docs/TESTING_DATA_REAL_LARAGON.md) | [docs/TESTING_DATA_REAL_LARAGON.en.md](docs/TESTING_DATA_REAL_LARAGON.en.md) | Practical steps to transition from simulation to real MySQL database in Laragon (intake & master promotion). |
 | **XAMPP Setup Guide (Automated)** | [XAMPP_SETUP.md](XAMPP_SETUP.md) | [XAMPP_SETUP.en.md](XAMPP_SETUP.en.md) | Automated setup steps for Windows XAMPP via `xampp-setup.bat`. |
 | **Architecture & Logic Diagram** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md) | Staging vs Master database flow, room concurrency lock, and transactions. |
 | **Dormitory Regulations & JUKLAK** | [docs/JUKLAK_REFERENCE.md](docs/JUKLAK_REFERENCE.md) | [docs/JUKLAK_REFERENCE.en.md](docs/JUKLAK_REFERENCE.en.md) | Legal compliance: JUKLAK-02 (e-Signature OTP), JUKLAK-03 & F-22 (Collective Ratification), F-19, and F-02. |

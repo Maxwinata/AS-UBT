@@ -312,9 +312,9 @@ export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLog
             }`}
           >
             <Code2 className="w-4 h-4 text-red-300" />
-            <span>Dev Tool: Laravel Blueprint</span>
-            <span className="text-[9px] bg-red-950/80 text-red-200 font-mono px-1.5 py-0.5 rounded border border-red-500/40">
-              DEV ONLY
+            <span>Dev Tool: Laravel &amp; Testing Data Real</span>
+            <span className="text-[9px] bg-emerald-950/80 text-emerald-300 font-mono px-1.5 py-0.5 rounded border border-emerald-500/40 font-bold">
+              DATA REAL
             </span>
           </button>
 
