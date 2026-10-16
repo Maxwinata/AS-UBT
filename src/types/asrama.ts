@@ -474,3 +474,23 @@ export interface SiakadMahasiswaStgRecord {
   synced_at: string;
 }
 
+export interface SimabaStudent {
+  id: number;
+  nomor_pendaftaran: string;
+  nama_mahasiswa: string;
+  nik?: string;
+  tempat_lahir?: string;
+  tanggal_lahir: string; // YYYY-MM-DD
+  tanggal_lahir_formatted: string; // DD/MM/YYYY
+  jenis_kelamin: 'L' | 'P';
+  agama?: string;
+  asal_sekolah?: string;
+  program_studi_id: number;
+  program_studi: string;
+  jenis_mahasiswa: 'kip' | 'nonkip';
+  nomorkip?: string;
+  no_hp?: string;
+  email?: string;
+  alamat?: string;
+}
+

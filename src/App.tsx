@@ -11,6 +11,7 @@ import {
   initialPaymentSchemes,
   INITIAL_API_LINKS,
   INITIAL_SIAKAD_STAGING,
+  INITIAL_SIMABA_STUDENTS,
 } from './data/initialData';
 import { Header } from './components/Header';
 import { SidebarGuide } from './components/SidebarGuide';
@@ -122,24 +123,48 @@ export default function App() {
     }
     
     if (role === 'maba' && scenario) {
-      const isSimulateNoNim = nim.startsWith('REG') || nim.startsWith('PMB');
+      const isSimulateNoNim = nim.startsWith('REG') || nim.startsWith('PMB') || /^\d{8,10}$/.test(nim);
       const finalNim = isSimulateNoNim ? '' : nim;
       
-      const siakadMatch = siakadStaging.find(
-        (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim)
+      const simabaMatch = INITIAL_SIMABA_STUDENTS.find(
+        (s) => s.nomor_pendaftaran.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim) || s.nama_mahasiswa.toLowerCase() === nama.toLowerCase()
       );
-      const isKip = siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : false;
-      const studentName = siakadMatch ? siakadMatch.nama_lengkap : nama;
-      const studentProdi = siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi;
-      const studentFakultas = siakadMatch ? siakadMatch.fakultas : INITIAL_MABA.fakultas;
-      const studentPhone = siakadMatch ? (siakadMatch.nomor_telepon || '') : INITIAL_MABA.noHpWa;
-      const studentNik = siakadMatch?.nik || INITIAL_MABA.nik;
-      const studentGender = siakadMatch?.jenis_kelamin
-        ? (siakadMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
-        : INITIAL_MABA.jenisKelamin;
-      const ssoId = siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined;
 
-      if (siakadMatch) {
+      const siakadMatch = siakadStaging.find(
+        (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim) || (simabaMatch && s.nomor_registrasi === simabaMatch.nomor_pendaftaran)
+      );
+
+      const isKip = simabaMatch 
+        ? simabaMatch.jenis_mahasiswa === 'kip' 
+        : (siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : false);
+
+      const studentName = simabaMatch ? simabaMatch.nama_mahasiswa : (siakadMatch ? siakadMatch.nama_lengkap : nama);
+      const studentProdi = simabaMatch ? simabaMatch.program_studi : (siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi);
+
+      const studentFakultas = simabaMatch 
+        ? (simabaMatch.program_studi.includes('Keperawatan') || simabaMatch.program_studi.includes('Kesehatan') || simabaMatch.program_studi.includes('Kebidanan')
+            ? 'Fakultas Ilmu Kesehatan'
+            : (simabaMatch.program_studi.includes('Hukum')
+                ? 'Fakultas Hukum'
+                : (simabaMatch.program_studi.includes('Informatika')
+                    ? 'Fakultas Teknik'
+                    : 'Fakultas Ekonomi & Bisnis')))
+        : (siakadMatch ? siakadMatch.fakultas : INITIAL_MABA.fakultas);
+
+      const studentPhone = simabaMatch ? (simabaMatch.no_hp || '') : (siakadMatch ? (siakadMatch.nomor_telepon || '') : INITIAL_MABA.noHpWa);
+      const studentEmail = simabaMatch ? (simabaMatch.email || '') : (siakadMatch ? (siakadMatch.email || '') : INITIAL_MABA.email);
+      const studentNik = simabaMatch?.nik || siakadMatch?.nik || INITIAL_MABA.nik;
+      const studentGender = simabaMatch 
+        ? (simabaMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
+        : (siakadMatch?.jenis_kelamin
+            ? (siakadMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
+            : INITIAL_MABA.jenisKelamin);
+      const ssoId = siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined;
+      const studentAlamat = simabaMatch?.alamat || INITIAL_MABA.alamatKtpJalan;
+
+      if (simabaMatch) {
+        toast.success(`[SIMABA PMB] Data ${studentName} (${studentProdi} - ${isKip ? 'Jalur KIP' : 'Reguler'}) berhasil dimuat dari database SIMABA!`, { duration: 4500 });
+      } else if (siakadMatch) {
         toast.success(`[SIAKAD CONNECTED] Data ${studentName} (${siakadMatch.nama_beasiswa}) berhasil ditarik otomatis ke formulir pendaftaran!`, { duration: 4500 });
       }
       
@@ -147,17 +172,20 @@ export default function App() {
         setMabaProfile({
           ...INITIAL_MABA,
           nim: finalNim,
-          noPmb: nim,
+          noPmb: simabaMatch ? simabaMatch.nomor_pendaftaran : nim,
           nama: studentName,
           prodi: studentProdi,
           fakultas: studentFakultas,
           noHpWa: studentPhone,
+          email: studentEmail,
           nik: studentNik,
           jenisKelamin: studentGender,
+          alamatKtpJalan: studentAlamat,
+          alamatDomisiliJalan: studentAlamat,
           ssoIdFromSidara: ssoId,
           isKipStudent: isKip,
           kategori: isKip ? 'KIP' : 'Reguler',
-          kipNumber: isKip ? nim : undefined,
+          kipNumber: isKip ? (simabaMatch?.nomorkip || nim) : undefined,
           kycVerified: false,
           kycSubmitted: false,
           ktpUrl: undefined,

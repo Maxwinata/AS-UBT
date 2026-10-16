@@ -31,7 +31,8 @@ composer install
 echo "[4/7] Men-generate Application Key Laravel..."
 php artisan key:generate
 
-echo "[5/7] Menjalankan migrasi basis data dan seeder master tarif..."
+echo "[5/7] Memastikan database asrama_ubt_db dan u540633926_simaba tersedia & menjalankan migrasi..."
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS asrama_ubt_db; CREATE DATABASE IF NOT EXISTS u540633926_simaba;" 2>/dev/null || true
 php artisan migrate --seed
 
 echo "[6/7] Menginstal dependensi Node.js / NPM..."

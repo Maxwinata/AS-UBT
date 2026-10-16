@@ -35,10 +35,12 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 3. Jalankan Seeder Master Data
+        // 3. Jalankan Seeder Master Data, Staging SIAKAD, dan SIMABA PMB
         $this->call([
             TariffSeeder::class,
             RoomSeeder::class,
+            SiakadStagingSeeder::class,
+            SimabaDatabaseSeeder::class,
         ]);
     }
 }
