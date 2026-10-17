@@ -566,6 +566,7 @@ export const INITIAL_SIAKAD_STAGING: SiakadMahasiswaStgRecord[] = [
     status_klaim: 0,
     status_verifikasi_subsidi: 0,
     synced_at: '2026-10-13 10:00:00'
+  },
   {
     id: 9,
     api_link_id: 1,
