@@ -1,8 +1,27 @@
-# Panduan Pengujian Data Real SIMABA di Lingkungan Laragon
+# Panduan Praktis: Pengujian Logika Program dengan Data Real di Laragon (MySQL + Dual Database SIMABA + Laravel 11 + Inertia.js)
 
 > **Pilihan Bahasa / Language:** 🇮🇩 **Bahasa Indonesia (Utama)** | [🇬🇧 English Version](TESTING_DATA_REAL_LARAGON.en.md)
 
-Dokumen ini merupakan panduan teknis dan operasional untuk menguji fitur **Dual Database SIMABA (`u540633926_simaba`)**, **Live Search Auto-Suggest Nama Mahasiswa**, **Format Tanggal Lahir UX `DD/MM/YYYY`**, serta **Deteksi Dini (*Early Detection*) Penerbitan NIM Resmi via SIAKAD/SIDARA** secara langsung pada lingkungan **Laragon (MySQL, PHP 8.2+, Apache/Nginx, Vite)**.
+Panduan ini disusun khusus untuk pengembang, penguji sistem (*QA*), dan staf pengelola Asrama Universitas Bunda Thamrin (UBT) guna **berpindah dari web simulasi prototipe (*client-side state*) menuju pengujian logika program secara nyata menggunakan basis data MySQL riil dan backend Laravel di lingkungan Laragon lokal**.
+
+Fokus utama pengujian ini mencakup:
+1. **Konfigurasi Dual Database**: Koneksi `mysql` (`asrama_ubt_db`) dan `simaba` (`u540633926_simaba`).
+2. **Fitur Antarmuka PMB**: Live Search Auto-Suggest nama mahasiswa, UX tanggal lahir `DD/MM/YYYY`, dan deteksi dini penerbitan NIM resmi di SIAKAD.
+3. **Integritas Alur Pendaftaran**: Dari pengisian mandiri mahasiswa (Langkah 1 s.d. 6) hingga **pemisahan tabel penampungan sementara (*staging*) menuju buku besar resmi (*running master tables*)** oleh Admin Keuangan.
+
+---
+
+## 📌 Peta Lokasi Dokumentasi Sistem Terkait
+
+Sebelum memulai pengujian, berikut referensi dokumen pendukung di dalam repositori:
+
+| Dokumen | Lokasi | Manfaat Pengujian |
+| :--- | :--- | :--- |
+| **Instalasi Laragon 1-Klik** | [`LARAGON_SETUP.md`](../LARAGON_SETUP.md) | Panduan instalasi cepat stack PHP 8.2+, MySQL, dan script `laragon-setup.bat`. |
+| **Arsitektur Staging & Master** | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Penjelasan logika pemisahan `operator_id = 0` (mandiri) dan `operator_id = 1` (admin). |
+| **Matriks 5 Skenario Uji** | [`docs/scenario-mappings.md`](scenario-mappings.md) | Skenario uji untuk mahasiswa reguler, penerima KIP, cicilan deposit, dan transisi NIM. |
+| **Keamanan Berkas e-KYC** | [`docs/SECURE_UPLOAD_STRATEGY.md`](SECURE_UPLOAD_STRATEGY.md) | Panduan pengujian *storage private disk* dan *signed URL* berkas KTP & Selfie. |
+| **Spesifikasi Lengkap (PRD/SAS)**| [`ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`](../ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | Definisi aturan bisnis JUKLAK-02, JUKLAK-03, dan lembar ratifikasi F-22. |
 
 ---
 
@@ -45,12 +64,12 @@ Konfigurasi koneksi ini tersimpan rapi di:
 ## 2. Inisialisasi Otomatis (1-Klik via Laragon)
 
 Cukup jalankan file `laragon-setup.bat` (atau `bash laragon-setup.sh`):
-1. Skrip akan otomatis membuat kedua database:
+1. Skrip otomatis membuat kedua database:
    ```sql
    CREATE DATABASE IF NOT EXISTS asrama_ubt_db;
    CREATE DATABASE IF NOT EXISTS u540633926_simaba;
    ```
-2. Skrip membuat user `u540633926_simaba` dengan password `12345678Ab&` dan memberikan hak akses:
+2. Skrip otomatis membuat user `u540633926_simaba` dengan kata sandi `12345678Ab&` dan memberikan hak akses:
    ```sql
    CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost' IDENTIFIED BY '12345678Ab&';
    CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1' IDENTIFIED BY '12345678Ab&';
@@ -58,7 +77,7 @@ Cukup jalankan file `laragon-setup.bat` (atau `bash laragon-setup.sh`):
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1';
    FLUSH PRIVILEGES;
    ```
-3. Menjalankan migrasi dan seeder data SIMABA nyata:
+3. Menjalankan migrasi dan seeder:
    ```bash
    php artisan migrate --seed
    ```
@@ -68,7 +87,7 @@ Cukup jalankan file `laragon-setup.bat` (atau `bash laragon-setup.sh`):
 
 ## 3. Matriks Data Pengujian Mahasiswa Baru Nyata (Data Dump SIMABA)
 
-Gunakan salah satu dari akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
+Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
 
 | No | Nama Lengkap Mahasiswa | No. Pendaftaran | Tanggal Lahir (UX: `DD/MM/YYYY`) | Program Studi | Jalur PMB | Skenario Pengujian Utama |
 |:---|:---|:---|:---|:---|:---|:---|
@@ -87,81 +106,131 @@ Gunakan salah satu dari akun calon mahasiswa baru berikut untuk menguji seluruh 
 
 ### A. Fitur Live Search Auto-Suggest Nama Calon Mahasiswa
 1. Di halaman login, klik tombol **"Pendaftaran Asrama"** atau tab PMB.
-2. Pada kolom input **"Nomor Pendaftaran PMB / Cari Nama Lengkap"**, ketik minimal 2 karakter dari nama calon mahasiswa:
-   - Contoh: Ketik **`Grace`**, **`Jenny`**, **`Maza`**, atau **`Alvin`**.
+2. Pada kolom input **"Nomor Pendaftaran PMB / Cari Nama Lengkap"**, ketik minimal 2 karakter dari nama calon mahasiswa (contoh: **`Grace`**, **`Jenny`**, **`Maza`**, atau **`Alvin`**).
 3. **Hasil yang Diharapkan**:
    - Menu saran interaktif (*live dropdown*) langsung muncul di bawah kolom input.
-   - Kartu saran menampilkan:
-     * Nama lengkap calon mahasiswa dengan font tebal (*bold*).
-     * Lencana nomor pendaftaran (misal: `260108001`).
-     * Nama program studi resmi (misal: *S1 Ilmu Keperawatan*).
-     * Tombol aksi **`[PILIH]`**.
-4. Klik tombol **`[PILIH]`** pada saran yang diinginkan:
-   - Nomor pendaftaran otomatis terisi ke form input.
-   - Tanggal lahir terformat otomatis terisi.
-   - Dropdown saran tertutup secara halus.
-   - Muncul kartu hijau konfirmasi identitas terverifikasi lengkap dengan tombol *"Ganti / Cari Ulang"*.
+   - Kartu saran menampilkan: Nama lengkap tebal (*bold*), lencana nomor pendaftaran, program studi resmi, dan tombol aksi **`[PILIH]`**.
+4. Klik tombol **`[PILIH]`**:
+   - Nomor pendaftaran dan tanggal lahir terformat otomatis terisi ke form input.
+   - Dropdown saran tertutup halus dan muncul kartu hijau konfirmasi identitas mahasiswa terverifikasi.
 
 ### B. Format Tanggal Lahir UX `DD/MM/YYYY`
-1. Tanggal lahir menggunakan urutan ramah pengguna Indonesia: **Hari / Bulan / Tahun** (`DD/MM/YYYY`).
-2. Kolom dilengkapi *input mask* otomatis: saat Anda mengetik `12022008`, kolom otomatis menampilkan `12/02/2008`.
-3. Saat form dikirim (*Submit*):
-   - Sistem secara cerdas mengonversi `12/02/2008` menjadi format ISO `2008-02-12` untuk query SQL:
-     ```sql
-     SELECT * FROM pendaftaranmahasiswa 
-     WHERE nomor_pendaftaran = '260108001' 
-       AND tanggal_lahir = '2008-02-12' 
-       AND status = 1;
-     ```
+1. Input tanggal lahir menggunakan format ramah pengguna Indonesia: **Hari / Bulan / Tahun** (`DD/MM/YYYY`).
+2. Kolom dilengkapi *input mask* otomatis: mengetik `12022008` otomatis tertata menjadi `12/02/2008`.
+3. Sistem secara otomatis mengonversi `12/02/2008` menjadi format ISO `2008-02-12` untuk query SQL backend SIMABA.
 
 ### C. Fitur Deteksi Dini Penerbitan NIM Resmi (Early Detection)
 1. Pilih calon mahasiswa **Alvin Octavianus Hasiholan Hutasoit** (`260727002` / `07/08/2008`).
 2. Klik **"Masuk Portal Pendaftaran"**.
 3. **Hasil yang Diharapkan**:
-   - Sistem di latar belakang melakukan pengecekan ke staging/API SIAKAD.
-   - Sistem mendeteksi bahwa universitas telah menerbitkan **NIM Resmi: `260801004`**.
-   - Muncul jendela modal **"Pemberitahuan Deteksi Dini: NIM Resmi Anda Telah Terbit di SIAKAD"**.
-   - Pengguna diberikan pilihan praktis:
-     * **Beralih ke Login SSO Mahasiswa** (menggunakan NIM resmi).
-     * **Lanjutkan Masuk dengan Identitas Resmi** (langsung membuka dashboard dengan NIM terintegrasi).
+   - Sistem di latar belakang mengecek ke staging/API SIAKAD dan mendeteksi **NIM Resmi: `260801004`**.
+   - Muncul dialog modal **"Pemberitahuan Deteksi Dini: NIM Resmi Anda Telah Terbit di SIAKAD"**.
+   - Pengguna dapat memilih untuk **Beralih ke Login SSO Mahasiswa** atau **Lanjutkan Masuk dengan Identitas Resmi**.
 
 ---
 
-## 5. Pengujian Langsung via Laravel Artisan & Tinker
+## 5. Pengujian Alur Transaksi & Promosi Staging ke Master di MySQL
 
-Buka terminal Laragon di folder proyek (`C:\laragon\www\asrama-ubt`), kemudian jalankan perintah-perintah berikut:
+### A. Input Pendaftaran Mandiri Mahasiswa Baru
+1. Masuk menggunakan nomor registrasi pendaftar (misal: `260108001` atau `250830001`).
+2. **Langkah 1 (e-KYC)**: Unggah KTP dan foto selfie biometrik (tersimpan di `storage/app/private_kyc`).
+3. **Langkah 2 (Kamar)**: Pilih lantai dan nomor ranjang kamar.
+4. **Langkah 3 (Pembayaran)**: Pilih skema sewa dan dapatkan **Kode Unik 3 Digit**. Unggah bukti transfer bank, lalu klik **Kirim Konfirmasi Pembayaran**.
+
+### B. Verifikasi Data Staging di phpMyAdmin / HeidiSQL
+Buka phpMyAdmin (`http://localhost/phpmyadmin`) atau HeidiSQL pada database `asrama_ubt_db`:
+```sql
+-- 1. Verifikasi Data Permintaan Masuk ke TABEL STAGING (Bukan Master)
+SELECT 
+    id, 
+    no_request, 
+    penyewa_id, 
+    total_bayar, 
+    status_pembayaran, 
+    status_verifikasi, 
+    operator_id 
+FROM request_pembayaran 
+ORDER BY id DESC LIMIT 1;
+```
+**Indikator Keberhasilan Tahap Staging:**
+- `no_request` memiliki format `REQ-YYYYMM-XXXX`.
+- **`operator_id` bernilai `0`**: Membuktikan bahwa transaksi ini dibuat secara mandiri oleh calon mahasiswa baru (*self-service*) dan **belum masuk ke buku besar resmi**.
+- `status_verifikasi` bernilai `0` (Menunggu verifikasi admin keuangan).
+- Periksa tabel master `pembayaran`:
+  ```sql
+  SELECT * FROM pembayaran WHERE no_request = (SELECT no_request FROM request_pembayaran ORDER BY id DESC LIMIT 1);
+  -- Hasil: 0 baris (Sesuai SOP Keuangan Asrama)
+  ```
+
+### C. Pengesahan & Promosi ke Master oleh Admin Keuangan
+1. Masuk ke Portal Admin Keuangan di `http://127.0.0.1:8000/admin/dashboard`.
+2. Pada tab **Verifikasi Pembayaran Masuk (Staging Requests)**, temukan baris permintaan yang diajukan.
+3. Periksa kecocokan bukti bayar, nominal total, dan 3-digit kode unik.
+4. Klik tombol **"Sahkan & Promosi ke Master"**.
+5. Sistem mengeksekusi metode `promoteToMaster()` di `AdminAsramaController.php`:
+   - Menerbitkan Nomor Invoice Resmi (`INV-YYYYMM-XXXX`).
+   - Memindahkan rincian biaya ke `pembayaran_detail`.
+   - Mencatat arus kas masuk ke tabel `transaksi`.
+   - Mengubah status master `penyewa` menjadi aktif dan mengunci kamar menjadi `OCCUPIED`.
+   - Menetapkan `operator_id` menjadi ID staf admin yang sedang login (misal: `1`).
+
+### D. Pembuktian Akhir Integritas Buku Besar Master
+Jalankan query audit berikut di MySQL:
+```sql
+-- 1. Bukti data resmi telah masuk ke BUKU BESAR RESMI
+SELECT id, no_invoice, no_request, total_bayar, operator_id, created_at 
+FROM pembayaran ORDER BY id DESC LIMIT 1;
+
+-- 2. Bukti mutasi kas asrama resmi tercatat
+SELECT id, no_transaksi, kode_transaksi, jumlah_bayar, operator_id 
+FROM transaksi ORDER BY id DESC LIMIT 1;
+
+-- 3. Bukti status kamar terkunci secara riil
+SELECT kode_kamar, status, nama_penghuni 
+FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC LIMIT 1);
+```
+**Hasil yang Diharapkan:**
+- Kolom `operator_id` pada tabel `pembayaran` dan `transaksi` bernilai $\ge 1$ (ID Staf Keuangan).
+- Terdapat nomor invoice resmi `INV-...` yang tersambung dengan nomor asal `REQ-...`.
+- Status kamar berubah dari `AVAILABLE` menjadi `OCCUPIED`.
+- Mahasiswa baru saat membuka kembali dashboard-nya otomatis terbuka ke **Langkah 4 (Tanda Tangan Kontrak Digital F-19 & F-02 via OTP WhatsApp)**.
+
+---
+
+## 6. Pengujian Langsung via Laravel Artisan & Tinker
+
+Buka terminal Laragon di folder proyek (`C:\laragon\www\asrama-ubt`):
 
 ### 1. Memeriksa Koneksi Database SIMABA via Tinker
 ```bash
 php artisan tinker
 ```
-Lalu jalankan kode PHP berikut di dalam prompt Tinker:
+Jalankan kode PHP berikut di prompt Tinker:
 ```php
 // Test autentikasi model SimabaPendaftaran
 $student = \App\Models\SimabaPendaftaran::authenticate('260108001', '12/02/2008');
 echo $student->nama_mahasiswa . " | Prodi: " . $student->nama_prodi;
-// Output yang diharapkan: GRACE MARLIN TELAUMBANUA | Prodi: S1 Ilmu Keperawatan
+// Output: GRACE MARLIN TELAUMBANUA | Prodi: S1 Ilmu Keperawatan
 
 // Test pencarian nama
 $results = \App\Models\SimabaPendaftaran::searchByNameOrReg('Alvin')->get();
 foreach ($results as $r) { echo $r->nomor_pendaftaran . ' - ' . $r->nama_mahasiswa . PHP_EOL; }
-// Output yang diharapkan: 260727002 - Alvin Octavianus Hasiholan Hutasoit
+// Output: 260727002 - Alvin Octavianus Hasiholan Hutasoit
 ```
 
 ### 2. Menjalankan Ulang Seeder SIMABA Secara Spesifik
-Jika Anda ingin menyetel ulang data dummy SIMABA sewaktu-waktu:
 ```bash
 php artisan db:seed --class=SimabaDatabaseSeeder
 ```
 
 ---
 
-## 6. Ringkasan Kunci Skenario Pengujian
+## 7. Pemecahan Masalah (*Troubleshooting*)
 
-| Komponen | Status | Hasil Verifikasi |
-|:---|:---|:---|
-| **Dual Database Configuration** | ✅ Terhubung | Laravel membaca `u540633926_simaba` tanpa mengganggu `asrama_ubt_db`. |
-| **Live Search Nama Mahasiswa** | ✅ Aktif | Dropdown responsif menampilkan data PMB asli dan auto-fill nomor pendaftaran. |
-| **UX Tanggal Lahir `DD/MM/YYYY`** | ✅ Terkalibrasi | Nyaman bagi pengguna lokal, terkonversi otomatis ke SQL ISO `YYYY-MM-DD`. |
-| **Early Detection SIAKAD/SIDARA** | ✅ Otomatis | Deteksi penerbitan NIM resmi di latar belakang tanpa memblokir pendaftar yang belum terbit NIM. |
-| **Kredensial Database Terstandarisasi** | ✅ Siap Pakai | `.env.example` dan `laragon-setup.bat` selaras dengan user `u540633926_simaba`. |
+| Gejala Kendala | Kemungkinan Penyebab | Tindakan Solusi |
+| :--- | :--- | :--- |
+| `SQLSTATE[HY000] [2002] Connection refused` | Servis MySQL di Laragon belum berjalan. | Buka Laragon, pastikan tombol MySQL berwarna hijau (*Running* pada port 3306). |
+| `Table 'u540633926_simaba.pendaftaranmahasiswa' doesn't exist` | Basis data SIMABA belum dimigrasikan/diseed. | Jalankan `php artisan db:seed --class=SimabaDatabaseSeeder` di terminal. |
+| `Access denied for user 'u540633926_simaba'@'localhost'` | User database belum dibuat di MySQL lokal. | Jalankan `laragon-setup.bat` ulang atau jalankan query `CREATE USER` pada seksi 2. |
+| `Table 'asrama_ubt_db.request_pembayaran' doesn't exist` | Migrasi database asrama belum dijalankan. | Buka terminal Laragon, jalankan `php artisan migrate:fresh --seed`. |
+| Tombol pengesahan admin tidak memindahkan data | Status invoice masih `UNPAID` di database. | Pastikan bukti bayar diunggah dan aksi yang dipilih adalah `APPROVE_AND_MIGRATE`. |
