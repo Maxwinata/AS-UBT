@@ -1,6 +1,6 @@
 {
-  "summary": "Pembaruan rencana implementasi integrasi dual database SIMABA, penambahan fitur pencarian otomatis nomor pendaftaran langsung via nama calon mahasiswa dengan saran dropdown (menampilkan nama, nomor pendaftaran, program studi, dan tombol pilih), format UX tanggal lahir DD/MM/YYYY, dan deteksi dini penerbitan NIM via API SIAKAD di latar belakang.",
-  "updatedAt": "2026-10-16T12:26:05.064425859Z",
+  "summary": "Rencana implementasi optimasi indeks basis data MySQL (u540633926_simaba) untuk query ribuan data pendaftaran calon mahasiswa serta penyempurnaan antarmuka Mahasiswa Baru (Maba UX) dengan navigasi keyboard, text highlight, debounce responsif, dan auto-format tanggal lahir.",
+  "updatedAt": "2026-10-17T12:23:57.437016520Z",
   "requestFeedback": true,
   "userFacing": true
 }

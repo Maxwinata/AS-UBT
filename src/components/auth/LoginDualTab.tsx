@@ -44,6 +44,9 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
 
   // Form State Maba (Terkoneksi ke Data SIMABA)
   const [pmbNoReg, setPmbNoReg] = useState('260108001'); // Default: GRACE MARLIN TELAUMBANUA
+  const [debouncedSearch, setDebouncedSearch] = useState('260108001');
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
   const [mabaBirthDate, setMabaBirthDate] = useState('12/02/2008'); // Format DD/MM/YYYY
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<SimabaStudent | null>(
@@ -62,10 +65,33 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter kandidat mahasiswa dari SIMABA berdasarkan ketikan nama atau nomor pendaftaran
-  const filteredStudents = pmbNoReg.trim().length >= 2
+  // Debounced search state (200ms) untuk responsivitas instan tanpa jitter
+  useEffect(() => {
+    if (selectedStudent && pmbNoReg === selectedStudent.nomor_pendaftaran) {
+      setDebouncedSearch(pmbNoReg);
+      setIsSearching(false);
+      return;
+    }
+
+    if (pmbNoReg.trim().length >= 2) {
+      setIsSearching(true);
+    } else {
+      setIsSearching(false);
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedSearch(pmbNoReg);
+      setIsSearching(false);
+      setActiveSuggestionIndex(-1);
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [pmbNoReg, selectedStudent]);
+
+  // Filter kandidat mahasiswa dari SIMABA berdasarkan debounced search query
+  const filteredStudents = debouncedSearch.trim().length >= 2
     ? INITIAL_SIMABA_STUDENTS.filter((s) => {
-        const query = pmbNoReg.trim().toLowerCase();
+        const query = debouncedSearch.trim().toLowerCase();
         return (
           s.nama_mahasiswa.toLowerCase().includes(query) ||
           s.nomor_pendaftaran.toLowerCase().includes(query) ||
@@ -74,6 +100,67 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
         );
       }).slice(0, 6)
     : [];
+
+  // Helper untuk menyorot bagian teks yang cocok dengan kata kunci pencarian
+  const highlightMatch = (text: string, query: string) => {
+    const q = query.trim();
+    if (!q || q.length < 2) return text;
+    try {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escaped})`, 'gi');
+      const parts = text.split(regex);
+      return parts.map((part, idx) =>
+        regex.test(part) ? (
+          <mark key={idx} className="bg-teal-100 text-teal-950 font-black rounded-xs px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      );
+    } catch {
+      return text;
+    }
+  };
+
+  // Navigasi Keyboard: Panah Atas (↑), Panah Bawah (↓), Enter untuk Pilih, Escape untuk Tutup
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showNameSuggestions || filteredStudents.length === 0) {
+      if (e.key === 'ArrowDown' && pmbNoReg.trim().length >= 2 && !selectedStudent) {
+        setShowNameSuggestions(true);
+        setActiveSuggestionIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => {
+        const next = prev < filteredStudents.length - 1 ? prev + 1 : 0;
+        const el = document.getElementById(`suggestion-item-${next}`);
+        el?.scrollIntoView({ block: 'nearest' });
+        return next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : filteredStudents.length - 1;
+        const el = document.getElementById(`suggestion-item-${next}`);
+        el?.scrollIntoView({ block: 'nearest' });
+        return next;
+      });
+    } else if (e.key === 'Enter') {
+      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < filteredStudents.length) {
+        e.preventDefault();
+        handleSelectStudent(filteredStudents[activeSuggestionIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowNameSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  };
 
   // Helper untuk formatting otomatis DD/MM/YYYY pada input tanggal lahir
   const handleBirthDateChange = (val: string) => {
@@ -92,8 +179,11 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
   const handleSelectStudent = (student: SimabaStudent) => {
     setSelectedStudent(student);
     setPmbNoReg(student.nomor_pendaftaran);
+    setDebouncedSearch(student.nomor_pendaftaran);
     setMabaBirthDate(student.tanggal_lahir_formatted);
     setShowNameSuggestions(false);
+    setActiveSuggestionIndex(-1);
+    setIsSearching(false);
     setErrorMessage('');
     toast.success(`Data terpilih: ${student.nama_mahasiswa} (${student.nomor_pendaftaran})`, { duration: 3000 });
   };
@@ -101,8 +191,11 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
   const handleResetSelectedStudent = () => {
     setSelectedStudent(null);
     setPmbNoReg('');
+    setDebouncedSearch('');
     setMabaBirthDate('');
     setShowNameSuggestions(false);
+    setActiveSuggestionIndex(-1);
+    setIsSearching(false);
   };
 
   // Form State SSO Eksisting
@@ -645,22 +738,27 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                               setSelectedStudent(null);
                             }
                           }}
+                          onKeyDown={handleInputKeyDown}
                           onFocus={() => {
                             if (pmbNoReg.trim().length >= 2 && !selectedStudent) {
                               setShowNameSuggestions(true);
                             }
                           }}
-                          placeholder="Ketik nama (Grace, Jenny, Maza, Rizka) atau No. PMB..."
+                          placeholder="Ketik nama (Grace, Jenny, Maza, Alvin) atau No. PMB..."
                           className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-9 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white font-medium shadow-xs"
                           required
                           autoComplete="off"
                         />
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        {isSearching ? (
+                          <Loader2 className="w-4 h-4 text-teal-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        ) : (
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        )}
                         {pmbNoReg && (
                           <button
                             type="button"
                             onClick={handleResetSelectedStudent}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                             title="Bersihkan input"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -668,55 +766,70 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                         )}
                       </div>
 
-                      {/* LIVE SUGGESTION DROPDOWN */}
+                      {/* LIVE SUGGESTION DROPDOWN DENGAN KEYBOARD NAV & TEXT HIGHLIGHT */}
                       {showNameSuggestions && filteredStudents.length > 0 && (
                         <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-teal-300 rounded-2xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                           <div className="bg-slate-50 px-3.5 py-2 flex items-center justify-between text-[11px] text-slate-600 font-semibold border-b border-slate-200/80">
-                            <span className="flex items-center gap-1.5 text-teal-800">
+                            <span className="flex items-center gap-1.5 text-teal-900 font-bold">
                               <User className="w-3.5 h-3.5 text-teal-600" />
                               Saran Calon Mahasiswa SIMABA ({filteredStudents.length})
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">Pilih untuk auto-fill</span>
+                            <span className="text-[10px] text-teal-800 font-mono bg-teal-100/70 px-2 py-0.5 rounded border border-teal-200">
+                              Gunakan [↑][↓] & [Enter]
+                            </span>
                           </div>
-                          {filteredStudents.map((s) => (
-                            <div
-                              key={s.id}
-                              onClick={() => handleSelectStudent(s)}
-                              className="p-3 hover:bg-teal-50/70 transition-colors cursor-pointer flex items-center justify-between gap-2.5 group"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-teal-900 truncate">
-                                  {s.nama_mahasiswa}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                  <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                                    No. PMB: {s.nomor_pendaftaran}
-                                  </span>
-                                  <span className="text-[10px] font-medium bg-teal-50 text-teal-800 px-2 py-0.5 rounded border border-teal-200 truncate max-w-[170px]">
-                                    {s.program_studi}
-                                  </span>
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                                    s.jenis_mahasiswa === 'kip'
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200'
-                                  }`}>
-                                    {s.jenis_mahasiswa === 'kip' ? 'Jalur KIP' : 'Non-KIP'}
-                                  </span>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSelectStudent(s);
-                                }}
-                                className="shrink-0 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs flex items-center gap-1 min-h-[34px] cursor-pointer"
+                          {filteredStudents.map((s, idx) => {
+                            const isFocused = idx === activeSuggestionIndex;
+                            return (
+                              <div
+                                id={`suggestion-item-${idx}`}
+                                key={s.id}
+                                onClick={() => handleSelectStudent(s)}
+                                onMouseEnter={() => setActiveSuggestionIndex(idx)}
+                                className={`p-3 transition-colors cursor-pointer flex items-center justify-between gap-2.5 min-h-[52px] ${
+                                  isFocused
+                                    ? 'bg-teal-50 border-l-4 border-l-teal-600 pl-2.5 text-teal-950 font-medium'
+                                    : 'hover:bg-slate-50 border-l-4 border-l-transparent text-slate-700'
+                                }`}
                               >
-                                <span>Pilih</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                                    {highlightMatch(s.nama_mahasiswa, debouncedSearch)}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                    <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                                      No. PMB: {highlightMatch(s.nomor_pendaftaran, debouncedSearch)}
+                                    </span>
+                                    <span className="text-[10px] font-medium bg-teal-50 text-teal-800 px-2 py-0.5 rounded border border-teal-200 truncate max-w-[170px]">
+                                      {s.program_studi}
+                                    </span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                      s.jenis_mahasiswa === 'kip'
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                                    }`}>
+                                      {s.jenis_mahasiswa === 'kip' ? 'KIP Kuliah · Subsidi Penuh' : 'Reguler Mandiri'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectStudent(s);
+                                  }}
+                                  className={`shrink-0 text-xs font-bold px-3 py-2 rounded-lg shadow-xs flex items-center gap-1.5 min-h-[38px] cursor-pointer transition-all ${
+                                    isFocused
+                                      ? 'bg-teal-700 text-white shadow-sm ring-2 ring-teal-400'
+                                      : 'bg-teal-600 hover:bg-teal-700 text-white'
+                                  }`}
+                                >
+                                  <span>Pilih</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 

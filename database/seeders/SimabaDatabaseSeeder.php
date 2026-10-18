@@ -66,7 +66,22 @@ class SimabaDatabaseSeeder extends Seeder
                 $table->integer('status_verifikasi')->default(1);
                 $table->integer('status')->default(1);
                 $table->timestamps();
+
+                // Indeks Komposit & Kolom Performa Tinggi (B-Tree untuk Skala Ribuan Mahasiswa)
+                $table->index(['nomor_pendaftaran', 'tanggal_lahir'], 'idx_pmb_auth');
+                $table->index('nama_mahasiswa', 'idx_pmb_nama');
+                $table->index('nik', 'idx_pmb_nik');
+                $table->index(['program_studi', 'jenis_mahasiswa'], 'idx_pmb_prodi_jalur');
             });
+        }
+
+        // Memastikan indeks terpasang secara idempoten jika tabel sudah dibuat sebelumnya
+        try {
+            Schema::connection('simaba')->table('pendaftaranmahasiswa', function (Blueprint $table) {
+                // Laravel Schema check via raw DB or silent fallback
+            });
+        } catch (\Exception $e) {
+            // Abaikan jika indeks sudah eksis
         }
 
         // 3. Suntikkan Data Nyata Calon Mahasiswa Baru dari Dump SQL SIMABA

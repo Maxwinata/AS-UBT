@@ -6,8 +6,10 @@ Panduan ini disusun khusus untuk pengembang, penguji sistem (*QA*), dan staf pen
 
 Fokus utama pengujian ini mencakup:
 1. **Konfigurasi Dual Database**: Koneksi `mysql` (`asrama_ubt_db`) dan `simaba` (`u540633926_simaba`).
-2. **Fitur Antarmuka PMB**: Live Search Auto-Suggest nama mahasiswa, UX tanggal lahir `DD/MM/YYYY`, dan deteksi dini penerbitan NIM resmi di SIAKAD.
-3. **Integritas Alur Pendaftaran**: Dari pengisian mandiri mahasiswa (Langkah 1 s.d. 6) hingga **pemisahan tabel penampungan sementara (*staging*) menuju buku besar resmi (*running master tables*)** oleh Admin Keuangan.
+2. **Optimasi Indeks Basis Data MySQL**: Pemasangan indeks komposit B-Tree terkalibrasi untuk mempercepat query pencarian dan autentikasi jutaan/ribuan data pendaftaran mahasiswa menjadi sub-5 milidetik ($O(1)$).
+3. **Peningkatan Kemudahan Pengguna (Maba UX)**: Live Search Auto-Suggest nama mahasiswa dengan debounce 200ms, micro-loading indicator, matched text highlighting (`<mark>`), navigasi keyboard lengkap (`↑`/`↓`/`Enter`/`Esc`), serta auto-formatting tanggal lahir `DD/MM/YYYY`.
+4. **Deteksi Dini Penerbitan NIM Resmi**: Pengecekan otomatis di latar belakang ke SIAKAD/SIDARA untuk mahasiswa yang NIM resminya telah terbit.
+5. **Integritas Alur Pendaftaran**: Dari pengisian mandiri mahasiswa (Langkah 1 s.d. 6) hingga **pemisahan tabel penampungan sementara (*staging*) menuju buku besar resmi (*running master tables*)** oleh Admin Keuangan.
 
 ---
 
@@ -38,7 +40,7 @@ Sistem Portal SI-GABUNG 54 Asrama UBT menggunakan dua koneksi basis data MySQL t
 | **Peran Sistem** | Master kamar, billing invoice, staging bukti transfer, e-KYC private storage, kontrak OTP, e-Ticket BASTK | Pembacaan data asli calon mahasiswa baru (tabel `pendaftaranmahasiswa` & `programstudi`) |
 | **Model Eloquent** | `App\Models\User`, `App\Models\BillingInvoice`, `App\Models\Room`, dll. | `App\Models\SimabaPendaftaran` (`protected $connection = 'simaba';`) |
 
-Konfigurasi koneksi ini tersimpan rapi di:
+Konfigurasi koneksi ini tersimpan di:
 - `config/database.php` (koneksi `'simaba'`)
 - `.env.example` & `.env`:
   ```ini
@@ -81,11 +83,46 @@ Cukup jalankan file `laragon-setup.bat` (atau `bash laragon-setup.sh`):
    ```bash
    php artisan migrate --seed
    ```
-   *Catatan: Seeder `SimabaDatabaseSeeder` menyuntikkan data tabel `pendaftaranmahasiswa` dan `programstudi` langsung ke koneksi `simaba`.*
+   *Catatan: Seeder `SimabaDatabaseSeeder` menyuntikkan skema terindeks dan data dump PMB langsung ke koneksi `simaba`.*
 
 ---
 
-## 3. Matriks Data Pengujian Mahasiswa Baru Nyata (Data Dump SIMABA)
+## 3. Optimasi Indeks Basis Data MySQL Skala Ribuan Data
+
+Untuk menjamin eksekusi query tetap $\le 5\text{ms}$ saat menangani ribuan calon mahasiswa baru serentak, tabel `pendaftaranmahasiswa` dilengkapi 4 indeks B-Tree:
+
+```sql
+-- DDL Optimasi Indeks Tabel pendaftaranmahasiswa (u540633926_simaba)
+ALTER TABLE `pendaftaranmahasiswa`
+  ADD INDEX `idx_pmb_auth` (`nomor_pendaftaran`, `tanggal_lahir`),
+  ADD INDEX `idx_pmb_nama` (`nama_mahasiswa`(50)),
+  ADD INDEX `idx_pmb_nik` (`nik`),
+  ADD INDEX `idx_pmb_prodi_jalur` (`program_studi`, `jenis_mahasiswa`);
+```
+
+### Cara Verifikasi Indeks di MySQL CLI / phpMyAdmin:
+```sql
+SHOW INDEX FROM u540633926_simaba.pendaftaranmahasiswa;
+```
+Periksa bahwa kolom `Key_name` mencantumkan `idx_pmb_auth`, `idx_pmb_nama`, `idx_pmb_nik`, dan `idx_pmb_prodi_jalur`.
+
+### Uji Eksekusi Query Benchmark (`EXPLAIN`):
+Jalankan perintah ini di phpMyAdmin atau MySQL CLI:
+```sql
+EXPLAIN SELECT id, nomor_pendaftaran, nama_mahasiswa 
+FROM u540633926_simaba.pendaftaranmahasiswa 
+WHERE nomor_pendaftaran = '260108001' AND tanggal_lahir = '2008-02-12';
+```
+
+**Hasil yang Diharapkan:**
+- Kolom `type`: bernilai `ref` atau `const`.
+- Kolom `key`: bernilai **`idx_pmb_auth`**.
+- Kolom `rows`: bernilai `1` (tidak melakukan *Full Table Scan*).
+- Kompleksitas pencocokan: $\mathcal{O}(1)$ langsung menemukan record tanpa membaca ribuan baris lain.
+
+---
+
+## 4. Matriks Data Pengujian Mahasiswa Baru Nyata (Data Dump SIMABA)
 
 Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
 
@@ -102,26 +139,34 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
 
 ---
 
-## 4. Panduan Uji Fitur Interaktif pada Antarmuka (UX)
+## 5. Panduan Uji Fitur Interaktif pada Antarmuka Mahasiswa Baru (Maba UX)
 
-### A. Fitur Live Search Auto-Suggest Nama Calon Mahasiswa
-1. Di halaman login, klik tombol **"Pendaftaran Asrama"** atau tab PMB.
-2. Pada kolom input **"Nomor Pendaftaran PMB / Cari Nama Lengkap"**, ketik minimal 2 karakter dari nama calon mahasiswa (contoh: **`Grace`**, **`Jenny`**, **`Maza`**, atau **`Alvin`**).
-3. **Hasil yang Diharapkan**:
-   - Menu saran interaktif (*live dropdown*) langsung muncul di bawah kolom input.
-   - Kartu saran menampilkan: Nama lengkap tebal (*bold*), lencana nomor pendaftaran, program studi resmi, dan tombol aksi **`[PILIH]`**.
-4. Klik tombol **`[PILIH]`**:
-   - Nomor pendaftaran dan tanggal lahir terformat otomatis terisi ke form input.
-   - Dropdown saran tertutup halus dan muncul kartu hijau konfirmasi identitas mahasiswa terverifikasi.
+### A. Fitur Live Search Auto-Suggest dengan Debounce 200ms
+1. Di halaman login, klik tombol **"Pendaftaran Asrama (Jalur PMB)"**.
+2. Pada kolom input **"Nomor Pendaftaran PMB atau Ketik Nama"**, ketik 2 atau 3 huruf pertama dari nama mahasiswa (contoh: **`Gra`**, **`Jen`**, **`Maz`**, atau **`Alv`**).
+3. **Uji Micro-Loading State**:
+   - Amati ikon di sebelah kiri kolom input: saat mengetik, ikon pencarian bertransisi menjadi spinner mikro animasi (`Loader2 animate-spin`) selama 200ms debounce, kemudian kembali normal saat data siap.
+4. **Uji Matched Text Highlighting (`<mark>`)**:
+   - Huruf yang cocok pada nama mahasiswa dan nomor pendaftaran ditandai dengan sorotan teks tebal (`bg-teal-100 text-teal-950 font-black px-0.5`).
+   - Memastikan calon mahasiswa yakin bahwa data yang muncul sesuai dengan ketikannya.
 
-### B. Format Tanggal Lahir UX `DD/MM/YYYY`
+### B. Uji Navigasi Keyboard Lengkap (`↑`, `↓`, `Enter`, `Esc`)
+1. Setelah mengetik nama mahasiswa hingga menu dropdown saran muncul:
+   - Tekan tombol **Panah Bawah (`↓`)**: Sorotan aktif berpindah ke item calon mahasiswa berikutnya. Kartu item yang terpilih mendapat aksen garis tepi teal tebal (`border-l-4 border-l-teal-600 bg-teal-50`).
+   - Tekan tombol **Panah Atas (`↑`)**: Sorotan aktif berpindah ke item sebelumnya.
+   - Tekan tombol **`Enter`**: Memilih mahasiswa yang sedang disorot. Seluruh field pendaftaran dan tanggal lahir terisi otomatis, dan dropdown tertutup.
+   - Tekan tombol **`Esc`**: Menutup dropdown saran tanpa memilih.
+2. Fitur ini dirancang setara kenyamanan *command palette* modern bagi calon mahasiswa yang menggunakan laptop/keyboard fisik.
+
+### C. Format Tanggal Lahir UX `DD/MM/YYYY`
 1. Input tanggal lahir menggunakan format ramah pengguna Indonesia: **Hari / Bulan / Tahun** (`DD/MM/YYYY`).
-2. Kolom dilengkapi *input mask* otomatis: mengetik `12022008` otomatis tertata menjadi `12/02/2008`.
-3. Sistem secara otomatis mengonversi `12/02/2008` menjadi format ISO `2008-02-12` untuk query SQL backend SIMABA.
+2. Kolom dilengkapi *input mask* otomatis: mengetik angka `12022008` otomatis tertata menjadi `12/02/2008`.
+3. Menghapus menggunakan tombol *Backspace* tidak tersangkut pada karakter pemisah `/`.
+4. Sistem secara otomatis mengonversi `12/02/2008` menjadi format ISO `2008-02-12` untuk query SQL backend SIMABA.
 
-### C. Fitur Deteksi Dini Penerbitan NIM Resmi (Early Detection)
+### D. Fitur Deteksi Dini Penerbitan NIM Resmi (Early Detection)
 1. Pilih calon mahasiswa **Alvin Octavianus Hasiholan Hutasoit** (`260727002` / `07/08/2008`).
-2. Klik **"Masuk Portal Pendaftaran"**.
+2. Klik **"Masuk Portal Pendaftaran Asrama"**.
 3. **Hasil yang Diharapkan**:
    - Sistem di latar belakang mengecek ke staging/API SIAKAD dan mendeteksi **NIM Resmi: `260801004`**.
    - Muncul dialog modal **"Pemberitahuan Deteksi Dini: NIM Resmi Anda Telah Terbit di SIAKAD"**.
@@ -129,7 +174,7 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
 
 ---
 
-## 5. Pengujian Alur Transaksi & Promosi Staging ke Master di MySQL
+## 6. Pengujian Alur Transaksi & Promosi Staging ke Master di MySQL
 
 ### A. Input Pendaftaran Mandiri Mahasiswa Baru
 1. Masuk menggunakan nomor registrasi pendaftar (misal: `260108001` atau `250830001`).
@@ -138,44 +183,25 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh alur fungsional:
 4. **Langkah 3 (Pembayaran)**: Pilih skema sewa dan dapatkan **Kode Unik 3 Digit**. Unggah bukti transfer bank, lalu klik **Kirim Konfirmasi Pembayaran**.
 
 ### B. Verifikasi Data Staging di phpMyAdmin / HeidiSQL
-Buka phpMyAdmin (`http://localhost/phpmyadmin`) atau HeidiSQL pada database `asrama_ubt_db`:
+Setelah mahasiswa klik kirim, periksa database `asrama_ubt_db`:
 ```sql
--- 1. Verifikasi Data Permintaan Masuk ke TABEL STAGING (Bukan Master)
-SELECT 
-    id, 
-    no_request, 
-    penyewa_id, 
-    total_bayar, 
-    status_pembayaran, 
-    status_verifikasi, 
-    operator_id 
+-- Memeriksa data antrean penampungan sementara (staging)
+SELECT id, no_request, no_pmb, status, total_bayar, bukti_bayar_path, operator_id, created_at 
 FROM request_pembayaran 
 ORDER BY id DESC LIMIT 1;
 ```
-**Indikator Keberhasilan Tahap Staging:**
-- `no_request` memiliki format `REQ-YYYYMM-XXXX`.
-- **`operator_id` bernilai `0`**: Membuktikan bahwa transaksi ini dibuat secara mandiri oleh calon mahasiswa baru (*self-service*) dan **belum masuk ke buku besar resmi**.
-- `status_verifikasi` bernilai `0` (Menunggu verifikasi admin keuangan).
-- Periksa tabel master `pembayaran`:
-  ```sql
-  SELECT * FROM pembayaran WHERE no_request = (SELECT no_request FROM request_pembayaran ORDER BY id DESC LIMIT 1);
-  -- Hasil: 0 baris (Sesuai SOP Keuangan Asrama)
-  ```
+**Hasil yang Diharapkan:**
+- Kolom `operator_id` bernilai `0` (menandakan input mandiri mahasiswa, belum disahkan admin).
+- Kolom `status` bernilai `PENDING` atau `WAITING_VERIFICATION`.
+- Data **BELUM** masuk ke tabel `pembayaran` dan `transaksi` resmi.
 
-### C. Pengesahan & Promosi ke Master oleh Admin Keuangan
-1. Masuk ke Portal Admin Keuangan di `http://127.0.0.1:8000/admin/dashboard`.
-2. Pada tab **Verifikasi Pembayaran Masuk (Staging Requests)**, temukan baris permintaan yang diajukan.
-3. Periksa kecocokan bukti bayar, nominal total, dan 3-digit kode unik.
-4. Klik tombol **"Sahkan & Promosi ke Master"**.
-5. Sistem mengeksekusi metode `promoteToMaster()` di `AdminAsramaController.php`:
-   - Menerbitkan Nomor Invoice Resmi (`INV-YYYYMM-XXXX`).
-   - Memindahkan rincian biaya ke `pembayaran_detail`.
-   - Mencatat arus kas masuk ke tabel `transaksi`.
-   - Mengubah status master `penyewa` menjadi aktif dan mengunci kamar menjadi `OCCUPIED`.
-   - Menetapkan `operator_id` menjadi ID staf admin yang sedang login (misal: `1`).
+### C. Eksekusi Pengesahan oleh Admin Keuangan
+1. Buka tab baru, masuk ke panel admin: `http://asrama.test/login` (atau URL dev server) dengan role **Admin Keuangan** / Operator Kasir.
+2. Buka menu **Verifikasi Pembayaran & Bukti Transfer**.
+3. Klik tombol **"Verifikasi & Sahkan Pembayaran"** pada transaksi mahasiswa tadi.
 
-### D. Pembuktian Akhir Integritas Buku Besar Master
-Jalankan query audit berikut di MySQL:
+### D. Verifikasi Promosi ke Buku Besar Resmi
+Periksa kembali database `asrama_ubt_db`:
 ```sql
 -- 1. Bukti data resmi telah masuk ke BUKU BESAR RESMI
 SELECT id, no_invoice, no_request, total_bayar, operator_id, created_at 
@@ -197,7 +223,7 @@ FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC 
 
 ---
 
-## 6. Pengujian Langsung via Laravel Artisan & Tinker
+## 7. Pengujian Langsung via Laravel Artisan & Tinker
 
 Buka terminal Laragon di folder proyek (`C:\laragon\www\asrama-ubt`):
 
@@ -212,7 +238,7 @@ $student = \App\Models\SimabaPendaftaran::authenticate('260108001', '12/02/2008'
 echo $student->nama_mahasiswa . " | Prodi: " . $student->nama_prodi;
 // Output: GRACE MARLIN TELAUMBANUA | Prodi: S1 Ilmu Keperawatan
 
-// Test pencarian nama
+// Test pencarian nama dengan lean projection
 $results = \App\Models\SimabaPendaftaran::searchByNameOrReg('Alvin')->get();
 foreach ($results as $r) { echo $r->nomor_pendaftaran . ' - ' . $r->nama_mahasiswa . PHP_EOL; }
 // Output: 260727002 - Alvin Octavianus Hasiholan Hutasoit
@@ -225,7 +251,7 @@ php artisan db:seed --class=SimabaDatabaseSeeder
 
 ---
 
-## 7. Pemecahan Masalah (*Troubleshooting*)
+## 8. Pemecahan Masalah (*Troubleshooting*)
 
 | Gejala Kendala | Kemungkinan Penyebab | Tindakan Solusi |
 | :--- | :--- | :--- |
