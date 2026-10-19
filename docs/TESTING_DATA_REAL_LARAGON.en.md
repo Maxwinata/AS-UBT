@@ -14,6 +14,7 @@ This document serves as the comprehensive technical, testing, and operational gu
 | **Staging & Master Architecture** | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Detailed rationale for unverified staging (`operator_id = 0`) vs master ledger (`operator_id = 1`). |
 | **5 Testing Scenarios** | [`docs/scenario-mappings.en.md`](scenario-mappings.en.md) | Scenarios for regular applicants, KIP scholarships, installment plans, and NIM transitions. |
 | **e-KYC Secure Storage** | [`docs/SECURE_UPLOAD_STRATEGY.en.md`](SECURE_UPLOAD_STRATEGY.en.md) | Verification guide for private disk storage and short-lived signed URLs for ID & selfie files. |
+| **Pre-Production Readiness** | [`docs/PRE_PRODUCTION_READINESS.en.md`](PRE_PRODUCTION_READINESS.en.md) | Dummy data sanitization, real room master setup, 3-digit unique code cashier SOP, & go-live checklist. |
 | **Complete System Specs** | [`ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`](../ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | Business logic rules, JUKLAK-02, JUKLAK-03, lease contracts, and F-22 ratification sheets. |
 
 ---
@@ -31,7 +32,14 @@ The SI-GABUNG 54 portal operates two distinct MySQL database schemas concurrentl
 | **System Role** | Rooms, billing invoices, payment staging, e-KYC private storage, OTP contracts, e-Tickets | Reading real applicant admissions data (`pendaftaranmahasiswa` & `programstudi`) |
 | **Eloquent Model** | `App\Models\User`, `App\Models\BillingInvoice`, `App\Models\Room`, etc. | `App\Models\SimabaPendaftaran` (`protected $connection = 'simaba';`) |
 
-Connection credentials are configured in `config/database.php` and `.env`:
+> 🔒 **CRITICAL SECURITY & CREDENTIAL ISOLATION NOTICE:**
+> - The password `12345678Ab&` is **STRICTLY AND EXCLUSIVELY** reserved for the production SIMABA SQL database (`u540633926_simaba`) connection on the live server.
+> - **DO NOT** use this password generically for other system accounts (such as administrative user logins, local root MySQL, cPanel, or email accounts).
+> - **DO NOT** commit or document this real server database password to public GitHub repositories (e.g., in `.env.example`).
+> - The `.env` file holding real server credentials must always remain gitignored. The template `.env.example` in Git must remain empty (`DB_SIMABA_PASSWORD=`).
+> - Local development administrative test accounts use a separate, isolated demo password: **`password123`**.
+
+Connection credentials are configured in `config/database.php` and your private `.env`:
 ```ini
 # PRIMARY DORMITORY DATABASE (OPERATIONS & LEDGER)
 DB_CONNECTION=mysql
@@ -42,6 +50,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 
 # SIMABA DATABASE (NEW STUDENT ADMISSIONS - DUAL DATABASE)
+# NOTE: Store real server database passwords ONLY in your private .env file; NEVER commit to GitHub!
 DB_SIMABA_CONNECTION=mysql
 DB_SIMABA_HOST=127.0.0.1
 DB_SIMABA_PORT=3306
@@ -69,8 +78,8 @@ The script automatically executes 7 setup phases:
    ```sql
    CREATE DATABASE IF NOT EXISTS asrama_ubt_db;
    CREATE DATABASE IF NOT EXISTS u540633926_simaba;
-   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost' IDENTIFIED BY '12345678Ab&';
-   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1' IDENTIFIED BY '12345678Ab&';
+   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost';
+   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1';
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'localhost';
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1';
    FLUSH PRIVILEGES;
@@ -156,7 +165,84 @@ WHERE nomor_pendaftaran = '260108001' AND tanggal_lahir = '2008-02-12';
 
 ---
 
-## 6. Complete Registration Stages (Steps 1 to 6)
+## 6. Dormitory Registration via SSO Login (Non-Resident University Students with SIAKAD Smart Pre-Fill)
+
+In addition to prospective students from the PMB track (SIMABA), the SI-GABUNG 54 Portal accommodates **dormitory room registration for active university students** (Cohorts 2022 to 2026 or students who have received official university Single Sign-On accounts) who have not previously resided in the dormitories (*Non-Active Residents*).
+
+### A. Working Concept & Multi-Tier DB Check Handler
+When a student submits their student ID (NIM) and SSO password in the portal, the system automatically runs a tiered membership check:
+1. **Tier 1 (SSO Credential Authentication)**: System verifies student NIM and credentials against university SIAKAD/SIDARA directory.
+2. **Tier 2 (Dormitory Operations Database Query)**: System queries `asrama_ubt_db` to determine if the student currently occupies an active room or holds an approved lease contract:
+   ```sql
+   SELECT id, kode_kamar, status, nama_penghuni, nim 
+   FROM kamar 
+   WHERE nim = '2240101088' AND status = 'OCCUPIED';
+   ```
+3. **Tier 3 (Evaluation & Registration Redirection Modal)**:
+   - If **NO ACTIVE OCCUPANCY RECORD IS FOUND** (i.e., an active university student without a dormitory room), the system displays the **Registration Redirection Modal**:
+     > *"Your SSO account is verified in SIAKAD (NIM: 2240101088), but you are not currently registered as an active resident of UBT Dormitory. You are being redirected to the Dormitory Room Registration process."*
+   - Student clicks **"Continue to Dormitory Registration (Smart Pre-Fill)"** to initiate the room allocation flow.
+
+---
+
+### B. Real Student Test Accounts for SSO Registration (SIAKAD Staging Data)
+
+Use these active student test accounts to verify the SSO registration pathway:
+
+| No | Student Name | Official SIAKAD NIM | SIAKAD Profile Status | Billing Track | Key SSO Registration Test Scenario |
+|:---|:---|:---|:---|:---|:---|
+| **1** | **Ahmad Zaky** | `2240101088` | **Complete** (GPA 3.82, S1 Management, Medan) | **Regular Track** | **Complete Smart Pre-Fill**: Demographic & academic profile locked automatically from SIAKAD. Per JUKLAK-02 regulations, student must upload physical national ID card & selfie biometrics in Step 1 before selecting room. |
+| **2** | **Rina Anggraini** | `2240101099` | **Partial** (S1 Nursing, KIP Scholarship) | **KIP Scholarship** (Rp 0) | **Partial Smart Pre-Fill**: Academic data pre-filled, but national ID (NIK) & guardian contact pending. Student completes missing demographic info and attaches subsidy proof in Step 1. |
+| **3** | **Alvin Octavianus Hasiholan** | `260801004` *(PMB Reg: 260727002)* | **Official NIM Migrated** (S1 Law, Cohort 2026) | **Regular Track** | **PMB-to-SSO Identity Transition**: Verification of new students transitioning from PMB registration numbers to official university NIMs. System binds legacy PMB room requests to official SSO profile. |
+
+---
+
+### C. Step-by-Step SSO Registration Testing Walkthrough
+
+1. **Login via UBT SSO**:
+   - On the login page (`/login`), click **"Login SSO UBT"**.
+   - Select the simulator option: **`Ahmad Zaky • Data SIAKAD Lengkap`** (or enter NIM: **`2240101088`** and SSO password: `••••••••••••`).
+   - Click **"Masuk via SSO UBT & Check Status Database"**.
+   - Observe the 3-step animated database status check (*Credential Auth* $\rightarrow$ *Querying DB Asrama* $\rightarrow$ *Result Evaluated*).
+
+2. **Registration Redirection Modal**:
+   - A modal prompt confirms active university enrollment without current resident status.
+   - Click the green button: **"Lanjutkan Pendaftaran Asrama (Smart Pre-Fill)"**.
+
+3. **Step 1 (Identity Validation & Physical e-KYC)**:
+   - Notice that **NIM: `2240101088`**, **Name: `Ahmad Zaky`**, **Faculty: `Economics & Business`**, and **Program: `S1 Management`** are locked in read-only mode with the `[Terverifikasi SIAKAD]` verification badge.
+   - **Compliance with Rule JUKLAK-02**: Student must physically upload original ID card and biometric selfie. This prevents shared accounts or proxy booking.
+   - Click **"Simpan & Lanjutkan ke Pemilihan Kamar"**.
+
+4. **Steps 2 to 6**:
+   - Progress through room selection (Step 2), invoice & staging payment proof (Step 3), WhatsApp OTP digital contract (Step 4), BASTK ratification (Step 5), and e-Ticket gate boarding pass issuance (Step 6).
+
+---
+
+### D. MySQL Database Verification for SSO Registration (`asrama_ubt_db`)
+
+Verify the staging records in MySQL CLI or phpMyAdmin:
+
+```sql
+-- 1. Check academic demographic record in SIAKAD staging table
+SELECT id, nim_resmi, nomor_registrasi, nama_lengkap, program_studi, fakultas, has_active_nim 
+FROM siakad_mahasiswa_stg 
+WHERE nim_resmi = '2240101088';
+
+-- 2. Verify payment request staging entry for the SSO applicant
+SELECT id, no_request, nim, nama_mahasiswa, total_bayar, status, operator_id, created_at 
+FROM request_pembayaran 
+WHERE nim = '2240101088' 
+ORDER BY id DESC LIMIT 1;
+```
+
+**Expected Results:**
+- `Ahmad Zaky` confirmed in `siakad_mahasiswa_stg` with `has_active_nim = 1`.
+- Staging record in `request_pembayaran` created with `operator_id = 0` (awaiting financial administrator verification before migration to master ledger).
+
+---
+
+## 7. Complete Registration Stages (Steps 1 to 6)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -193,7 +279,7 @@ WHERE nomor_pendaftaran = '260108001' AND tanggal_lahir = '2008-02-12';
    - **KIP Scholarship**: 100% subsidized room charge (Rp 0).
    - **Regular Track**: Semester rent (Rp 3.000.000,-) + Security Deposit (Rp 500.000,-) + Admin Fee (Rp 100.000,-) + 3-Digit Unique Code (e.g., `482`) $\rightarrow$ Total: `Rp 3.600.482,-`.
 2. **Upload Bank Transfer Receipt**:
-   - Transfer to UBT Dormitory Virtual Account / Bank BNI.
+   - Transfer to official university account **Bank Mandiri `1050508988809` a.n. `Asrama Universitas Bunda Thamrin`** matching exact invoice total with 3-digit unique code (optional BNI Virtual Account simulation also available).
    - Upload transfer slip and submit.
 3. **Verify Staging Data in MySQL (`asrama_ubt_db`)**:
    ```sql
@@ -235,15 +321,15 @@ WHERE nomor_pendaftaran = '260108001' AND tanggal_lahir = '2008-02-12';
 
 ---
 
-## 7. Multi-Role Admin Operational Testing
+## 8. Multi-Role Admin Operational Testing
 
 Test administrative role segregation at `/login`:
 
 | Admin Role | Login Credentials | Testing Responsibilities |
 | :--- | :--- | :--- |
-| **1. Financial Admin** | `keuangan@ubt.ac.id` / `12345678Ab&` | Bank receipt verification & Staging-to-Master migration |
-| **2. Room Admin** | `asrama@ubt.ac.id` / `12345678Ab&` | Occupancy management, key dispatch, inventory BASTK |
-| **3. Super Admin** | `superadmin@ubt.ac.id` / `12345678Ab&` | e-KYC audit trail, dual DB sync, SIAKAD bridging |
+| **1. Financial Admin** | `keuangan@ubt.ac.id` / `password123` | Bank receipt verification & Staging-to-Master migration |
+| **2. Room Admin** | `asrama@ubt.ac.id` / `password123` | Occupancy management, key dispatch, inventory BASTK |
+| **3. Super Admin** | `superadmin@ubt.ac.id` / `password123` | e-KYC audit trail, dual DB sync, SIAKAD bridging |
 
 ### Financial Approval Verification (Staging to Master):
 1. Log in as `keuangan@ubt.ac.id`.
@@ -267,7 +353,7 @@ Test administrative role segregation at `/login`:
 
 ---
 
-## 8. Development & Debugging in Laragon
+## 9. Development & Debugging in Laragon
 
 ### 1. Private e-KYC Storage & Signed URLs
 - Sensitive files reside in `storage/app/private_kyc/`.
@@ -320,7 +406,11 @@ php artisan cache:clear
 
 ---
 
-## 9. Production Readiness Guide
+## 10. Production Readiness Guide
+
+> 📘 **DEDICATED PRE-PRODUCTION OPERATIONAL GUIDE:**
+> For comprehensive specifications covering the data sanitization protocol, real physical room master initialization (`RealRoomSeeder.php`), 3-digit randomized unique code cashier reconciliation SOP, and go-live day checklist, please refer to:
+> 👉 **[`docs/PRE_PRODUCTION_READINESS.en.md`](PRE_PRODUCTION_READINESS.en.md)** (or [🇮🇩 Versi Bahasa Indonesia](PRE_PRODUCTION_READINESS.md)).
 
 ### 1. Security Configuration (`.env.production`)
 ```ini
@@ -342,6 +432,14 @@ DB_PORT=3306
 DB_DATABASE=asrama_ubt_prod
 DB_USERNAME=asrama_prod_user
 DB_PASSWORD=StrongProductionPassword99#
+
+DB_SIMABA_CONNECTION=mysql
+DB_SIMABA_HOST=10.0.0.5
+DB_SIMABA_PORT=3306
+DB_SIMABA_DATABASE=u540633926_simaba
+DB_SIMABA_USERNAME=u540633926_simaba
+# NOTE: Store real server database passwords ONLY in your private .env file; NEVER commit to GitHub!
+DB_SIMABA_PASSWORD=<ENTER_PRODUCTION_SQL_SIMABA_PASSWORD_IN_PRIVATE_ENV>
 ```
 
 ### 2. Production Optimization Commands
@@ -424,7 +522,7 @@ find $BACKUP_DIR -type f -name "*.sql.gz" -mtime +30 -delete
 
 ---
 
-## 10. Comprehensive Troubleshooting
+## 11. Comprehensive Troubleshooting
 
 | Symptom | Cause | Concrete Solution |
 | :--- | :--- | :--- |

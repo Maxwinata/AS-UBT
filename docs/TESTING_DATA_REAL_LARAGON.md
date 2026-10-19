@@ -16,6 +16,7 @@ Sebelum memulai pengujian, berikut referensi dokumen pendukung di dalam reposito
 | **Arsitektur Staging & Master** | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Rincian pemisahan penampungan sementara (`operator_id = 0`) dan buku besar resmi (`operator_id = 1`). |
 | **Matriks 5 Skenario Uji** | [`docs/scenario-mappings.md`](scenario-mappings.md) | Skenario uji untuk mahasiswa reguler, penerima KIP, cicilan deposit, dan transisi NIM. |
 | **Keamanan Berkas e-KYC** | [`docs/SECURE_UPLOAD_STRATEGY.md`](SECURE_UPLOAD_STRATEGY.md) | Panduan teknis penyimpanan *private storage disk* dan generasi *signed URL* berkas KTP & Selfie. |
+| **Kesiapan Pra-Produksi** | [`docs/PRE_PRODUCTION_READINESS.md`](PRE_PRODUCTION_READINESS.md) | Protokol sanitasi data dummy, inisialisasi master kamar riil, SOP kasir kode unik 3 digit, & go-live checklist. |
 | **Spesifikasi Lengkap (PRD/SAS)**| [`ASRAMA_UBT_SYSTEM_DOCUMENTATION.md`](../ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | Definisi aturan bisnis JUKLAK-02, JUKLAK-03, kontrak sewa, dan lembar ratifikasi F-22. |
 
 ---
@@ -33,7 +34,14 @@ Sistem Portal SI-GABUNG 54 Asrama UBT menggunakan dua koneksi basis data MySQL t
 | **Peran Sistem** | Master kamar, billing invoice, staging bukti transfer, e-KYC private storage, kontrak OTP, e-Ticket BASTK | Pembacaan data asli calon mahasiswa baru (tabel `pendaftaranmahasiswa` & `programstudi`) |
 | **Model Eloquent** | `App\Models\User`, `App\Models\BillingInvoice`, `App\Models\Room`, dll. | `App\Models\SimabaPendaftaran` (`protected $connection = 'simaba';`) |
 
-Konfigurasi koneksi ini tersimpan di `config/database.php` dan file `.env` proyek Anda:
+> 🔒 **PERINGATAN KEAMANAN & ISOLASI KREDENSIAL (SECURITY HYGIENE):**
+> - Kredensial kata sandi `12345678Ab&` **HANYA DAN EKSKLUSIF** diperuntukkan bagi koneksi basis data SQL SIMABA (`u540633926_simaba`) di server riil.
+> - **DILARANG KERAS** menggunakan kata sandi ini secara umum untuk akun-akun lain (seperti akun login staf admin asrama, root MySQL lokal, akun cPanel, atau email).
+> - **DILARANG KERAS** mengunggah atau mendokumentasikan kata sandi database riil ini ke repositori publik di GitHub (misal: di file template `.env.example`).
+> - File `.env` yang memuat kredensial riil harus selalu terdaftar di `.gitignore`. File `.env.example` yang dikomit ke GitHub wajib dikosongkan (`DB_SIMABA_PASSWORD=`).
+> - Akun login staf admin di lingkungan pengujian lokal menggunakan kata sandi demo terpisah: **`password123`**.
+
+Konfigurasi koneksi ini tersimpan di `config/database.php` dan file `.env` privat proyek Anda:
 ```ini
 # KONEKSI DATABASE UTAMA ASRAMA (OPERASIONAL & TRANSAKSI)
 DB_CONNECTION=mysql
@@ -44,6 +52,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 
 # KONEKSI DATABASE SIMABA (PENDAFTARAN MAHASISWA BARU - DUAL DATABASE)
+# PENTING: Isi password server riil HANYA pada file .env privat lokal / server, JANGAN commit ke GitHub!
 DB_SIMABA_CONNECTION=mysql
 DB_SIMABA_HOST=127.0.0.1
 DB_SIMABA_PORT=3306
@@ -71,8 +80,8 @@ Skrip ini secara otomatis mengeksekusi 7 langkah instalasi:
    ```sql
    CREATE DATABASE IF NOT EXISTS asrama_ubt_db;
    CREATE DATABASE IF NOT EXISTS u540633926_simaba;
-   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost' IDENTIFIED BY '12345678Ab&';
-   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1' IDENTIFIED BY '12345678Ab&';
+   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost';
+   CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1';
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'localhost';
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1';
    FLUSH PRIVILEGES;
@@ -164,7 +173,84 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh skenario fungsio
 
 ---
 
-## 6. Panduan Lengkap Setiap Tahapan Pendaftaran (Langkah 1 s.d. 6)
+## 6. Pendaftaran Asrama Melalui Jalur Login SSO (Mahasiswa Kampus Non-Penghuni dengan Smart Pre-Fill SIAKAD)
+
+Selain calon mahasiswa baru jalur PMB (SIMABA), Portal SI-GABUNG 54 melayani **pendaftaran kamar asrama bagi mahasiswa aktif kampus** (Angkatan 2022 s.d. 2026 atau mahasiswa yang telah memiliki akun Single Sign-On kampus) yang belum pernah tinggal di asrama (*Non-Active Resident*).
+
+### A. Konsep Kerja & Arsitektur DB Check Handler
+Saat mahasiswa memasukkan NIM dan password SSO di antarmuka web, sistem secara otomatis mengeksekusi pemeriksaan status keanggotaan bertingkat:
+1. **Langkah 1 (SSO Credential Auth)**: Sistem memverifikasi kredensial NIM dan kata sandi terhadap direktori akun kampus SIAKAD/SIDARA.
+2. **Langkah 2 (Query Database Operasional Asrama)**: Sistem melakukan kueri ke basis data `asrama_ubt_db` untuk memeriksa apakah NIM tersebut sudah terdaftar pada tabel kamar atau kontrak aktif:
+   ```sql
+   SELECT id, kode_kamar, status, nama_penghuni, nim 
+   FROM kamar 
+   WHERE nim = '2240101088' AND status = 'OCCUPIED';
+   ```
+3. **Langkah 3 (Evaluasi & Pengalihan Pendaftaran)**:
+   - Jika record **TIDAK DITEMUKAN** (artinya mahasiswa kampus berstatus aktif tetapi belum tinggal di asrama), sistem langsung memunculkan **Modal Pengalihan Pendaftaran (*Redirection Modal*)**:
+     > *"Status Akun SSO Anda terverifikasi di SIAKAD (NIM: 2240101088), namun Anda belum terdaftar sebagai penghuni aktif Asrama UBT. Anda dialihkan ke Alur Pendaftaran Kamar Asrama."*
+   - Mahasiswa mengklik tombol **"Lanjutkan Pendaftaran dengan Smart Pre-Fill"** untuk memulai proses pemesanan kamar.
+
+---
+
+### B. Matriks Akun Pengujian Riil Mahasiswa Non-Penghuni (Data SIAKAD Staging)
+
+Gunakan akun-akun mahasiswa aktif berikut untuk menguji skenario pendaftaran via login SSO:
+
+| No | Nama Mahasiswa | NIM Resmi SIAKAD | Status Profil SIAKAD | Jalur Pembayaran | Skenario Pengujian Pendaftaran SSO |
+|:---|:---|:---|:---|:---|:---|
+| **1** | **Ahmad Zaky** | `2240101088` | **Lengkap** (IPK 3.82, S1 Manajemen, Asal Medan) | **Reguler Mandiri** | **Smart Pre-Fill Lengkap**: Seluruh data akademik & identitas terisi otomatis dari SIAKAD. Sesuai regulasi JUKLAK-02, mahasiswa wajib mengunggah foto fisik e-KTP & selfie biometrik di Langkah 1 sebelum memilih kamar. |
+| **2** | **Rina Anggraini** | `2240101099` | **Parsial** (S1 Keperawatan, Subsidi KIP) | **KIP Kuliah** (Rp 0) | **Smart Pre-Fill Parsial**: Data akademik terisi, namun NIK dan nomor kontak ortu belum lengkap. Mahasiswa melengkapi NIK, kontak darurat, serta berkas KIP di Langkah 1. |
+| **3** | **Alvin Octavianus Hasiholan** | `260801004` *(No PMB: 260727002)* | **Migrasi NIM Resmi** (S1 Hukum, Angkatan 2026) | **Reguler Mandiri** | **Transisi Identitas PMB ke SSO**: Pengujian maba yang baru menerima NIM resmi dari BAAK. Login via SSO langsung mengenali riwayat nomor registrasi PMB asalnya dan menyinkronkan data kamar. |
+
+---
+
+### C. Alur Pengujian Pendaftaran via SSO Langkah Demi Langkah
+
+1. **Login via SSO UBT**:
+   - Di halaman utama login (`/login`), pilih tombol biru **"Login SSO UBT"**.
+   - Pilih radio simulator: **`Ahmad Zaky • Data SIAKAD Lengkap`** (atau ketik NIM: **`2240101088`** dan password SSO: `••••••••••••`).
+   - Klik **"Masuk via SSO UBT & Check Status Database"**.
+   - Amati animasi pengecekan database 3-tahap (*Credential Auth* $\rightarrow$ *Querying DB Asrama* $\rightarrow$ *Result Evaluated*).
+
+2. **Dialog Pengalihan Pendaftaran (*Redirection Modal*)**:
+   - Muncul dialog modal biru yang mengonfirmasi bahwa Anda adalah mahasiswa aktif UBT namun belum memiliki kamar di asrama.
+   - Klik tombol hijau **"Lanjutkan Pendaftaran Asrama (Smart Pre-Fill)"**.
+
+3. **Langkah 1 (Validasi Identitas & e-KYC Fisik)**:
+   - Perhatikan bahwa field **NIM: `2240101088`**, **Nama: `Ahmad Zaky`**, **Fakultas: `Ekonomi dan Bisnis`**, dan **Prodi: `S1 Manajemen`** sudah terkunci otomatis (*disabled/read-only*) dengan lencana `[Terverifikasi SIAKAD]`.
+   - **Kepatuhan Aturan JUKLAK-02**: Mahasiswa tetap wajib mengunggah foto e-KTP fisik asli dan foto selfie biometrik memegang KTP. Hal ini penting untuk memastikan bahwa akun SSO digunakan langsung oleh mahasiswa yang bersangkutan secara fisik, bukan dipinjamkan kepada orang lain.
+   - Klik **"Simpan & Lanjutkan ke Pemilihan Kamar"**.
+
+4. **Langkah 2 s.d. Langkah 6**:
+   - Mahasiswa melanjutkan pemilihan kamar (Langkah 2), penerbitan tagihan sewa & upload bukti bayar staging (Langkah 3), tanda tangan kontrak via OTP WhatsApp (Langkah 4), ratifikasi BASTK (Langkah 5), hingga penerbitan tiket masuk digital e-Pass gerbang (Langkah 6) sama seperti alur standar.
+
+---
+
+### D. Verifikasi Database MySQL untuk Pendaftaran Jalur SSO (`asrama_ubt_db`)
+
+Periksa tabel penampungan staging SIAKAD dan tabel transaksi asrama di phpMyAdmin / MySQL CLI:
+
+```sql
+-- 1. Memeriksa ketersediaan data profil akademik mahasiswa di tabel staging SIAKAD
+SELECT id, nim_resmi, nomor_registrasi, nama_lengkap, program_studi, fakultas, has_active_nim 
+FROM siakad_mahasiswa_stg 
+WHERE nim_resmi = '2240101088';
+
+-- 2. Memeriksa pencatatan pendaftaran kamar dari jalur SSO di tabel staging pembayaran
+SELECT id, no_request, nim, nama_mahasiswa, total_bayar, status, operator_id, created_at 
+FROM request_pembayaran 
+WHERE nim = '2240101088' 
+ORDER BY id DESC LIMIT 1;
+```
+
+**Hasil yang Diharapkan:**
+- Data profil `Ahmad Zaky` terverifikasi di `siakad_mahasiswa_stg` dengan `has_active_nim = 1`.
+- Record transaksi pendaftaran kamar tersimpan di `request_pembayaran` dengan `operator_id = 0` (menunggu pengesahan admin keuangan sebelum dipromosikan ke buku besar resmi `pembayaran` dan `kamar`).
+
+---
+
+## 7. Panduan Lengkap Setiap Tahapan Pendaftaran (Langkah 1 s.d. 6)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -205,7 +291,7 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh skenario fungsio
      - Biaya Administrasi: Rp 100.000,-.
      - **Kode Unik 3 Digit**: Contoh `482` $\rightarrow$ Total Transfer: `Rp 3.600.482,-`.
 2. **Unggah Bukti Transfer**:
-   - Mahasiswa mentransfer ke rekening Virtual Account / Bank BNI Asrama UBT.
+   - Mahasiswa mentransfer ke rekening resmi **Bank Mandiri `1050508988809` a.n. `Asrama Universitas Bunda Thamrin`** sesuai total tagihan beserta 3 digit kode unik (tersedia juga opsi simulasi Virtual Account BNI).
    - Unggah struk transfer / screenshot m-Banking.
    - Klik tombol **"Kirim Konfirmasi Pembayaran"**.
 3. **Verifikasi Data Staging di MySQL (`asrama_ubt_db`)**:
@@ -250,7 +336,7 @@ Gunakan akun calon mahasiswa baru berikut untuk menguji seluruh skenario fungsio
 
 ---
 
-## 7. Pengujian Operasional Panel Multi-Role Admin
+## 8. Pengujian Operasional Panel Multi-Role Admin
 
 Untuk menguji pemisahan tugas (*Segregation of Duties*), masuk menggunakan akun staf sesuai peran di URL `/login`:
 
@@ -261,13 +347,13 @@ Untuk menguji pemisahan tugas (*Segregation of Duties*), masuk menggunakan akun 
 │ PERAN ADMIN          │ KREDENSIAL LOGIN       │ TANGGUNG JAWAB PENGUJIAN    │
 ├──────────────────────┼────────────────────────┼─────────────────────────────┤
 │ 1. Admin Keuangan    │ keuangan@ubt.ac.id     │ Verifikasi transfer bank &  │
-│    (Operator Kasir)  │ Pass: 12345678Ab&      │ Promosi Staging ke Master   │
+│    (Operator Kasir)  │ Pass: password123      │ Promosi Staging ke Master   │
 ├──────────────────────┼────────────────────────┼─────────────────────────────┤
 │ 2. Admin Kamar       │ asrama@ubt.ac.id       │ Manajemen okupansi, kunci,  │
-│    (Pengelola Fisik) │ Pass: 12345678Ab&      │ inventaris kamar, BASTK     │
+│    (Pengelola Fisik) │ Pass: password123      │ inventaris kamar, BASTK     │
 ├──────────────────────┼────────────────────────┼─────────────────────────────┤
 │ 3. Super Admin       │ superadmin@ubt.ac.id   │ Audit trail e-KYC, dual DB  │
-│    (System Admin)    │ Pass: 12345678Ab&      │ sync, bridging SIAKAD       │
+│    (System Admin)    │ Pass: password123      │ sync, bridging SIAKAD       │
 └──────────────────────┴────────────────────────┴─────────────────────────────┘
 ```
 
@@ -297,7 +383,7 @@ Untuk menguji pemisahan tugas (*Segregation of Duties*), masuk menggunakan akun 
 
 ---
 
-## 8. Panduan Teknis Development & Debugging di Laragon
+## 9. Panduan Teknis Development & Debugging di Laragon
 
 Buka terminal Laragon pada direktori proyek (`C:\laragon\www\asrama-ubt`):
 
@@ -363,7 +449,11 @@ php artisan cache:clear
 
 ---
 
-## 9. Panduan Kesiapan Menuju Lingkungan Production (*Production Readiness*)
+## 10. Panduan Kesiapan Menuju Lingkungan Production (*Production Readiness*)
+
+> 📘 **PANDUAN OPERASIONAL PRA-PRODUKSI TERDEDIKASI:**
+> Untuk petunjuk lengkap mengenai protokol pembersihan data dummy (*data sanitization*), inisialisasi 64 kamar fisik riil (`RealRoomSeeder.php`), SOP pencocokan transfer bank manual dengan kode unik 3 digit acak, dan checklist hari peluncuran, silakan merujuk pada dokumen terpisah:
+> 👉 **[`docs/PRE_PRODUCTION_READINESS.md`](PRE_PRODUCTION_READINESS.md)** (atau [🇬🇧 English Version](PRE_PRODUCTION_READINESS.en.md)).
 
 Sebelum mendeploy aplikasi ke server *production* (VPS Ubuntu / Cloud Server):
 
@@ -396,7 +486,8 @@ DB_SIMABA_HOST=10.0.0.5
 DB_SIMABA_PORT=3306
 DB_SIMABA_DATABASE=u540633926_simaba
 DB_SIMABA_USERNAME=u540633926_simaba
-DB_SIMABA_PASSWORD=12345678Ab&
+# PENTING: Masukkan password SIMABA real server HANYA pada file .env privat server, JANGAN pernah commit ke GitHub!
+DB_SIMABA_PASSWORD=<MASUKKAN_PASSWORD_SQL_SIMABA_SERVER_REAL_DI_PRIVATE_ENV>
 ```
 
 ### 2. Optimasi Cache & Kinerja Produksi
@@ -508,7 +599,7 @@ find $BACKUP_DIR -type f -name "*.sql.gz" -mtime +30 -delete
 
 ---
 
-## 10. Pemecahan Masalah (*Troubleshooting Komprehensif*)
+## 11. Pemecahan Masalah (*Troubleshooting Komprehensif*)
 
 | Gejala Kendala | Kemungkinan Penyebab | Tindakan Solusi Konkret |
 | :--- | :--- | :--- |

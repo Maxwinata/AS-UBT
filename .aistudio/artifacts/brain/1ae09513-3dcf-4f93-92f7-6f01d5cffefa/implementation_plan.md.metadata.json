@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana komprehensif untuk melengkapi manual docs/TESTING_DATA_REAL_LARAGON.md dan versi Inggrisnya mencakup seluruh Langkah 1 s.d. 6 pendaftaran asrama, panduan teknis development & debugging, arsitektur private storage e-KYC, pengujian multi-role admin, hingga checklist deployment production.",
-  "updatedAt": "2026-10-19T00:42:57.298552123Z",
+  "summary": "Rencana kerja penyelarasan rekening bank resmi: Bank Mandiri 1050508988809 a.n. Asrama Universitas Bunda Thamrin sebagai kanal utama transfer manual (dengan 3 digit kode unik dan mutasi Kopra by Mandiri), serta Bank BNI khusus sebagai kanal Virtual Account (VA) pada seluruh dokumen operasional dan teknis.",
+  "updatedAt": "2026-10-19T03:48:56.089214539Z",
   "requestFeedback": true,
   "userFacing": true
 }
