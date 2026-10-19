@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana kerja penyelarasan rekening bank resmi: Bank Mandiri 1050508988809 a.n. Asrama Universitas Bunda Thamrin sebagai kanal utama transfer manual (dengan 3 digit kode unik dan mutasi Kopra by Mandiri), serta Bank BNI khusus sebagai kanal Virtual Account (VA) pada seluruh dokumen operasional dan teknis.",
-  "updatedAt": "2026-10-19T03:48:56.089214539Z",
+  "summary": "Rencana komprehensif audit, sinkronisasi, dan penyempurnaan akurasi pemetaan skema database di seluruh lapisan: (1) Bridging Staging Mandiri ke Master Berjalan Web Admin, (2) Dual Database SIMABA PMB ke Asrama, (3) Staging API SIAKAD UBT & SSO SIDARA, serta (4) Skema Penyimpanan Privat Berkas e-KYC Berversi (Immutable Storage) & Jejak Audit (Audit Trail). Plan ini mencakup perbaikan migration files, D3 ERD Diagram, Laravel Blueprint, dan dokumentasi arsitektur.",
+  "updatedAt": "2026-10-19T04:54:05.722614860Z",
   "requestFeedback": true,
   "userFacing": true
 }

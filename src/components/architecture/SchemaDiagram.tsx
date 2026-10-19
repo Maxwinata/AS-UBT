@@ -9,11 +9,12 @@ export const SchemaDiagram: React.FC = () => {
   const [activeScenario, setActiveScenario] = useState<string>('ALL');
 
   const SCENARIOS = [
-    { id: 'ALL', label: 'Semua Overview (Bridging + Master + SIAKAD)', nodes: [] },
+    { id: 'ALL', label: 'Semua Overview (SIAKAD + Bridging + Master + e-KYC)', nodes: [] },
     { id: 'SCENARIO_1', label: '1. Pendaftaran Mandiri Maba (Staging)', nodes: ['penyewa', 'request_pembayaran', 'request_pembayaran_detail', 'request_transaksi'] },
     { id: 'SCENARIO_2', label: '2. Eksekusi Promosi Admin (Bridging)', nodes: ['request_pembayaran', 'pembayaran', 'pembayaran_detail', 'transaksi'] },
     { id: 'SCENARIO_3', label: '3. Master Berjalan Penghuni Aktif', nodes: ['penyewa', 'kamar', 'pembayaran', 'transaksi'] },
     { id: 'SCENARIO_4', label: '4. Integrasi API SIAKAD UBT (Pra-Registrasi)', nodes: ['api_link', 'siakad_mahasiswa_stg', 'penyewa'] },
+    { id: 'SCENARIO_5', label: '5. e-KYC Private Storage & Audit Trail', nodes: ['penyewa', 'kyc_documents', 'modification_logs'] },
   ];
 
   const handleToggleExpandAll = () => {
@@ -21,9 +22,10 @@ export const SchemaDiagram: React.FC = () => {
       setExpandedNodes(new Set());
     } else {
       const allIds = [
-        "penyewa", "kamar", "request_pembayaran", "request_pembayaran_detail",
-        "request_transaksi", "pembayaran", "pembayaran_detail", "transaksi",
-        "api_link", "siakad_mahasiswa_stg"
+        "api_link", "siakad_mahasiswa_stg", "penyewa",
+        "request_pembayaran", "request_pembayaran_detail", "request_transaksi",
+        "pembayaran", "pembayaran_detail", "transaksi",
+        "kamar", "kyc_documents", "modification_logs"
       ];
       setExpandedNodes(new Set(allIds));
     }
@@ -79,12 +81,32 @@ export const SchemaDiagram: React.FC = () => {
     // Columns Map Definition
     // Columns Map Definition (Bridging u540633926_asrama)
     const colsMap: Record<string, {name: string, keyType: string, dataType: string}[]> = {
+      api_link: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'jenis', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'kategori', keyType: '', dataType: 'VarChar(50) nonkip/kip'},
+        {name: 'link', keyType: '', dataType: 'VarChar(255) Endpoint URL'},
+        {name: 'nama', keyType: '', dataType: 'VarChar(100)'},
+        {name: 'total_records', keyType: '', dataType: 'Int'},
+        {name: 'last_synced_at', keyType: '', dataType: 'DateTime'}
+      ],
+      siakad_mahasiswa_stg: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'api_link_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'nomor_registrasi', keyType: 'UK', dataType: 'VarChar(50)'},
+        {name: 'nama_lengkap', keyType: '', dataType: 'VarChar(191)'},
+        {name: 'nik', keyType: '', dataType: 'VarChar(16)'},
+        {name: 'kategori_beasiswa', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'status_klaim', keyType: '', dataType: 'Int (0/1)'},
+        {name: 'status_verifikasi_subsidi', keyType: '', dataType: 'Int (0/1/-1)'}
+      ],
       penyewa: [
         {name: 'id', keyType: 'PK', dataType: 'BigInt'},
         {name: 'nim', keyType: 'UK', dataType: 'VarChar(50)'},
         {name: 'namalengkap', keyType: '', dataType: 'VarChar(191)'},
         {name: 'noktp', keyType: '', dataType: 'VarChar(16)'},
         {name: 'nohp', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'kamar_id', keyType: 'FK', dataType: 'BigInt'},
         {name: 'status_asrama', keyType: '', dataType: 'Int(0/1)'},
         {name: 'operator_id', keyType: '', dataType: 'Int (0:Maba, 1:Admin)'}
       ],
@@ -94,6 +116,7 @@ export const SchemaDiagram: React.FC = () => {
         {name: 'kamar_id', keyType: 'FK', dataType: 'BigInt'},
         {name: 'total_tagihan', keyType: '', dataType: 'Decimal(15,2)'},
         {name: 'total_bayar', keyType: '', dataType: 'Decimal(15,2)'},
+        {name: 'is_migrated', keyType: '', dataType: 'Boolean (SIDARA)'},
         {name: 'status_verifikasi', keyType: '', dataType: 'Int (0:Pending)'},
         {name: 'operator_id', keyType: '', dataType: 'Int (0:Maba)'}
       ],
@@ -149,26 +172,55 @@ export const SchemaDiagram: React.FC = () => {
         {name: 'kapasitas', keyType: '', dataType: 'Int'},
         {name: 'terisi', keyType: '', dataType: 'Int'}
       ],
+      kyc_documents: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'user_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'doc_type', keyType: '', dataType: 'VarChar(50)'},
+        {name: 'file_name', keyType: '', dataType: 'VarChar(255)'},
+        {name: 'file_version', keyType: '', dataType: 'Int (Immutable)'},
+        {name: 'is_active_version', keyType: '', dataType: 'Boolean'},
+        {name: 'storage_disk', keyType: '', dataType: 'VarChar(private_kyc)'},
+        {name: 'file_hash', keyType: '', dataType: 'Char(64) SHA256'},
+        {name: 'retention_until', keyType: '', dataType: 'Date (60 Days)'}
+      ],
+      modification_logs: [
+        {name: 'id', keyType: 'PK', dataType: 'BigInt'},
+        {name: 'trackable_type', keyType: '', dataType: 'VarChar(100)'},
+        {name: 'trackable_id', keyType: '', dataType: 'BigInt'},
+        {name: 'actor_type', keyType: '', dataType: 'VarChar(20)'},
+        {name: 'actor_id', keyType: 'FK', dataType: 'BigInt'},
+        {name: 'action', keyType: '', dataType: 'VarChar(100)'},
+        {name: 'old_values', keyType: '', dataType: 'JSON'},
+        {name: 'new_values', keyType: '', dataType: 'JSON'}
+      ],
     };
 
     const boxWidth = 200;
     const baseBoxHeight = 70;
 
-    // Base Nodes Data
+    // Base Nodes Data (12 Tabel Arsitektur Lengkap)
     const rawNodes = [
+      { id: "api_link", label: "api_link", desc: "Endpoint SIAKAD UBT", type: "sync", color: "#3b82f6" },
+      { id: "siakad_mahasiswa_stg", label: "siakad_mahasiswa_stg", desc: "Staging Pra-Registrasi SIAKAD", type: "sync", color: "#3b82f6" },
       { id: "penyewa", label: "penyewa", desc: "Master Penghuni (status 0 ➔ 1)", type: "master", color: "#10b981" },
-      { id: "kamar", label: "kamar", desc: "Infrastruktur Kamar Hunian", type: "infra", color: "#6366f1" },
+      
       { id: "request_pembayaran", label: "request_pembayaran", desc: "Staging Tagihan Mandiri (op=0)", type: "staging", color: "#f59e0b" },
       { id: "request_pembayaran_detail", label: "request_pembayaran_detail", desc: "Staging Rincian Item Tarif", type: "staging", color: "#f59e0b" },
       { id: "request_transaksi", label: "request_transaksi", desc: "Staging Mutasi Bukti Bayar", type: "staging", color: "#f59e0b" },
+      
       { id: "pembayaran", label: "pembayaran", desc: "Master Invoice Resmi Berjalan", type: "master", color: "#0284c7" },
       { id: "pembayaran_detail", label: "pembayaran_detail", desc: "Master Rincian Komponen Resmi", type: "master", color: "#0284c7" },
       { id: "transaksi", label: "transaksi", desc: "Master Kas Resmi (op=Admin)", type: "master", color: "#0284c7" },
+
+      { id: "kamar", label: "kamar", desc: "Infrastruktur Kamar Hunian", type: "infra", color: "#6366f1" },
+      { id: "kyc_documents", label: "kyc_documents", desc: "Private Vault KYC (Immutable)", type: "kyc", color: "#ec4899" },
+      { id: "modification_logs", label: "modification_logs", desc: "Audit Trail Forensik", type: "audit", color: "#8b5cf6" },
     ];
 
-    const row1Ids = ["penyewa", "kamar"];
+    const row1Ids = ["api_link", "siakad_mahasiswa_stg", "penyewa"];
     const row2Ids = ["request_pembayaran", "request_pembayaran_detail", "request_transaksi"];
     const row3Ids = ["pembayaran", "pembayaran_detail", "transaksi"];
+    const row4Ids = ["kamar", "kyc_documents", "modification_logs"];
 
     // Compute sizes & layout
     const nodesData = rawNodes.map(n => {
@@ -186,39 +238,52 @@ export const SchemaDiagram: React.FC = () => {
     
     const row3Top = row2Top + row2Max + 60;
     const row3Max = Math.max(...nodesData.filter(n => row3Ids.includes(n.id)).map(n => n.boxHeight));
+
+    const row4Top = row3Top + row3Max + 60;
+    const row4Max = Math.max(...nodesData.filter(n => row4Ids.includes(n.id)).map(n => n.boxHeight));
     
-    const svgHeight = row3Top + row3Max + 80;
+    const svgHeight = row4Top + row4Max + 80;
     svg.attr("height", svgHeight);
 
     nodesData.forEach(n => {
       // Columns (X-axis)
-      if (["penyewa"].includes(n.id)) n.x = 350;
-      else if (["kamar"].includes(n.id)) n.x = 680;
-      else if (["request_pembayaran", "pembayaran"].includes(n.id)) n.x = 180;
-      else if (["request_pembayaran_detail", "pembayaran_detail"].includes(n.id)) n.x = 512;
-      else if (["request_transaksi", "transaksi"].includes(n.id)) n.x = 844;
+      if (["api_link", "request_pembayaran", "pembayaran", "kamar"].includes(n.id)) n.x = 180;
+      else if (["siakad_mahasiswa_stg", "request_pembayaran_detail", "pembayaran_detail", "kyc_documents"].includes(n.id)) n.x = 512;
+      else if (["penyewa", "request_transaksi", "transaksi", "modification_logs"].includes(n.id)) n.x = 844;
 
       // Rows (Y-axis)
       if (row1Ids.includes(n.id)) n.y = row1Top + n.boxHeight / 2;
       else if (row2Ids.includes(n.id)) n.y = row2Top + n.boxHeight / 2;
       else if (row3Ids.includes(n.id)) n.y = row3Top + n.boxHeight / 2;
+      else if (row4Ids.includes(n.id)) n.y = row4Top + n.boxHeight / 2;
     });
 
     // Links Data
     const links = [
+      // SIAKAD Sync & Auto-fill
+      { source: "siakad_mahasiswa_stg", target: "api_link", type: "sync", label: "api_link_id" },
+      { source: "penyewa", target: "siakad_mahasiswa_stg", type: "sync", label: "AUTO-FILL PMB" },
+
+      // Staging Relations
       { source: "request_pembayaran", target: "penyewa", type: "relation", label: "penyewa_id" },
       { source: "request_pembayaran", target: "kamar", type: "relation", label: "kamar_id" },
       { source: "request_pembayaran_detail", target: "request_pembayaran", type: "relation", label: "no_request" },
       { source: "request_transaksi", target: "request_pembayaran", type: "relation", label: "no_request" },
       
+      // Bridging Promote
       { source: "pembayaran", target: "request_pembayaran", type: "migration", label: "BRIDGING PROMOTE" },
       { source: "pembayaran_detail", target: "request_pembayaran_detail", type: "migration", label: "COPY ITEMS" },
       { source: "transaksi", target: "request_transaksi", type: "migration", label: "COPY CASH TRX" },
       
+      // Master Relations
       { source: "pembayaran_detail", target: "pembayaran", type: "relation", label: "no_invoice" },
       { source: "transaksi", target: "pembayaran", type: "relation", label: "no_invoice" },
       { source: "pembayaran", target: "penyewa", type: "relation", label: "penyewa_id" },
-      { source: "penyewa", target: "kamar", type: "relation", label: "kamar_id" }
+      { source: "penyewa", target: "kamar", type: "relation", label: "kamar_id" },
+
+      // e-KYC & Audit Trail
+      { source: "kyc_documents", target: "penyewa", type: "relation", label: "penyewa_id" },
+      { source: "modification_logs", target: "kyc_documents", type: "relation", label: "trackable_id" }
     ];
 
     const g = svg.append("g").attr("transform", "translate(0, 0)");
@@ -556,41 +621,50 @@ export const SchemaDiagram: React.FC = () => {
           <svg ref={svgRef} width="1024" className="mx-auto block" style={{ minHeight: '600px' }} />
         </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="p-4 bg-slate-100 rounded-xl border border-slate-200">
-            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-2">
-              <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-              Gateway & Identity
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <h3 className="font-bold text-blue-900 text-sm flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              SIAKAD & Gateway
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              <strong>SIDARA</strong> bertindak sebagai <em>Source of Truth</em>. Tabel <code>users</code> memverifikasi identitas dan menentukan arah <em>routing</em> (Maba vs Eksisting).
+            <p className="text-xs text-blue-800 leading-relaxed">
+              <code>api_link</code> dan <code>siakad_mahasiswa_stg</code> menarik data calon penerima beasiswa (BTT-006 & BTT-002) untuk auto-fill biodata pendaftar.
             </p>
           </div>
           <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
             <h3 className="font-bold text-amber-900 text-sm flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-              Staging & Booking
+              Staging Mandiri Maba
             </h3>
             <p className="text-xs text-amber-800 leading-relaxed">
-              (Skenario 1 & 2). <code>staging_pendaftaran</code> mengamankan data pendaftar sebelum NIM valid turun (Maba) atau KYC selesai. Migrasi ke Master terjadi saat status <strong>BOOKING</strong> tervalidasi.
+              (Skenario 1). Domain otonom <code>request_*</code> (<code>operator_id = 0</code>) mengisolasi input maba sebelum NIM valid turun atau struk transfer diverifikasi.
             </p>
           </div>
           <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
             <h3 className="font-bold text-emerald-900 text-sm flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-              Operasional Asrama
+              Operasional Master
             </h3>
             <p className="text-xs text-emerald-800 leading-relaxed">
-              (Skenario 3). <code>master_penyewa</code> dan <code>master_pembayaran</code> menampung <strong>Penghuni Aktif</strong>. Bersifat final dan terikat langsung pada tabel infrastruktur <code>kamar</code>.
+              (Skenario 2 & 3). Saat diapprove, data dipromosikan ke <code>pembayaran</code>, <code>transaksi</code>, dan <code>penyewa</code> dengan operator resmi admin.
             </p>
           </div>
           <div className="p-4 bg-pink-50 rounded-xl border border-pink-200">
             <h3 className="font-bold text-pink-900 text-sm flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded-full bg-pink-500"></div>
-              Jalur Dev Khusus
+              e-KYC Private Vault
             </h3>
             <p className="text-xs text-pink-800 leading-relaxed">
-              (Skenario 4 & 5). <code>skema_cicilan</code> memecah tagihan induk menjadi N-Termin. <code>draft_renewal</code> menjadi penengah sebelum kontrak aktif ditimpa (*overwrite*) pada masa perpanjangan.
+              (Skenario 5). <code>kyc_documents</code> menerapkan <em>immutable versioning</em> (tanpa overwrite), bucket privat, Signed URL 15 mnt, dan retensi 60 hari.
+            </p>
+          </div>
+          <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+            <h3 className="font-bold text-purple-900 text-sm flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+              Audit Trail Forensik
+            </h3>
+            <p className="text-xs text-purple-800 leading-relaxed">
+              <code>modification_logs</code> mencatat kronologi perubahan field, aksi koreksi e-KYC, dan jejak IP/User-Agent secara komprehensif.
             </p>
           </div>
         </div>

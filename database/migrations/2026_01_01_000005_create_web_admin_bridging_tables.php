@@ -28,6 +28,7 @@ return new class extends Migration
                 $table->char('jenis_kelamin', 1)->nullable();
                 $table->longText('alamat')->nullable();
                 $table->string('nama_bill_to', 50)->nullable();
+                $table->bigInteger('kamar_id')->nullable();
                 $table->integer('status_asrama')->default(0);
                 $table->integer('status_catering')->default(0);
                 $table->integer('status')->default(0);
@@ -57,6 +58,8 @@ return new class extends Migration
                 $table->integer('status_catering')->default(0);
                 $table->integer('status_verifikasi')->default(0); // 0 = Menunggu Review Admin, 1 = Disetujui
                 $table->dateTime('tanggal_verifikasi', 3)->nullable();
+                $table->boolean('is_migrated')->default(false); // Penanda transisi identitas PMB ke NIM resmi SIDARA
+                $table->dateTime('migrated_at', 3)->nullable();
                 $table->integer('operator_id')->default(0);
                 $table->timestamps(3);
             });

@@ -26,7 +26,7 @@ import ERDDiagram from './ERDDiagram';
 export const LaravelBlueprint: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'erd' | 'migrations' | 'models' | 'controllers' | 'seeders' | 'kyc_storage' | 'env' | 'cron' | 'testing_guide'>('testing_guide');
-  const [migrationSubTab, setMigrationSubTab] = useState<'bridging' | 'core'>('bridging');
+  const [migrationSubTab, setMigrationSubTab] = useState<'bridging' | 'core' | 'kyc_audit'>('bridging');
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -108,6 +108,7 @@ return new class extends Migration
             $table->char('jenis_kelamin', 1)->nullable();
             $table->longText('alamat')->nullable();
             $table->string('nama_bill_to', 50)->nullable();
+            $table->bigInteger('kamar_id')->nullable();
             $table->integer('status_asrama')->default(0)->comment('0=Belum Aktif, 1=Penghuni Aktif');
             $table->integer('status_catering')->default(0);
             $table->integer('status')->default(0)->comment('0=Pending/Draft, 1=Disetujui');
@@ -135,6 +136,8 @@ return new class extends Migration
             $table->integer('status_catering')->default(0);
             $table->integer('status_verifikasi')->default(0)->comment('0=Review Admin, 1=Disetujui');
             $table->dateTime('tanggal_verifikasi', 3)->nullable();
+            $table->boolean('is_migrated')->default(false)->comment('Penanda transisi identitas PMB ke NIM resmi SIDARA');
+            $table->dateTime('migrated_at', 3)->nullable();
             $table->integer('operator_id')->default(0)->comment('0=Otonom Mandiri Maba');
             $table->timestamps(3);
         });
@@ -279,6 +282,82 @@ return new class extends Migration
         Schema::dropIfExists('request_pembayaran_detail');
         Schema::dropIfExists('request_pembayaran');
         Schema::dropIfExists('penyewa');
+    }
+};
+`;
+
+  const kycAuditMigrationCode = `<?php
+
+use Illuminate\\Database\\Migrations\\Migration;
+use Illuminate\\Database\\Schema\\Blueprint;
+use Illuminate\\Support\\Facades\\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations for KYC Private Vault & Forensics Audit Trail.
+     * Compliant with RULE[AGENTS_md]:
+     * - Versioning over Overwriting: Immutable files with unique timestamps/UUIDs.
+     * - Security: Private Buckets & Short-Lived Signed URLs (15 minutes).
+     * - Garbage Collection: 60-day lifecycle retention policy.
+     */
+    public function up(): void
+    {
+        // 1. PENYIMPANAN PRIVAT BERKAS e-KYC BERVERSI (IMMUTABLE)
+        if (!Schema::hasTable('kyc_documents')) {
+            Schema::create('kyc_documents', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->comment('Pemilik akun mahasiswa');
+                $table->unsignedBigInteger('penyewa_id')->nullable()->comment('Relasi ke master penyewa');
+                $table->string('doc_type', 50)->comment('KTP, SELFIE_KTP, SURAT_PERNYATAAN_ORTU, SURAT_KIP');
+                $table->string('file_name', 255)->comment('ktp_nim_v2_169456.jpg');
+                $table->string('file_path', 255)->comment('Vault path in private bucket');
+                $table->unsignedInteger('file_version')->default(1)->comment('Immutable incremental version');
+                $table->boolean('is_active_version')->default(true);
+                $table->string('storage_disk', 50)->default('private_kyc');
+                $table->unsignedBigInteger('file_size_bytes')->nullable();
+                $table->string('mime_type', 100)->nullable();
+                $table->string('file_hash', 64)->nullable()->comment('SHA-256 Checksum');
+                $table->enum('status_verifikasi', ['PENDING', 'APPROVED', 'REJECTED'])->default('PENDING');
+                $table->unsignedBigInteger('verified_by')->nullable();
+                $table->dateTime('verified_at', 3)->nullable();
+                $table->text('rejection_reason')->nullable();
+                $table->date('retention_until')->nullable()->comment('60-day lifecycle for old versions');
+                $table->timestamps(3);
+
+                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+                $table->index(['user_id', 'doc_type']);
+                $table->index('is_active_version');
+                $table->index('retention_until');
+            });
+        }
+
+        // 2. JEJAK AUDIT FORENSIK PERUBAHAN DATA & SINKRONISASI
+        if (!Schema::hasTable('modification_logs')) {
+            Schema::create('modification_logs', function (Blueprint $table) {
+                $table->id();
+                $table->string('trackable_type', 100);
+                $table->unsignedBigInteger('trackable_id');
+                $table->string('actor_type', 20)->comment('User, Admin, System');
+                $table->unsignedBigInteger('actor_id')->nullable();
+                $table->string('action', 100);
+                $table->json('old_values')->nullable();
+                $table->json('new_values')->nullable();
+                $table->string('ip_address', 45)->nullable();
+                $table->text('user_agent')->nullable();
+                $table->timestamp('created_at', 3)->useCurrent();
+
+                $table->index(['trackable_type', 'trackable_id']);
+                $table->index('actor_id');
+                $table->index('created_at');
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('modification_logs');
+        Schema::dropIfExists('kyc_documents');
     }
 };
 `;
@@ -912,6 +991,55 @@ class Invoice extends Model
     {
         return $this->belongsTo(User::class);
     }
+}
+
+// ==========================================
+// 8. app/Models/KycDocument.php (e-KYC Vault)
+// ==========================================
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
+class KycDocument extends Model
+{
+    protected $table = 'kyc_documents';
+    protected $guarded = ['id'];
+    protected $casts = [
+        'file_version' => 'integer',
+        'is_active_version' => 'boolean',
+        'retention_until' => 'date',
+        'verified_at' => 'datetime',
+    ];
+
+    public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    public function penyewa(): BelongsTo { return $this->belongsTo(Penyewa::class, 'penyewa_id'); }
+    public function modificationLogs(): MorphMany { return $this->morphMany(ModificationLog::class, 'trackable'); }
+}
+
+// ==========================================
+// 9. app/Models/ModificationLog.php (Audit Trail)
+// ==========================================
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+
+class ModificationLog extends Model
+{
+    protected $table = 'modification_logs';
+    public $timestamps = false;
+    protected $guarded = ['id'];
+    protected $casts = [
+        'old_values' => 'array',
+        'new_values' => 'array',
+        'created_at' => 'datetime',
+    ];
+
+    public function trackable(): MorphTo { return $this->morphTo(); }
+    public function actor(): BelongsTo { return $this->belongsTo(User::class, 'actor_id'); }
 }
 `;
 
@@ -1982,21 +2110,36 @@ FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC 
                 }`}
               >
                 <Database className="w-3.5 h-3.5 text-red-300" />
-                <span>2. Core Portal Schema (Users, KYC, Contracts, SOP 5+5)</span>
+                <span>2. Core Portal Schema (Users, Contracts, SOP 5+5)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMigrationSubTab('kyc_audit')}
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  migrationSubTab === 'kyc_audit'
+                    ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-300" />
+                <span>3. e-KYC Vault & Audit Trail (RULE[AGENTS_md])</span>
               </button>
             </div>
 
             <div className="flex items-center justify-between bg-slate-900 px-4 py-3 rounded-xl border border-slate-800 text-xs">
               <div className="flex items-center gap-2 text-slate-300 font-mono">
-                <FileCode className={`w-4 h-4 ${migrationSubTab === 'bridging' ? 'text-teal-400' : 'text-red-400'}`} />
+                <FileCode className={`w-4 h-4 ${migrationSubTab === 'bridging' ? 'text-teal-400' : migrationSubTab === 'kyc_audit' ? 'text-purple-400' : 'text-red-400'}`} />
                 <span>
                   {migrationSubTab === 'bridging'
                     ? 'database/migrations/2026_01_01_000005_create_web_admin_bridging_tables.php'
+                    : migrationSubTab === 'kyc_audit'
+                    ? 'database/migrations/2026_01_01_000007_create_kyc_audit_trail_tables.php'
                     : 'database/migrations/2026_08_05_000001_create_asrama_ubt_tables.php'}
                 </span>
               </div>
               <button
-                onClick={() => handleCopy(migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationCode, 'migration')}
+                onClick={() => handleCopy(migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationSubTab === 'kyc_audit' ? kycAuditMigrationCode : migrationCode, 'migration')}
                 className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs font-medium transition-colors border border-slate-700 cursor-pointer"
               >
                 {copiedKey === 'migration' ? (
@@ -2013,7 +2156,7 @@ FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC 
               </button>
             </div>
             <pre className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-slate-300 text-xs font-mono overflow-x-auto leading-relaxed max-h-[600px]">
-              <code>{migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationCode}</code>
+              <code>{migrationSubTab === 'bridging' ? bridgingMigrationCode : migrationSubTab === 'kyc_audit' ? kycAuditMigrationCode : migrationCode}</code>
             </pre>
           </div>
         )}
@@ -2023,7 +2166,7 @@ FROM kamar WHERE id = (SELECT kamar_id FROM request_pembayaran ORDER BY id DESC 
             <div className="flex items-center justify-between bg-slate-900 px-4 py-3 rounded-xl border border-slate-800 text-xs">
               <div className="flex items-center gap-2 text-slate-300 font-mono">
                 <FolderTree className="w-4 h-4 text-blue-400" />
-                <span>app/Models/ (PaymentScheme, MaintenanceTicket, Invoice, User)</span>
+                <span>app/Models/ (Penyewa, RequestPembayaran, KycDocument, ModificationLog, User)</span>
               </div>
               <button
                 onClick={() => handleCopy(modelsCode, 'models')}

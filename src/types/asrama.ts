@@ -323,6 +323,7 @@ export interface PenyewaRecord {
   jenis_kelamin?: string;
   alamat?: string;
   nama_bill_to?: string;
+  kamar_id?: number;
   status_asrama: number;
   status_catering: number;
   status: number;
@@ -373,12 +374,50 @@ export interface RequestPembayaranRecord {
   status_catering: number;
   status_verifikasi: number; // 0 = Menunggu Review Admin, 1 = Disetujui
   tanggal_verifikasi?: string;
+  is_migrated?: boolean;
+  migrated_at?: string;
   operator_id: number; // 0 = Mandiri Maba
   created_at?: string;
   updated_at?: string;
   details?: RequestPembayaranDetailRecord[];
   transaksi?: RequestTransaksiRecord;
   penyewa?: PenyewaRecord;
+}
+
+export interface KycDocumentRecord {
+  id: number;
+  user_id: number;
+  penyewa_id?: number;
+  doc_type: 'KTP' | 'SELFIE_KTP' | 'SURAT_PERNYATAAN_ORTU' | 'SURAT_KIP';
+  file_name: string;
+  file_path: string;
+  file_version: number;
+  is_active_version: boolean;
+  storage_disk: string;
+  file_size_bytes?: number;
+  mime_type?: string;
+  file_hash?: string;
+  status_verifikasi: 'PENDING' | 'APPROVED' | 'REJECTED';
+  verified_by?: number;
+  verified_at?: string;
+  rejection_reason?: string;
+  retention_until?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ModificationLogRecord {
+  id: number;
+  trackable_type: string;
+  trackable_id: number;
+  actor_type: 'User' | 'Admin' | 'System';
+  actor_id?: number;
+  action: string;
+  old_values?: Record<string, any>;
+  new_values?: Record<string, any>;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
 }
 
 export interface PembayaranDetailRecord {

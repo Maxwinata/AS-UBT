@@ -31,8 +31,10 @@ TRUNCATE TABLE `maba_profiles`;
 -- 5. Bersihkan akun pendaftar non-admin (hanya sisakan akun staf/admin)
 DELETE FROM `users` WHERE `role` NOT IN ('admin', 'superadmin');
 
--- 6. Bersihkan riwayat audit pengujian staging
+-- 6. Bersihkan riwayat audit pengujian staging dan berkas e-KYC dummy
 TRUNCATE TABLE `audit_trails`;
+TRUNCATE TABLE `modification_logs`;
+TRUNCATE TABLE `kyc_documents`;
 
 -- 7. Reset status kamar menjadi AVAILABLE dan terisi = 0
 UPDATE `rooms` SET `terisi` = 0, `status` = 'AVAILABLE';

@@ -195,6 +195,31 @@ Sistem mengintegrasikan dua endpoint resmi dari pangkalan data SIAKAD UBT:
 
 ### C. Auto-Fill Formulir & Tata Kelola Subsidi
 1. **Auto-Fill Saat Login**: Saat calon mahasiswa memasukkan Nomor Registrasi PMB (misal: `PMB2026-08942` atau `PMB-BTT-002-001`), frontend secara instan mencocokkan ke `siakad_mahasiswa_stg` dan mengisi otomatis: Nama Lengkap, NIK, No. HP, Program Studi, Fakultas, dan Kategori Beasiswa.
-2. **Pengesahan Akuntabilitas Subsidi**: Mengacu pada keputusan integrasi beasiswa (Opsi 2 & 3), status beasiswa langsung ditampilkan sebagai label profil resmi calon mahasiswa. Namun pemotongan tarif/subsidi kamar tetap memerlukan verifikasi staf Keuangan pada panel `SiakadSyncManager` guna menjamin audit pelaporan keuangan yayasan.
-
 Dengan arsitektur ini, integrasi database antara kemandirian pendaftaran Maba, sinkronisasi SIAKAD, dan kepatuhan akuntansi Web Admin berjalan harmonis tanpa risiko inkonsistensi data.
+
+---
+
+## 7. Arsitektur Penyimpanan Privat Berkas e-KYC & Jejak Audit Forensik (RULE[AGENTS_md])
+
+Sesuai dengan ketentuan ketat kepatuhan sistem dan audit forensik pendaftaran (`RULE[AGENTS_md]`), tata kelola berkas identitas e-KYC (KTP & Selfie) diimplementasikan melalui arsitektur khusus:
+
+### A. Matriks Pemetaan Entitas e-KYC & Audit Trail
+
+| No | Entitas Database | Field Kunci | Tipe Data & Sifat | Fungsi & Aturan Arsitektur |
+|---|---|---|---|---|
+| 1 | `kyc_documents` | `file_name` | `VARCHAR(255)` | Format berversi unik: `ktp_{nim}_v{version}_{timestamp}.{ext}`. |
+| 2 | `kyc_documents` | `file_version` | `INT UNSIGNED` | **Immutable Versioning**: Tidak boleh menimpa (*no overwrite*) berkas lama saat mahasiswa melakukan koreksi. |
+| 3 | `kyc_documents` | `is_active_version` | `BOOLEAN` | Hanya bernilai `true` untuk versi mutakhir yang sedang di-review/disetujui. |
+| 4 | `kyc_documents` | `storage_disk` | `VARCHAR(50)` | Default `private_kyc` (Strictly Private Bucket / Non-public Storage). |
+| 5 | `kyc_documents` | `file_hash` | `CHAR(64)` | Checksum SHA-256 untuk memvalidasi integritas berkas dari manipulasi bit data. |
+| 6 | `kyc_documents` | `retention_until` | `DATE` | **Garbage Collection Policy**: Jadwal penghapusan otomatis setelah 60 hari untuk berkas versi lama/tergantikan (*orphaned*). |
+| 7 | `modification_logs` | `trackable_type` & `trackable_id` | `VARCHAR` & `BIGINT` | Relasi polymorphic ke entitas yang diubah (`maba_profiles`, `kyc_documents`, dll). |
+| 8 | `modification_logs` | `action` | `VARCHAR(100)` | Kode aksi: `KYC_INITIAL_UPLOAD`, `KYC_CORRECTION_RESUBMIT`, `KYC_VERIFICATION_APPROVAL`. |
+| 9 | `modification_logs` | `old_values` & `new_values` | `JSON` | Snapshot kondisi sebelum dan sesudah perubahan data untuk kebutuhan investigasi. |
+| 10 | `modification_logs` | `ip_address` & `user_agent` | `VARCHAR(45)` & `TEXT` | Jejak koneksi aktor pengubah data (Mahasiswa / Staf Admin / Sistem). |
+
+### B. Alur Akses Berkas Privat (Temporary Signed URL)
+1. **Penyimpanan Tertutup**: Berkas KTP dan Selfie disimpan di direktori privat non-publik (`storage/app/private_kyc/kyc/{nim}/`). Berkas **tidak dapat diakses langsung via URL statis** (`/storage/...`).
+2. **Signed URL Berdurasi Terbatas**: Admin atau mahasiswa yang berhak melihat berkas meminta token akses sementara dari backend API via controller `KycStorageService::getTemporaryViewUrl()`.
+3. **Masa Berlaku 15 Menit**: Signed URL kadaluarsa dalam 15 menit, mencegah kebocoran link identitas sensitif (kepatuhan UU Perlindungan Data Pribadi).
+

@@ -66,6 +66,18 @@ const tables = [
     id: 'siakad_mahasiswa_stg', 
     name: 'siakad_mahasiswa_stg (Staging Pra-Registrasi)', 
     columns: ['id (PK)', 'api_link_id (FK)', 'nomor_registrasi (UK)', 'nama_lengkap', 'nik', 'kategori_beasiswa', 'status_klaim', 'status_verifikasi_subsidi'] 
+  },
+
+  // 4. STORAGE PRIVAT e-KYC BERVERSI & AUDIT TRAIL FORENSIK (RULE[AGENTS_md])
+  { 
+    id: 'kyc_documents', 
+    name: 'kyc_documents (Private Bucket & Versioning)', 
+    columns: ['id (PK)', 'user_id (FK)', 'penyewa_id (FK)', 'doc_type', 'file_name', 'file_path', 'file_version (Immutable)', 'file_hash (SHA256)', 'status_verifikasi', 'retention_until (60 Days)'] 
+  },
+  { 
+    id: 'modification_logs', 
+    name: 'modification_logs (Audit Trail Forensik)', 
+    columns: ['id (PK)', 'trackable_type', 'trackable_id', 'actor_type', 'actor_id (FK)', 'action', 'old_values (JSON)', 'new_values (JSON)', 'ip_address', 'created_at'] 
   }
 ];
 
@@ -89,6 +101,12 @@ const relationships = [
   { source: 'siakad_mahasiswa_stg', target: 'api_link', label: 'api_link_id (FK)' },
   { source: 'penyewa', target: 'siakad_mahasiswa_stg', label: 'AUTO-FILL PMB' },
 
+  // e-KYC & Audit Trail Relations
+  { source: 'kyc_documents', target: 'users', label: 'user_id (FK)' },
+  { source: 'kyc_documents', target: 'penyewa', label: 'penyewa_id (FK)' },
+  { source: 'modification_logs', target: 'users', label: 'actor_id (FK)' },
+  { source: 'modification_logs', target: 'kyc_documents', label: 'trackable_id (FK)' },
+
   // Bridging Migration Flow (Verifikasi & Promosi Admin)
   { source: 'pembayaran', target: 'request_pembayaran', label: 'BRIDGING PROMOTE' },
   { source: 'pembayaran_detail', target: 'request_pembayaran_detail', label: 'COPY DETAILS' },
@@ -105,7 +123,7 @@ export default function ERDDiagram() {
     d3.select(containerRef.current).selectAll('*').remove();
 
     const width = containerRef.current.clientWidth || 1000;
-    const height = 1000;
+    const height = 1150;
     const nodeWidth = 240;
     const rowHeight = 25;
     const headerHeight = 35;
