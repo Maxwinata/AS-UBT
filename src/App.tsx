@@ -453,17 +453,22 @@ export default function App() {
       const studentName = target?.nama || mabaProfile.nama;
       const newTicketId = 'TIX-UBT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
       
+      const studentKamar = contract.nomorKamar ? `${contract.gedung || 'Gedung B'} — Kamar ${contract.nomorKamar}` : 'Gedung B — Kamar 204';
+      const studentGedung = contract.gedung || 'Gedung B';
+      const studentRoomNo = contract.nomorKamar || '204';
+
       setTicket({
         ticketId: newTicketId,
         nim: studentNim,
         nama: studentName,
-        kamar: target?.kamar || 'Gedung B — Kamar 204',
-        gedung: 'Gedung B',
-        checkInDate: '2026-08-25',
+        kamar: studentKamar,
+        gedung: studentGedung,
+        validUntil: '2026-08-25',
         status: 'ACTIVE',
         qrCode: `UBT-TKT-${studentNim}-${newTicketId}`,
         qrData: `UBT-TKT-${studentNim}-${newTicketId}`,
         barcode: newTicketId,
+        isBastkVerified: false,
       });
 
       setContract((prev) => ({
@@ -479,8 +484,8 @@ export default function App() {
 
       setRooms((prev) =>
         prev.map((r) =>
-          r.nomorKamar === '204'
-            ? { ...r, status: 'OCCUPIED', kapasitasTerisi: Math.min(r.kapasitasTotal, r.kapasitasTerisi + 1) }
+          r.nomorKamar === studentRoomNo
+            ? { ...r, terisi: Math.min(r.kapasitas, r.terisi + 1) }
             : r
         )
       );
@@ -491,7 +496,7 @@ export default function App() {
           id: `log-approval-${Date.now()}`,
           timestamp: new Date().toISOString(),
           actor: 'Admin',
-          action: `Persetujuan Admin: Invoice ${invoiceId} disahkan (${action}). Kamar ${target?.kamar || 'Kamar 204'} resmi dihuni dan e-Ticket ${newTicketId} aktif.`,
+          action: `Persetujuan Admin: Invoice ${invoiceId} disahkan (${action}). Kamar Gedung B 204 resmi dihuni dan e-Ticket ${newTicketId} aktif.`,
         },
       ]);
     }
@@ -556,7 +561,7 @@ export default function App() {
       {/* Main View Area */}
       <main id="main-content" className="flex-1">
         {!isLoggedIn ? (
-          <LoginDualTab onLoginSuccess={handleLoginSuccess} />
+          <LoginDualTab onLoginSuccess={handleLoginSuccess} siakadStaging={siakadStaging} />
         ) : (
           <>
             {currentRole === 'maba' && (

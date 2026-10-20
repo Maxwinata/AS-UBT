@@ -4057,21 +4057,88 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Ticket className="w-8 h-8 text-teal-600" />
-              </div>
-              <h4 className="font-bold text-slate-800 mb-2">Penerbitan E-Ticket</h4>
-              <p className="text-sm text-slate-600 mb-6 max-w-md mx-auto">
-                Anda telah menyelesaikan seluruh persyaratan administrasi dan pembayaran. Klik tombol di bawah untuk men-generate e-Ticket Check-in Anda.
-              </p>
-              <button
-                onClick={handleGenerateTicket}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md inline-flex items-center space-x-2"
-              >
-                <QrCode className="w-5 h-5" />
-                <span>Generate e-Ticket Sekarang</span>
-              </button>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6">
+              {invoice.status === 'PENDING_VERIFICATION' ? (
+                <div className="space-y-4">
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 text-amber-950 space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <Clock className="w-6 h-6 text-amber-600 shrink-0 animate-pulse" />
+                      <div>
+                        <h4 className="font-bold text-sm sm:text-base text-amber-950">
+                          Tahap 1–4 Selesai: Menunggu Verifikasi &amp; Pengesahan Admin
+                        </h4>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          Sesuai regulasi, alokasi definitif kamar dan e-Ticket izin masuk asrama disahkan setelah Admin Keuangan memverifikasi bukti bayar.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-200 text-xs">
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold block">1. Berkas e-KYC</span>
+                        <span className="font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Tersimpan Privat
+                        </span>
+                      </div>
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold block">2. Status Kamar</span>
+                        <span className="font-mono font-bold text-amber-900 block mt-0.5">
+                          {room?.gedung || 'Gedung B'} · {room?.nomorKamar || '204'} (BOOKED_STAGING)
+                        </span>
+                      </div>
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold block">3. Kontrak &amp; OTP</span>
+                        <span className="font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> TTE &amp; OTP Sah
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-lg border border-amber-200 text-[11px] text-slate-600 flex items-start gap-2">
+                      <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Instruksi Pengelola Asrama:</strong> Anda dapat beralih ke peran <em>Administrator Keuangan</em> pada bilah atas untuk mengklik <strong>"Approve &amp; Migrate"</strong> pada invoice pendaftar ini, atau gunakan tombol simulasi instan di bawah.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedInv = { ...invoice, status: 'PAID' as const, paidAt: new Date().toISOString() };
+                        setInvoice(updatedInv);
+                        onUpdateInvoice(updatedInv);
+                        handleGenerateTicket();
+                        toast.success('Persetujuan Admin disimulasikan! e-Ticket Check-in aktif.');
+                      }}
+                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md inline-flex items-center justify-center space-x-2 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Simulasikan Persetujuan Admin (Sahkan Tiket Sekarang)</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm border border-slate-200">
+                    <Ticket className="w-8 h-8 text-teal-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-base">Penerbitan E-Ticket Check-In</h4>
+                    <p className="text-xs text-slate-600 max-w-md mx-auto mt-1">
+                      Anda telah menyelesaikan seluruh administrasi. Klik tombol di bawah untuk men-generate e-Ticket Check-in Anda.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleGenerateTicket}
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md inline-flex items-center space-x-2 cursor-pointer"
+                  >
+                    <QrCode className="w-5 h-5" />
+                    <span>Generate e-Ticket Sekarang</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

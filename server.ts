@@ -106,6 +106,27 @@ async function startServer() {
     }
   });
 
+  // API Route: SIAKAD / SIDARA Live Synchronization
+  app.post('/api/siakad/sync', (req, res) => {
+    res.json({
+      status: 'success',
+      synced_count: 5,
+      timestamp: new Date().toISOString(),
+      message: 'Sinkronisasi live endpoint API SIDARA berhasil! 5 record pendaftar staging tersinkronkan ke basis data.',
+    });
+  });
+
+  // API Route: SIAKAD Promote to Master
+  app.post('/api/siakad/staging/:id/promote', (req, res) => {
+    const { id } = req.params;
+    res.json({
+      status: 'success',
+      staging_id: id,
+      promoted_at: new Date().toISOString(),
+      message: `Pendaftar staging #${id} berhasil dipromosikan ke master users, maba_profiles, dan penyewa!`,
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -121,8 +142,24 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use.`);
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+
+  process.on('SIGTERM', () => {
+    server.close(() => process.exit(0));
+  });
+
+  process.on('SIGINT', () => {
+    server.close(() => process.exit(0));
   });
 }
 

@@ -23,14 +23,15 @@ import {
   Check
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { UserRole, SimabaStudent } from '../../types/asrama';
+import { UserRole, SimabaStudent, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { INITIAL_SIAKAD_STAGING, INITIAL_SIMABA_STUDENTS } from '../../data/initialData';
 
 interface LoginDualTabProps {
   onLoginSuccess: (role: UserRole, nim: string, nama: string, notice?: string, scenario?: string) => void;
+  siakadStaging?: SiakadMahasiswaStgRecord[];
 }
 
-export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) => {
+export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siakadStaging }) => {
   const [viewMode, setViewMode] = useState<'main' | 'sso'>('main');
   const [showPmbModal, setShowPmbModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -49,7 +50,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
   const [mabaBirthDate, setMabaBirthDate] = useState('12/02/2008'); // Format DD/MM/YYYY
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<SimabaStudent | null>(
+  const [selectedStudent, setSelectedStudent] = useState<any>(
     INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '260108001') || null
   );
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -89,13 +90,17 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
   }, [pmbNoReg, selectedStudent]);
 
   // Filter kandidat mahasiswa dari SIMABA dan SIAKAD/SIDARA berdasarkan debounced search query
+  const effectiveSiakad = React.useMemo(() => {
+    return siakadStaging && siakadStaging.length > 0 ? siakadStaging : INITIAL_SIAKAD_STAGING;
+  }, [siakadStaging]);
+
   const allCandidateStudents = React.useMemo(() => {
     const fromSimaba = INITIAL_SIMABA_STUDENTS.map(s => ({
       ...s,
       source: 'SIMABA' as const
     }));
 
-    const fromSiakad = INITIAL_SIAKAD_STAGING.filter(
+    const fromSiakad = effectiveSiakad.filter(
       stg => !INITIAL_SIMABA_STUDENTS.some(sim => sim.nomor_pendaftaran === stg.nomor_registrasi)
     ).map(stg => ({
       id: stg.id + 10000,
@@ -119,7 +124,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
     }));
 
     return [...fromSimaba, ...fromSiakad];
-  }, []);
+  }, [effectiveSiakad]);
 
   const filteredStudents = debouncedSearch.trim().length >= 2
     ? allCandidateStudents.filter((s) => {
@@ -208,11 +213,11 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
     setMabaBirthDate(formatted);
   };
 
-  const handleSelectStudent = (student: SimabaStudent) => {
+  const handleSelectStudent = (student: any) => {
     setSelectedStudent(student);
     setPmbNoReg(student.nomor_pendaftaran);
     setDebouncedSearch(student.nomor_pendaftaran);
-    setMabaBirthDate(student.tanggal_lahir_formatted);
+    setMabaBirthDate(student.tanggal_lahir_formatted || '15/04/2005');
     setShowNameSuggestions(false);
     setActiveSuggestionIndex(-1);
     setIsSearching(false);
@@ -297,7 +302,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
       );
 
       // 2. Cari di SIAKAD Staging
-      const siakadMatch = INITIAL_SIAKAD_STAGING.find(
+      const siakadMatch = effectiveSiakad.find(
         (s) =>
           s.nomor_registrasi.toLowerCase() === cleanReg.toLowerCase() ||
           (s.nik && s.nik === cleanReg) ||
@@ -878,7 +883,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                           <div className="min-w-0">
                             <div className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
                               <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span>Data Terverifikasi dari Basis Data SIMABA</span>
+                              <span>Data Terverifikasi dari Basis Data {selectedStudent.source === 'SIDARA' ? 'SIDARA (siakad_mahasiswa_stg)' : 'SIMABA'}</span>
                             </div>
                             <div className="text-xs font-bold text-slate-900 mt-0.5 truncate">
                               {selectedStudent.nama_mahasiswa}
@@ -1026,6 +1031,69 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
                             Early NIM
                           </span>
                         </button>
+                      </div>
+                    </div>
+
+                    {/* PRESETS DARI STAGING API SIDARA */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span className="flex items-center gap-1 text-indigo-900 font-bold">
+                          <Database className="w-3 h-3 text-indigo-600" />
+                          Sampel Pendaftar Hasil Impor API SIDARA (`siakad_mahasiswa_stg`):
+                        </span>
+                        <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
+                        {effectiveSiakad.slice(0, 2).map((stg) => {
+                          const formattedBirth = stg.tanggal_lahir
+                            ? `${stg.tanggal_lahir.slice(8, 10)}/${stg.tanggal_lahir.slice(5, 7)}/${stg.tanggal_lahir.slice(0, 4)}`
+                            : '15/04/2005';
+                          const isSelected = pmbNoReg === stg.nomor_registrasi;
+                          return (
+                            <button
+                              key={stg.id}
+                              type="button"
+                              onClick={() => {
+                                handleSelectStudent({
+                                  id: stg.id + 20000,
+                                  nomor_pendaftaran: stg.nomor_registrasi,
+                                  nama_mahasiswa: stg.nama_lengkap,
+                                  nik: stg.nik,
+                                  tempat_lahir: stg.tempat_lahir || 'TARAKAN',
+                                  tanggal_lahir: stg.tanggal_lahir || '2005-04-15',
+                                  tanggal_lahir_formatted: formattedBirth,
+                                  jenis_kelamin: (stg.jenis_kelamin || 'L') as 'L' | 'P',
+                                  program_studi: stg.program_studi || 'Teknik',
+                                  jenis_mahasiswa: (stg.kategori_beasiswa === 'kip' ? 'kip' : 'nonkip') as 'kip' | 'nonkip',
+                                  nomorkip: stg.nomorkip,
+                                  no_hp: stg.nomor_telepon,
+                                  email: stg.email,
+                                  alamat: stg.alamat_lengkap,
+                                  source: 'SIDARA' as const
+                                });
+                              }}
+                              className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-bold shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">{stg.nama_lengkap}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  {stg.nomor_registrasi} · {stg.program_studi || 'Teknik'} · {formattedBirth}
+                                </div>
+                              </div>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5 ${
+                                stg.kategori_beasiswa === 'kip'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {stg.kategori_beasiswa === 'kip' ? 'KIP' : 'SIDARA'}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
