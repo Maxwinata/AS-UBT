@@ -88,9 +88,41 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
     return () => clearTimeout(timer);
   }, [pmbNoReg, selectedStudent]);
 
-  // Filter kandidat mahasiswa dari SIMABA berdasarkan debounced search query
+  // Filter kandidat mahasiswa dari SIMABA dan SIAKAD/SIDARA berdasarkan debounced search query
+  const allCandidateStudents = React.useMemo(() => {
+    const fromSimaba = INITIAL_SIMABA_STUDENTS.map(s => ({
+      ...s,
+      source: 'SIMABA' as const
+    }));
+
+    const fromSiakad = INITIAL_SIAKAD_STAGING.filter(
+      stg => !INITIAL_SIMABA_STUDENTS.some(sim => sim.nomor_pendaftaran === stg.nomor_registrasi)
+    ).map(stg => ({
+      id: stg.id + 10000,
+      nomor_pendaftaran: stg.nomor_registrasi,
+      nama_mahasiswa: stg.nama_lengkap,
+      nik: stg.nik,
+      tempat_lahir: stg.tempat_lahir || 'TARAKAN',
+      tanggal_lahir: stg.tanggal_lahir || '2006-01-01',
+      tanggal_lahir_formatted: stg.tanggal_lahir
+        ? `${stg.tanggal_lahir.slice(8, 10)}/${stg.tanggal_lahir.slice(5, 7)}/${stg.tanggal_lahir.slice(0, 4)}`
+        : '15/04/2005',
+      jenis_kelamin: (stg.jenis_kelamin || 'L') as 'L' | 'P',
+      program_studi_id: 1,
+      program_studi: stg.program_studi || 'Teknik',
+      jenis_mahasiswa: (stg.kategori_beasiswa === 'kip' ? 'kip' : 'nonkip') as 'kip' | 'nonkip',
+      nomorkip: stg.nomorkip,
+      no_hp: stg.nomor_telepon,
+      email: stg.email,
+      alamat: stg.alamat_lengkap,
+      source: 'SIDARA' as const
+    }));
+
+    return [...fromSimaba, ...fromSiakad];
+  }, []);
+
   const filteredStudents = debouncedSearch.trim().length >= 2
-    ? INITIAL_SIMABA_STUDENTS.filter((s) => {
+    ? allCandidateStudents.filter((s) => {
         const query = debouncedSearch.trim().toLowerCase();
         return (
           s.nama_mahasiswa.toLowerCase().includes(query) ||
@@ -98,7 +130,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
           (s.nik && s.nik.includes(query)) ||
           s.program_studi.toLowerCase().includes(query)
         );
-      }).slice(0, 6)
+      }).slice(0, 8)
     : [];
 
   // Helper untuk menyorot bagian teks yang cocok dengan kata kunci pencarian
@@ -284,12 +316,19 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess }) =>
         return;
       }
 
-      // Verifikasi Tanggal Lahir terhadap database SIMABA
+      // Verifikasi Tanggal Lahir terhadap database SIMABA atau SIAKAD Staging
       if (simabaMatch) {
         const matchIso = simabaMatch.tanggal_lahir === birthIso;
         const matchFormatted = simabaMatch.tanggal_lahir_formatted === cleanBirth;
         if (!matchIso && !matchFormatted) {
           setErrorMessage(`Kombinasi data "${simabaMatch.nama_mahasiswa}" dan Tanggal Lahir (${cleanBirth}) tidak cocok dengan database SIMABA.`);
+          return;
+        }
+      } else if (siakadMatch && siakadMatch.tanggal_lahir) {
+        const matchIso = siakadMatch.tanggal_lahir === birthIso;
+        const formattedSiakad = `${siakadMatch.tanggal_lahir.slice(8, 10)}/${siakadMatch.tanggal_lahir.slice(5, 7)}/${siakadMatch.tanggal_lahir.slice(0, 4)}`;
+        if (!matchIso && cleanBirth !== formattedSiakad) {
+          setErrorMessage(`Kombinasi data "${siakadMatch.nama_lengkap}" dan Tanggal Lahir (${cleanBirth}) tidak cocok dengan data pendaftaran.`);
           return;
         }
       }

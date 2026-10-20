@@ -81,6 +81,15 @@ class AdminAsramaController extends Controller
                 'action' => "Bridging Berhasil: Permintaan {$invoice->invoice_id} dipromosikan ke Master Pembayaran {$officialInvoiceNo} (operator_id: {$operatorId}).",
             ]);
 
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Invoice {$invoice->invoice_id} disetujui & berhasil dipromosikan ke Master Pembayaran ({$officialInvoiceNo}).",
+                    'official_invoice_no' => $officialInvoiceNo,
+                    'invoice' => $invoice,
+                ]);
+            }
+
             return redirect()->back()->with('success', "Invoice {$invoice->invoice_id} disetujui & berhasil dipromosikan ke Master Pembayaran ({$officialInvoiceNo}).");
         } elseif ($action === 'APPROVE_BOOKING') {
             // Approval sementara status booking (misal NIM belum sinkron)
@@ -90,6 +99,14 @@ class AdminAsramaController extends Controller
                 'verified_by' => $operatorId,
                 'is_migrated' => false,
             ]);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Pembayaran Invoice {$invoice->invoice_id} dikonfirmasi sebagai BOOKING.",
+                    'invoice' => $invoice,
+                ]);
+            }
 
             return redirect()->back()->with('success', "Pembayaran Invoice {$invoice->invoice_id} dikonfirmasi sebagai BOOKING (Menunggu Sinkronisasi NIM SIAKAD).");
         } else {
@@ -109,6 +126,14 @@ class AdminAsramaController extends Controller
                 'actor' => $request->user()->name ?? 'Admin Keuangan',
                 'action' => "Invoice {$invoice->invoice_id} ditolak: {$reason}",
             ]);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Permintaan pembayaran {$invoice->invoice_id} ditolak: {$reason}",
+                    'invoice' => $invoice,
+                ]);
+            }
 
             return redirect()->back()->with('error', "Permintaan pembayaran {$invoice->invoice_id} ditolak.");
         }

@@ -13,3 +13,11 @@ Artisan::command('inspire', function () {
 Schedule::call(function () {
     (new CronSopController)->runDailyEnforcement();
 })->dailyAt('00:01')->timezone('Asia/Jakarta');
+
+// Command Uji Live CRUD Nyata ke Database MySQL
+Artisan::command('asrama:test-live-crud {--cleanup : Bersihkan data uji setelah pengujian selesai}', function () {
+    $this->call(\App\Console\Commands\TestLiveCrudCommand::class, [
+        '--cleanup' => $this->option('cleanup'),
+    ]);
+})->purpose('Menguji operasi CRUD nyata pada tabel master pembayaran, penyewa, dan contracts di MySQL Laragon');
+

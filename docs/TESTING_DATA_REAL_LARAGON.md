@@ -12,6 +12,9 @@ Sebelum memulai pengujian, berikut referensi dokumen pendukung di dalam reposito
 
 | Dokumen | Lokasi | Manfaat Pengujian & Operasional |
 | :--- | :--- | :--- |
+| **Database Interaction Flow** | [`docs/DATABASE_INTERACTION_FLOW.md`](DATABASE_INTERACTION_FLOW.md) | Panduan alur interaksi data & operasi CRUD master (pembayaran, penyewa, contracts) via Eloquent & Query Builder. |
+| **Uji Live CRUD 1-Klik** | [`laragon-test-crud.bat`](../laragon-test-crud.bat) | Skrip Batch Laragon untuk menguji operasi CRUD live langsung ke MySQL dan verifikasi data di console. |
+| **Manual Implementasi CRUD Nyata** | [`docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md`](MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md) | Panduan langsung pengkabelan HTTP, eksekusi CRUD database nyata & transisi ke server produksi. |
 | **Instalasi Laragon 1-Klik** | [`LARAGON_SETUP.md`](../LARAGON_SETUP.md) | Panduan instalasi cepat stack PHP 8.2+, MySQL, dan script `laragon-setup.bat`. |
 | **Arsitektur Staging & Master** | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Rincian pemisahan penampungan sementara (`operator_id = 0`) dan buku besar resmi (`operator_id = 1`). |
 | **Matriks 5 Skenario Uji** | [`docs/scenario-mappings.md`](scenario-mappings.md) | Skenario uji untuk mahasiswa reguler, penerima KIP, cicilan deposit, dan transisi NIM. |

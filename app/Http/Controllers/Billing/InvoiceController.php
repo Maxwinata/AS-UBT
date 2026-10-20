@@ -165,6 +165,14 @@ class InvoiceController extends Controller
             'status' => 1,
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Rincian permintaan pembayaran mandiri (request_pembayaran) berhasil dibuat.',
+                'invoice' => $invoice,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Rincian permintaan pembayaran mandiri (request_pembayaran) berhasil dibuat.');
     }
 
@@ -204,6 +212,14 @@ class InvoiceController extends Controller
         RequestPembayaran::where('no_request', $invoice->invoice_id)->update([
             'status_pembayaran' => 'pending_verification',
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Bukti transfer berhasil dicatat di request_transaksi. Menunggu verifikasi Bagian Keuangan.',
+                'invoice' => $invoice,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Bukti transfer berhasil dicatat di request_transaksi. Menunggu verifikasi Bagian Keuangan.');
     }

@@ -69,6 +69,15 @@ return new class extends Migration
                 $table->string('program_studi', 100)->nullable();
                 $table->string('fakultas', 100)->nullable();
                 $table->char('jenis_kelamin', 1)->nullable()->comment('L/P diisi lewat mini-form');
+                $table->string('tempat_lahir', 100)->nullable();
+                $table->date('tanggal_lahir')->nullable();
+                $table->text('alamat_lengkap')->nullable();
+                $table->string('nama_ayah', 150)->nullable();
+                $table->string('nama_ibu', 150)->nullable();
+                $table->string('no_hp_ortu', 50)->nullable();
+                $table->string('nomorkip', 100)->nullable();
+                $table->string('jalur_masuk', 100)->nullable();
+                $table->string('nim_resmi', 50)->nullable()->comment('NIM resmi dari SIAKAD jika sudah terbit');
                 $table->integer('status_klaim')->default(0)->comment('0=Belum Mendaftar, 1=Telah Klaim / Isi Form');
                 $table->integer('status_verifikasi_subsidi')->default(0)->comment('0=Pending, 1=Disetujui, -1=Ditolak');
                 $table->string('verified_by')->nullable();
@@ -81,6 +90,21 @@ return new class extends Migration
                 $table->index('nomor_registrasi');
                 $table->index('kategori_beasiswa');
                 $table->foreign('api_link_id')->references('id')->on('api_link')->onDelete('cascade');
+            });
+        }
+
+        // Pastikan kolom baru terpasang secara idempoten jika tabel sudah ada sebelumnya
+        if (Schema::hasTable('siakad_mahasiswa_stg')) {
+            Schema::table('siakad_mahasiswa_stg', function (Blueprint $table) {
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'tempat_lahir')) $table->string('tempat_lahir', 100)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'tanggal_lahir')) $table->date('tanggal_lahir')->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'alamat_lengkap')) $table->text('alamat_lengkap')->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'nama_ayah')) $table->string('nama_ayah', 150)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'nama_ibu')) $table->string('nama_ibu', 150)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'no_hp_ortu')) $table->string('no_hp_ortu', 50)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'nomorkip')) $table->string('nomorkip', 100)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'jalur_masuk')) $table->string('jalur_masuk', 100)->nullable();
+                if (!Schema::hasColumn('siakad_mahasiswa_stg', 'nim_resmi')) $table->string('nim_resmi', 50)->nullable();
             });
         }
     }

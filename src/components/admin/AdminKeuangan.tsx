@@ -17,6 +17,7 @@ interface AdminKeuanganProps {
   siakadStaging?: SiakadMahasiswaStgRecord[];
   onTriggerSiakadSync?: () => void;
   onVerifySubsidi?: (stgId: number, status: 1 | -1, notes?: string) => void;
+  onPromoteToMaster?: (stgId: number) => void;
 }
 
 export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({ 
@@ -30,7 +31,8 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
   apiLinks = INITIAL_API_LINKS,
   siakadStaging = INITIAL_SIAKAD_STAGING,
   onTriggerSiakadSync = () => {},
-  onVerifySubsidi = () => {}
+  onVerifySubsidi = () => {},
+  onPromoteToMaster
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'BRIDGING' | 'MASTER' | 'SIAKAD'>('LEDGER');
@@ -697,6 +699,7 @@ export const AdminKeuangan: React.FC<AdminKeuanganProps> = ({
             stagingList={siakadStaging}
             onTriggerSync={onTriggerSiakadSync}
             onVerifySubsidi={onVerifySubsidi}
+            onPromoteToMaster={onPromoteToMaster}
           />
         </div>
       )}

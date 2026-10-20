@@ -1880,8 +1880,20 @@ class KycStorageService
                 </div>
               </div>
 
-              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
-                💡 <strong>Konteks Arsitektur:</strong> Pada tahap simulasi web, seluruh perubahan status tersimpan di memori browser (React state). Untuk menguji logika program yang sesungguhnya, sistem telah menyediakan <strong>Backend Laravel 11 + Migrasi MySQL + Inertia Controllers</strong> yang siap dijalankan langsung di folder <code className="text-teal-300 font-mono">C:\laragon\www\asrama-ubt</code>.
+              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/40 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Klarifikasi Teknis: Mengapa Pada Pengujian Prototipe Belum Ada CRUD Nyata ke MySQL?</span>
+                </div>
+                <p>
+                  Pratinjau web di port 3000 berjalan sebagai <strong>SPA Prototipe</strong> yang mengelola mutasi data di <em>local memory browser (React State)</em>. Sementara itu, skrip <code className="text-amber-300 font-mono">laragon-setup.bat</code> telah membuat database MySQL ganda (<code className="text-teal-300 font-mono">asrama_ubt_db</code> &amp; <code className="text-teal-300 font-mono">u540633926_simaba</code>) dan backend Laravel 11. Untuk mengeksekusi <strong>CRUD nyata ke database</strong>, aplikasi wajib dibuka melalui backend Laravel di <code className="text-emerald-300 font-mono">http://127.0.0.1:8000</code> atau vhost <code className="text-emerald-300 font-mono">http://asrama-ubt.test</code>.
+                </p>
+                <div className="pt-2 flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                  <span className="text-teal-300">📄 Dokumen Teknis:</span>
+                  <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 text-white">docs/DATABASE_INTERACTION_FLOW.md</span>
+                  <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 text-white">docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md</span>
+                  <span className="bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/50 text-emerald-300 font-bold">⚡ laragon-test-crud.bat</span>
+                </div>
               </div>
             </div>
 

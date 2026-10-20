@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\MabaProfile;
+use App\Models\KycDocument;
 use App\Models\ModificationLog;
-
 use Illuminate\Support\Facades\URL;
 
 class KycVerificationController extends Controller
@@ -30,30 +30,92 @@ class KycVerificationController extends Controller
         $user = $request->user();
         $nim = $user->nim ?? $user->no_pmb ?? 'KYC';
         $timestamp = time();
-
-        // 1. Versioning: Gunakan nama file unik untuk mencegah overwriting audit trail
-        $ktpFilename = "ktp_{$nim}_v{$timestamp}_" . Str::random(8) . '.' . $request->file('foto_ktp')->getClientOriginalExtension();
-        $selfieFilename = "selfie_{$nim}_v{$timestamp}_" . Str::random(8) . '.' . $request->file('foto_selfie')->getClientOriginalExtension();
-
-        // 2. Security: Simpan di disk private_kyc (tidak dapat diakses publik langsung)
         $disk = env('KYC_STORAGE_DISK', 'private_kyc');
-        $ktpPath = $request->file('foto_ktp')->storeAs('kyc/ktp', $ktpFilename, $disk);
-        $selfiePath = $request->file('foto_selfie')->storeAs('kyc/selfie', $selfieFilename, $disk);
 
+        $ktpFile = $request->file('foto_ktp');
+        $selfieFile = $request->file('foto_selfie');
+
+        // 1. Versioning: Cari versi sebelumnya agar inkremental (v1, v2, v3...)
+        $prevKtpVersion = KycDocument::where('user_id', $user->id)->where('doc_type', 'KTP')->max('file_version') ?? 0;
+        $ktpVersion = $prevKtpVersion + 1;
+
+        $prevSelfieVersion = KycDocument::where('user_id', $user->id)->where('doc_type', 'SELFIE_KTP')->max('file_version') ?? 0;
+        $selfieVersion = $prevSelfieVersion + 1;
+
+        // Nonaktifkan versi lama di database
+        KycDocument::where('user_id', $user->id)->where('doc_type', 'KTP')->update(['is_active_version' => false]);
+        KycDocument::where('user_id', $user->id)->where('doc_type', 'SELFIE_KTP')->update(['is_active_version' => false]);
+
+        // Beri nama unik (UUID/Timestamp) tanpa menimpa file fisik lama
+        $ktpFilename = "ktp_{$nim}_v{$ktpVersion}_{$timestamp}_" . Str::random(6) . '.' . $ktpFile->getClientOriginalExtension();
+        $selfieFilename = "selfie_{$nim}_v{$selfieVersion}_{$timestamp}_" . Str::random(6) . '.' . $selfieFile->getClientOriginalExtension();
+
+        $ktpPath = $ktpFile->storeAs('kyc/ktp', $ktpFilename, $disk);
+        $selfiePath = $selfieFile->storeAs('kyc/selfie', $selfieFilename, $disk);
+
+        $ktpChecksum = hash_file('sha256', $ktpFile->getRealPath());
+        $selfieChecksum = hash_file('sha256', $selfieFile->getRealPath());
+
+        // Simpan ke tabel kyc_documents
+        $docKtp = KycDocument::create([
+            'user_id' => $user->id,
+            'doc_type' => 'KTP',
+            'file_name' => $ktpFilename,
+            'file_path' => $ktpPath,
+            'file_version' => $ktpVersion,
+            'is_active_version' => true,
+            'storage_disk' => $disk,
+            'file_size_bytes' => $ktpFile->getSize(),
+            'mime_type' => $ktpFile->getMimeType(),
+            'file_hash' => $ktpChecksum,
+            'status_verifikasi' => 'APPROVED',
+            'verified_at' => now(),
+            'retention_until' => now()->addDays(60),
+        ]);
+
+        $docSelfie = KycDocument::create([
+            'user_id' => $user->id,
+            'doc_type' => 'SELFIE_KTP',
+            'file_name' => $selfieFilename,
+            'file_path' => $selfiePath,
+            'file_version' => $selfieVersion,
+            'is_active_version' => true,
+            'storage_disk' => $disk,
+            'file_size_bytes' => $selfieFile->getSize(),
+            'mime_type' => $selfieFile->getMimeType(),
+            'file_hash' => $selfieChecksum,
+            'status_verifikasi' => 'APPROVED',
+            'verified_at' => now(),
+            'retention_until' => now()->addDays(60),
+        ]);
+
+        // Update profil
         $profile = $user->mabaProfile()->firstOrCreate(['user_id' => $user->id]);
-
         $profile->update([
             'ktp_url' => $ktpPath,
             'selfie_url' => $selfiePath,
             'kyc_submitted' => true,
-            'kyc_verified' => true, // Terverifikasi awal setelah OCR & face liveness
+            'kyc_verified' => true,
             'kyc_verified_at' => now(),
         ]);
 
+        // Catat jejak audit (Audit Trail) sesuai RULE[AGENTS_md]
         ModificationLog::create([
-            'actor' => $user->name,
-            'action' => "Upload dokumen e-KYC versi {$timestamp} (KTP & Selfie) tersimpan di storage privat.",
+            'actor' => "Maba ({$nim})",
+            'action' => "Unggah berkas e-KYC: KTP v{$ktpVersion} ({$ktpFilename}) dan Selfie v{$selfieVersion} ({$selfieFilename}) ke private disk.",
+            'ip_address' => $request->ip(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Dokumen e-KYC berhasil diverifikasi dan tersimpan aman di private storage.',
+                'ktp_path' => $ktpPath,
+                'selfie_path' => $selfiePath,
+                'ktp_version' => $ktpVersion,
+                'selfie_version' => $selfieVersion,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Dokumen e-KYC berhasil diverifikasi dan tersimpan aman di private storage.');
     }
@@ -93,7 +155,6 @@ class KycVerificationController extends Controller
      */
     public function showPrivateDocument(Request $request, $id, $type)
     {
-        // Validasi tanda tangan digital URL
         if (!$request->hasValidSignature()) {
             abort(403, 'Akses ditolak: Tautan dokumen KYC telah kedaluwarsa atau tanda tangan tidak valid.');
         }

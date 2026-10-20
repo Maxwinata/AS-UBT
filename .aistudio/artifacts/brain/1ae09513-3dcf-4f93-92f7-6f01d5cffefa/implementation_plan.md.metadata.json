@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana komprehensif audit, sinkronisasi, dan penyempurnaan akurasi pemetaan skema database di seluruh lapisan: (1) Bridging Staging Mandiri ke Master Berjalan Web Admin, (2) Dual Database SIMABA PMB ke Asrama, (3) Staging API SIAKAD UBT & SSO SIDARA, serta (4) Skema Penyimpanan Privat Berkas e-KYC Berversi (Immutable Storage) & Jejak Audit (Audit Trail). Plan ini mencakup perbaikan migration files, D3 ERD Diagram, Laravel Blueprint, dan dokumentasi arsitektur.",
-  "updatedAt": "2026-10-19T04:54:05.722614860Z",
+  "summary": "Rencana kerja kesiapan operasional Go-Live hari ini agar portal registrasi dan booking asrama dapat langsung digunakan oleh mahasiswa dan admin di lingkungan Web Hosting terpadu. Mencakup login instan berbasis data SIDARA, alur 4 tahap pendaftaran mandiri maba, kunci reservasi kamar di staging (BOOKED_STAGING), antrean verifikasi admin keuangan & asrama, serta penerbitan otomatis e-Ticket hunian resmi.",
+  "updatedAt": "2026-10-20T03:02:35.903991114Z",
   "requestFeedback": true,
   "userFacing": true
 }

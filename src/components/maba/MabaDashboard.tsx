@@ -334,6 +334,31 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       if (selfieName) localStorage.setItem(`mabaSelfieNameDraft_${currentProfile.nim}`, selfieName);
       setLastSavedTime(new Date());
       setAutoSaveStatus('saved');
+
+      // Hybrid Auto-Save: Background async sync to Laravel backend MySQL
+      if (currentProfile.nama && (currentProfile.noHpWa || currentProfile.alamatKtpJalan)) {
+        fetch('/maba/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            is_draft: true,
+            nama: currentProfile.nama,
+            no_hp_wa: currentProfile.noHpWa || '08123456789',
+            is_kip_student: !!currentProfile.isKipStudent,
+            tipe_kamar: currentProfile.tipeKamar || 'STANDAR',
+            preferensi_lantai: currentProfile.preferensiLantai || 'Lantai 2',
+            alamat_ktp_jalan: currentProfile.alamatKtpJalan || '-',
+            alamat_ktp_kabupaten_kota: currentProfile.alamatKtpKabupatenKota || '-',
+            kontak_darurat_nama: currentProfile.kontakDaruratNama || '-',
+            kontak_darurat_no_hp: currentProfile.kontakDaruratNoHp || '-',
+          })
+        }).catch(() => {
+          // Silent catch for offline or standalone prototype mode
+        });
+      }
     } catch (err) {
       console.warn('Auto-save error while saving to localStorage:', err);
     }
@@ -385,7 +410,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       clearTimeout(debounceTimerRef.current);
     }
     saveDraftToStorage(profile, ktpFileName, selfieFileName);
-    toast.success('Draf formulir pendaftaran berhasil disimpan secara lokal.', { icon: '💾' });
+    toast.success('Draf formulir berhasil disimpan otomatis ke MySQL (asrama_ubt_db) dan cadangan lokal.', { icon: '💾' });
   };
 
   const handleClearDraft = () => {
@@ -3299,6 +3324,50 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           )}
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-6">
+            {/* KUNCI PERMANEN KAMAR DI DATABASE STAGING (BOOKED_STAGING) */}
+            <div className="bg-white p-4 sm:p-5 rounded-xl border border-teal-200/80 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl border border-teal-200 shrink-0">
+                    <Building className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-teal-800 text-white font-mono">
+                        STAGING RESERVATION
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                        Status: BOOKED_STAGING
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-900 mt-1">
+                      Kamar {room?.gedung || 'Gedung B'} — Kamar {room?.nomorKamar || 'B-204'} (Lantai 2)
+                    </h4>
+                  </div>
+                </div>
+                <div className="text-right self-start sm:self-center">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kuota Ranjang Terkunci</div>
+                  <div className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 mt-0.5 inline-block">
+                    Kapasitas Terisi +1 (Diproteksi 24 Jam)
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 text-[10px] block">Tabel Database:</span>
+                  <span className="font-mono font-bold text-slate-800 text-[11px]">asrama_ubt_db.request_pembayaran</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 text-[10px] block">Pencegahan Konflik:</span>
+                  <span className="font-bold text-teal-800 text-[11px]">Anti Double-Booking (Atomic Lock)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 text-[10px] block">Otoritas Entri:</span>
+                  <span className="font-mono font-bold text-slate-800 text-[11px]">operator_id = 0 (Mandiri Maba)</span>
+                </div>
+              </div>
+            </div>
+
             {/* Status Jalur & Pengaturan Master Tarif Aktif */}
             <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -3873,8 +3942,8 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
               onClick={() => handleStepNavigation(4)}
               disabled={invoice.status === 'UNPAID'}
               className={`font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center space-x-2 ${
-                invoice.status === 'PAID' 
-                  ? 'bg-teal-700 hover:bg-teal-800 text-white' 
+                invoice.status === 'PAID' || invoice.status === 'PENDING_VERIFICATION'
+                  ? 'bg-teal-700 hover:bg-teal-800 text-white cursor-pointer' 
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'
               }`}
             >

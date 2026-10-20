@@ -97,4 +97,19 @@ class SiakadSyncController extends Controller
             'data' => $stg,
         ]);
     }
+
+    /**
+     * Mempromosikan record mahasiswa pra-registrasi staging ke tabel master (users, maba_profiles, penyewa)
+     */
+    public function promote(Request $request, int $id): JsonResponse
+    {
+        $operatorId = $request->user() ? $request->user()->id : 1;
+        $result = $this->syncService->promoteToMaster($id, $operatorId);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Mahasiswa {$result['staging']->nomor_registrasi} ({$result['staging']->nama_lengkap}) berhasil dipromosikan ke tabel master.",
+            'data' => $result,
+        ]);
+    }
 }

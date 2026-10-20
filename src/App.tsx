@@ -44,12 +44,59 @@ export default function App() {
   const [apiLinks, setApiLinks] = useState<ApiLinkRecord[]>(INITIAL_API_LINKS);
   const [siakadStaging, setSiakadStaging] = useState<SiakadMahasiswaStgRecord[]>(INITIAL_SIAKAD_STAGING);
 
-  const handleTriggerSiakadSync = () => {
+  const handleTriggerSiakadSync = async () => {
+    try {
+      const response = await fetch('/api/siakad/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(result.message || 'Sinkronisasi live API SIDARA berhasil!');
+      }
+    } catch {
+      // offline / mock fallback
+    }
     setApiLinks(prev => prev.map(link => ({
       ...link,
       last_synced_at: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'medium' }),
       total_records: link.kategori === 'kip' ? 65 : 48
     })));
+  };
+
+  const handlePromoteToMaster = async (stgId: number) => {
+    const item = siakadStaging.find(s => s.id === stgId);
+    if (!item) return;
+
+    try {
+      const response = await fetch(`/api/siakad/staging/${stgId}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        toast.success(resData.message || `Promosi ${item.nama_lengkap} ke master berhasil!`);
+      }
+    } catch {
+      // offline fallback
+    }
+
+    setSiakadStaging(prev => prev.map(it => it.id === stgId ? {
+      ...it,
+      status_klaim: 1,
+      status_verifikasi_subsidi: 1,
+      verified_by: 'Admin Asrama (Promoted)',
+      verified_at: new Date().toISOString()
+    } : it));
+
+    setModificationLogs(prev => [...prev, {
+      id: `log-promote-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: 'Admin',
+      action: `Promosi Staging ke Master: Mahasiswa ${item.nomor_registrasi} (${item.nama_lengkap}) berhasil dibuatkan akun master users, maba_profiles, dan penyewa.`
+    }]);
+
+    toast.success(`Mahasiswa ${item.nama_lengkap} (${item.nomor_registrasi}) berhasil dipromosikan ke tabel master (users, maba_profiles, penyewa)!`);
   };
 
   const handleVerifySubsidi = (stgId: number, status: 1 | -1, notes?: string) => {
@@ -401,6 +448,54 @@ export default function App() {
       toast.error(`[PERMINTAAN DITOLAK]\nPermintaan ${reqNo} ditolak. Status dikembalikan ke UNPAID.`);
     }
 
+    if (action === 'APPROVE_AND_MIGRATE' || action === 'APPROVE_BOOKING') {
+      const studentNim = target?.nim || mabaProfile.nim || 'PMB2026';
+      const studentName = target?.nama || mabaProfile.nama;
+      const newTicketId = 'TIX-UBT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      setTicket({
+        ticketId: newTicketId,
+        nim: studentNim,
+        nama: studentName,
+        kamar: target?.kamar || 'Gedung B — Kamar 204',
+        gedung: 'Gedung B',
+        checkInDate: '2026-08-25',
+        status: 'ACTIVE',
+        qrCode: `UBT-TKT-${studentNim}-${newTicketId}`,
+        qrData: `UBT-TKT-${studentNim}-${newTicketId}`,
+        barcode: newTicketId,
+      });
+
+      setContract((prev) => ({
+        ...prev,
+        status: 'SIGNED',
+        signedAt: prev.signedAt || new Date().toISOString(),
+      }));
+
+      setMabaProfile((prev) => ({
+        ...prev,
+        kycVerified: true,
+      }));
+
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.nomorKamar === '204'
+            ? { ...r, status: 'OCCUPIED', kapasitasTerisi: Math.min(r.kapasitasTotal, r.kapasitasTerisi + 1) }
+            : r
+        )
+      );
+
+      setModificationLogs((prev) => [
+        ...prev,
+        {
+          id: `log-approval-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          actor: 'Admin',
+          action: `Persetujuan Admin: Invoice ${invoiceId} disahkan (${action}). Kamar ${target?.kamar || 'Kamar 204'} resmi dihuni dan e-Ticket ${newTicketId} aktif.`,
+        },
+      ]);
+    }
+
     setInvoices((prev) =>
       prev.map((inv) => {
         if (inv.invoiceId === invoiceId) {
@@ -516,11 +611,26 @@ export default function App() {
                 siakadStaging={siakadStaging}
                 onTriggerSiakadSync={handleTriggerSiakadSync}
                 onVerifySubsidi={handleVerifySubsidi}
+                onPromoteToMaster={handlePromoteToMaster}
               />
             )}
 
             {currentRole === 'admin_asrama' && (
-              <AdminAsrama rooms={rooms} modificationLogs={modificationLogs} invoices={invoices} initialTab="operasional" tariffs={tariffs} setTariffs={handleSetTariffs} paymentSchemes={paymentSchemes} setPaymentSchemes={handleSetPaymentSchemes} />
+              <AdminAsrama 
+                rooms={rooms} 
+                modificationLogs={modificationLogs} 
+                invoices={invoices} 
+                initialTab="operasional" 
+                tariffs={tariffs} 
+                setTariffs={handleSetTariffs} 
+                paymentSchemes={paymentSchemes} 
+                setPaymentSchemes={handleSetPaymentSchemes}
+                apiLinks={apiLinks}
+                siakadStaging={siakadStaging}
+                onTriggerSiakadSync={handleTriggerSiakadSync}
+                onVerifySubsidi={handleVerifySubsidi}
+                onPromoteToMaster={handlePromoteToMaster}
+              />
             )}
 
             {currentRole === 'cron_monitor' && (

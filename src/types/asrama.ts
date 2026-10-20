@@ -505,11 +505,20 @@ export interface SiakadMahasiswaStgRecord {
   program_studi: string;
   fakultas: string;
   jenis_kelamin: 'L' | 'P';
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  alamat_lengkap?: string;
+  nama_ayah?: string;
+  nama_ibu?: string;
+  no_hp_ortu?: string;
+  nomorkip?: string;
+  jalur_masuk?: string;
   status_klaim: number; // 0 = Belum Mendaftar, 1 = Telah Klaim / Mengisi Form Maba
   status_verifikasi_subsidi: number; // 0 = Menunggu Review Admin, 1 = Disetujui, -1 = Ditolak / Standar
   verified_by?: string;
   verified_at?: string;
   catatan_admin?: string;
+  payload_raw?: Record<string, any>; // 100% full raw JSON payload received from SIDARA API
   synced_at: string;
 }
 

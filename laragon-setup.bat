@@ -38,8 +38,22 @@ call npm install
 echo.
 echo =====================================================================
 echo  SETUP SELESAI DENGAN SUKSES!
-echo  Untuk menjalankan dev server frontend, jalankan: npm run dev
-echo  Buka browser Anda di: http://asrama-ubt.test atau php artisan serve
+echo.
+echo  [FITUR BARU] UJI LIVE CRUD LANGSUNG KE MYSQL:
+echo  Jalankan file: laragon-test-crud.bat
+echo  Untuk menguji Create, Read, Update, Delete nyata pada tabel master!
+echo.
+echo  Untuk menjalankan server operasional:
+echo  1. Backend API:  php artisan serve --port=8000
+echo  2. Frontend:     npm run dev
+echo  Buka browser Anda di: http://asrama-ubt.test atau http://127.0.0.1:8000
 echo =====================================================================
 echo.
-pause
+set /p runtest="Apakah Anda ingin langsung menjalankan Uji Live CRUD sekarang? [Y/N]: "
+if /i "%runtest%"=="Y" (
+    call laragon-test-crud.bat
+) else (
+    echo Selesai. Anda dapat menjalankan laragon-test-crud.bat kapan saja.
+    pause
+)
+

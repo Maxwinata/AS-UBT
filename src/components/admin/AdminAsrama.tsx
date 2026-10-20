@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Building2, ShieldCheck, Lock, Key, CheckCircle2, AlertTriangle, LogOut, Search, Calculator, Code2, Database, Terminal, Settings, FileEdit, Check, X, Send, BellRing, Clock, RefreshCcw, ShieldAlert, FileWarning, ArrowUpRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { RoomPlot, CheckoutInspection, TariffItem, PaymentScheme, ModificationLog, BillingInvoice, DelinquencyRecord } from '../../types/asrama';
-import { SAMPLE_DELINQUENCY } from '../../data/initialData';
+import { RoomPlot, CheckoutInspection, TariffItem, PaymentScheme, ModificationLog, BillingInvoice, DelinquencyRecord, ApiLinkRecord, SiakadMahasiswaStgRecord } from '../../types/asrama';
+import { SAMPLE_DELINQUENCY, INITIAL_API_LINKS, INITIAL_SIAKAD_STAGING } from '../../data/initialData';
 import { LaravelBlueprint } from '../architecture/LaravelBlueprint';
 import { SqlImporter } from '../architecture/SqlImporter';
 import { SystemAuditLogs } from './SystemAuditLogs';
@@ -11,6 +11,7 @@ import { CorrectionRequestsAdmin } from './CorrectionRequestsAdmin';
 import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { BulkKycApproval } from './BulkKycApproval';
 import { LembarRatifikasiF22 } from './LembarRatifikasiF22';
+import { SiakadSyncManager } from './SiakadSyncManager';
 // @ts-ignore
 import { TariffManager } from './TariffManager';
 import { ActivityLog } from './ActivityLog';
@@ -26,13 +27,32 @@ interface AdminAsramaProps {
   setPaymentSchemes?: (schemes: PaymentScheme[]) => void;
   rooms: RoomPlot[];
   onPlotRoom?: (roomId: string, nim: string) => void;
-  initialTab?: 'operasional' | 'tunggakan' | 'analytics' | 'master_tarif' | 'audit_logs' | 'laravel' | 'sql_importer' | 'correction_requests' | 'kyc_approval';
+  apiLinks?: ApiLinkRecord[];
+  siakadStaging?: SiakadMahasiswaStgRecord[];
+  onTriggerSiakadSync?: () => void;
+  onVerifySubsidi?: (stgId: number, status: 1 | -1, notes?: string) => void;
+  onPromoteToMaster?: (stgId: number) => void;
+  initialTab?: 'operasional' | 'tunggakan' | 'analytics' | 'master_tarif' | 'audit_logs' | 'laravel' | 'sql_importer' | 'correction_requests' | 'kyc_approval' | 'siakad_sync';
 }
 
-export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLogs = [], invoices = [], initialTab = 'operasional', tariffs = [], setTariffs = () => {}, paymentSchemes = [], setPaymentSchemes = () => {} }) => {
-  const [activeTab, setActiveTab] = useState<'operasional' | 'tunggakan' | 'analytics' | 'master_tarif' | 'audit_logs' | 'activity_log' | 'notifications' | 'sso_migration' | 'laravel' | 'sql_importer' | 'correction_requests' | 'kyc_approval' | 'cetak_f22'>(() => {
+export const AdminAsrama: React.FC<AdminAsramaProps> = ({ 
+  rooms, 
+  modificationLogs = [], 
+  invoices = [], 
+  initialTab = 'operasional', 
+  tariffs = [], 
+  setTariffs = () => {}, 
+  paymentSchemes = [], 
+  setPaymentSchemes = () => {},
+  apiLinks = INITIAL_API_LINKS,
+  siakadStaging = INITIAL_SIAKAD_STAGING,
+  onTriggerSiakadSync = () => {},
+  onVerifySubsidi = () => {},
+  onPromoteToMaster
+}) => {
+  const [activeTab, setActiveTab] = useState<'operasional' | 'tunggakan' | 'analytics' | 'master_tarif' | 'audit_logs' | 'activity_log' | 'notifications' | 'sso_migration' | 'laravel' | 'sql_importer' | 'correction_requests' | 'kyc_approval' | 'cetak_f22' | 'siakad_sync'>(() => {
     const saved = localStorage.getItem('adminAsramaActiveTab');
-    if (saved === 'operasional' || saved === 'tunggakan' || saved === 'analytics' || saved === 'master_tarif' || saved === 'audit_logs' || saved === 'sso_migration' || saved === 'laravel' || saved === 'sql_importer' || saved === 'correction_requests' || saved === 'kyc_approval' || saved === 'cetak_f22') {
+    if (saved === 'operasional' || saved === 'tunggakan' || saved === 'analytics' || saved === 'master_tarif' || saved === 'audit_logs' || saved === 'sso_migration' || saved === 'laravel' || saved === 'sql_importer' || saved === 'correction_requests' || saved === 'kyc_approval' || saved === 'cetak_f22' || saved === 'siakad_sync') {
       return saved as any;
     }
     return initialTab;
@@ -139,6 +159,7 @@ export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLog
               {activeTab === 'correction_requests' && 'Koreksi Data Mahasiswa (e-KYC & Profil)'}
               {activeTab === 'kyc_approval' && 'Verifikasi Masal e-KYC (Admin & Supervisor)'}
               {activeTab === 'cetak_f22' && 'Cetak Lembar Ratifikasi F-22 (JUKLAK-03)'}
+              {activeTab === 'siakad_sync' && 'Integrasi Lengkap API SIDARA & Promosi Staging ke Master'}
               {activeTab === 'laravel' && 'Laravel Backend Blueprint & Architecture Spec'}
               {activeTab === 'sql_importer' && 'Upload & Migration SQL Web Admin (Database Dev Tool)'}
             </h2>
@@ -152,6 +173,7 @@ export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLog
               {activeTab === 'correction_requests' && 'Membuka kunci form pendaftaran bagi mahasiswa yang mengajukan koreksi data yang salah.'}
               {activeTab === 'kyc_approval' && 'Layar moderasi untuk mengecek kecocokan foto selfie dan KTP pendaftar secara masal, disortir berdasarkan antrean.'}
               {activeTab === 'cetak_f22' && 'Pencetakan Daftar Ratifikasi Kontrak Kolektif untuk efisiensi bea meterai check-in Maba sesuai JUKLAK-03.'}
+              {activeTab === 'siakad_sync' && 'Impor lengkap seluruh konten API SIDARA (BTT-006 & BTT-002) ke tabel SQL siakad_mahasiswa_stg & promosi bridging ke tabel master users, maba_profiles, dan penyewa.'}
               {activeTab === 'laravel' && 'Fitur development internal Admin Asrama untuk mengeksplorasi blueprint skema database, migration, dan controller Laravel.'}
               {activeTab === 'sql_importer' && 'Fitur development internal Admin Asrama untuk mengunggah dan menguji skrip DDL/DML SQL migration database Web Admin.'}
             </p>
@@ -315,6 +337,22 @@ export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLog
             <span>Dev Tool: Laravel &amp; Testing Data Real</span>
             <span className="text-[9px] bg-emerald-950/80 text-emerald-300 font-mono px-1.5 py-0.5 rounded border border-emerald-500/40 font-bold">
               DATA REAL
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('siakad_sync')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'siakad_sync'
+                ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                : 'bg-indigo-950/60 text-indigo-200 hover:bg-indigo-900 hover:text-white border border-indigo-700'
+            }`}
+          >
+            <Database className="w-4 h-4 text-indigo-300" />
+            <span>Integrasi API SIDARA</span>
+            <span className="text-[9px] bg-indigo-950/80 text-indigo-300 font-mono px-1.5 py-0.5 rounded border border-indigo-500/40 font-bold">
+              STAGING &amp; MASTER
             </span>
           </button>
 
@@ -787,6 +825,18 @@ export const AdminAsrama: React.FC<AdminAsramaProps> = ({ rooms, modificationLog
       {activeTab === 'master_tarif' && (
         <div className="animate-in fade-in duration-200">
           <TariffManager tariffs={tariffs} setTariffs={setTariffs} paymentSchemes={paymentSchemes} setPaymentSchemes={setPaymentSchemes} readOnly={true} />
+        </div>
+      )}
+
+      {activeTab === 'siakad_sync' && (
+        <div className="animate-in fade-in duration-200">
+          <SiakadSyncManager
+            apiLinks={apiLinks}
+            stagingList={siakadStaging}
+            onTriggerSync={onTriggerSiakadSync}
+            onVerifySubsidi={onVerifySubsidi}
+            onPromoteToMaster={onPromoteToMaster}
+          />
         </div>
       )}
     </div>

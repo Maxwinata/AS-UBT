@@ -142,6 +142,7 @@ Route::prefix('maba')->group(function () {
     Route::post('/profile', [MabaDashboardController::class, 'updateProfile'])->name('maba.profile.update');
     Route::post('/kyc', [KycVerificationController::class, 'store'])->name('maba.kyc.store');
     Route::get('/kyc/signed-url/{type}', [KycVerificationController::class, 'getSignedUrl'])->name('maba.kyc.signed_url');
+    Route::post('/room/reserve', [MabaDashboardController::class, 'reserveRoom'])->name('maba.room.reserve');
     Route::post('/invoice/configure', [InvoiceController::class, 'configure'])->name('maba.invoice.configure');
     Route::post('/invoice/{id}/upload-proof', [InvoiceController::class, 'uploadTransferProof'])->name('maba.invoice.upload');
     Route::post('/contract/sign', [MabaDashboardController::class, 'signContract'])->name('maba.contract.sign');

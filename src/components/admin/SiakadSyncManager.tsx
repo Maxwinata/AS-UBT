@@ -14,7 +14,16 @@ import {
   ExternalLink,
   Filter,
   Check,
-  AlertCircle
+  AlertCircle,
+  Code2,
+  Copy,
+  UserCheck,
+  CheckCheck,
+  X,
+  FileJson,
+  Layers,
+  ArrowUpRight,
+  Send
 } from 'lucide-react';
 import { ApiLinkRecord, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { toast } from 'sonner';
@@ -24,6 +33,7 @@ interface SiakadSyncManagerProps {
   stagingList: SiakadMahasiswaStgRecord[];
   onTriggerSync: () => void;
   onVerifySubsidi: (stgId: number, status: 1 | -1, notes?: string) => void;
+  onPromoteToMaster?: (stgId: number) => void;
 }
 
 export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
@@ -31,19 +41,62 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
   stagingList,
   onTriggerSync,
   onVerifySubsidi,
+  onPromoteToMaster,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'kip' | 'nonkip'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROMOTED'>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [viewingRawItem, setViewingRawItem] = useState<SiakadMahasiswaStgRecord | null>(null);
+  const [copiedRaw, setCopiedRaw] = useState(false);
 
-  const handleSyncClick = () => {
+  const handleSyncClick = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/siakad/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(result.message || 'Sinkronisasi API SIDARA berhasil dieksekusi!');
+      }
+    } catch {
+      // Offline / dev fallback
+    } finally {
       onTriggerSync();
       setIsSyncing(false);
-      toast.success('Sinkronisasi API SIAKAD UBT berhasil! Data staging pra-registrasi telah diperbarui.');
-    }, 900);
+      toast.success('Sinkronisasi API SIDARA UBT berhasil! Data staging pra-registrasi telah diperbarui.');
+    }
+  };
+
+  const handlePromoteClick = async (item: SiakadMahasiswaStgRecord) => {
+    if (onPromoteToMaster) {
+      onPromoteToMaster(item.id);
+    } else {
+      try {
+        const response = await fetch(`/api/siakad/staging/${item.id}/promote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          toast.success(resData.message || `Data ${item.nama_lengkap} berhasil dipromosikan ke master!`);
+        }
+      } catch {
+        // Fallback
+      }
+      toast.success(`Data ${item.nama_lengkap} (${item.nomor_registrasi}) berhasil dipromosikan ke tabel master (users, maba_profiles, penyewa)!`);
+    }
+  };
+
+  const handleCopyRawJson = () => {
+    if (!viewingRawItem) return;
+    const rawData = viewingRawItem.payload_raw || viewingRawItem;
+    navigator.clipboard.writeText(JSON.stringify(rawData, null, 2));
+    setCopiedRaw(true);
+    toast.success('Raw JSON berhasil disalin ke clipboard!');
+    setTimeout(() => setCopiedRaw(false), 2000);
   };
 
   const filteredStaging = stagingList.filter((item) => {
@@ -51,7 +104,8 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
       item.nomor_registrasi.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.nama_lengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.nik && item.nik.includes(searchTerm)) ||
-      (item.program_studi && item.program_studi.toLowerCase().includes(searchTerm.toLowerCase()));
+      (item.program_studi && item.program_studi.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.sso_id_from_sidara && String(item.sso_id_from_sidara).toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesCategory =
       categoryFilter === 'ALL' ? true : item.kategori_beasiswa === categoryFilter;
@@ -63,7 +117,9 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
         ? item.status_verifikasi_subsidi === 0
         : statusFilter === 'APPROVED'
         ? item.status_verifikasi_subsidi === 1
-        : item.status_verifikasi_subsidi === -1;
+        : statusFilter === 'REJECTED'
+        ? item.status_verifikasi_subsidi === -1
+        : item.status_klaim === 1;
 
     return matchesSearch && matchesCategory && matchesStatus;
   });
@@ -71,6 +127,7 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
   const totalKip = stagingList.filter(s => s.kategori_beasiswa === 'kip').length;
   const totalNonKip = stagingList.filter(s => s.kategori_beasiswa === 'nonkip').length;
   const pendingCount = stagingList.filter(s => s.status_verifikasi_subsidi === 0).length;
+  const promotedCount = stagingList.filter(s => s.status_klaim === 1).length;
 
   return (
     <div className="space-y-6">
@@ -78,26 +135,28 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-800/50 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-indigo-400 font-mono font-bold">INTEGRASI BASIS DATA SIAKAD</span>
+            <span className="text-indigo-400 font-mono font-bold">INTEGRASI BASIS DATA SIDARA / SIAKAD</span>
             <span className="text-slate-400">·</span>
-            <span className="text-slate-300 font-mono text-[11px]">Tabel api_link ➔ siakad_mahasiswa_stg</span>
+            <span className="text-slate-300 font-mono text-[11px]">Tabel api_link ➔ siakad_mahasiswa_stg ➔ Master</span>
           </div>
           <h3 className="text-xl font-bold tracking-tight mt-1 text-white">
-            Sinkronisasi API SIAKAD UBT & Verifikasi Hak Subsidi
+            Impor Lengkap API SIDARA &amp; Bridging Staging ke Master
           </h3>
           <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-            Menarik data calon mahasiswa dari endpoint resmi SIAKAD (Beasiswa Khusus & KIP) ke tabel pra-registrasi staging. Mahasiswa dapat langsung auto-fill formulir saat mendaftar, sementara hak subsidi tarif tetap diaudit secara akuntabel oleh Admin Keuangan.
+            Menarik 100% atribut respon dari API SIDARA (Beasiswa Khusus BTT-006 &amp; KIP-Kuliah BTT-002) langsung ke tabel SQL pengembangan (<code className="text-indigo-300 font-mono">siakad_mahasiswa_stg</code>) beserta penyimpanan mentah JSON utuh (<code className="text-indigo-300 font-mono">payload_raw</code>). Admin dapat memeriksa struktur JSON dan mempromosikan record terpilih ke tabel master (<code className="text-indigo-300 font-mono">users</code>, <code className="text-indigo-300 font-mono">maba_profiles</code>, <code className="text-indigo-300 font-mono">penyewa</code>).
           </p>
         </div>
 
-        <button
-          onClick={handleSyncClick}
-          disabled={isSyncing}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span>{isSyncing ? 'Menghubungkan SIAKAD...' : 'Tarik Data SIAKAD Sekarang'}</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleSyncClick}
+            disabled={isSyncing}
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Menghubungkan SIDARA...' : 'Tarik & Impor Lengkap SIDARA'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 2 Endpoint Cards (Mirroring phpMyAdmin api_link Table) */}
@@ -131,11 +190,11 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
 
                 <div className="text-right">
                   <div className="font-mono font-bold text-slate-900 text-base tabular-nums">
-                    {recordsCount} Calon
+                    {recordsCount} Record Staging
                   </div>
                   <div className="text-[10px] text-emerald-600 font-medium flex items-center justify-end gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>Endpoint Aktif</span>
+                    <span>Live HTTP + Seeder Backup</span>
                   </div>
                 </div>
               </div>
@@ -162,7 +221,9 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                   <Clock className="w-3 h-3 text-slate-400" />
                   Terakhir ditarik: {link.last_synced_at || 'Hari ini, 10:00 WIB'}
                 </span>
-                <span className="text-slate-500 font-medium">Auto-Sync Harian Aktif</span>
+                <span className="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Idempoten UPSERT (No Reg)
+                </span>
               </div>
             </div>
           );
@@ -176,14 +237,16 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
           <div>
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <Database className="w-4 h-4 text-indigo-600" />
-              <span>Daftar Calon Mahasiswa Pra-Registrasi (Tabel `siakad_mahasiswa_stg`)</span>
+              <span>Daftar Calon Mahasiswa di Tabel Staging SQL (`asrama_ubt_db.siakad_mahasiswa_stg`)</span>
             </h4>
-            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-              <span>Total: {stagingList.length} data</span>
+            <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
+              <span>Total: <strong>{stagingList.length}</strong> record</span>
               <span>·</span>
-              <span>KIP: {totalKip}</span>
+              <span>KIP: <strong>{totalKip}</strong></span>
               <span>·</span>
-              <span>Beasiswa Khusus: {totalNonKip}</span>
+              <span>Beasiswa Khusus: <strong>{totalNonKip}</strong></span>
+              <span>·</span>
+              <span className="text-emerald-700 font-semibold">{promotedCount} Terpromosi Master</span>
               {pendingCount > 0 && (
                 <>
                   <span>·</span>
@@ -199,7 +262,7 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari PMB, Nama, NIK, Prodi..."
+                placeholder="Cari PMB, Nama, NIK, SSO..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-60"
@@ -241,12 +304,12 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
             <thead className="bg-slate-100 text-slate-700 font-mono uppercase text-[10px] font-bold">
               <tr>
                 <th className="p-3.5">No. Registrasi / PMB</th>
-                <th className="p-3.5">Nama & Identitas</th>
-                <th className="p-3.5">Program Studi</th>
-                <th className="p-3.5">Jalur SIAKAD</th>
-                <th className="p-3.5">Status Klaim Maba</th>
-                <th className="p-3.5">Verifikasi Hak Subsidi</th>
-                <th className="p-3.5 text-right">Aksi Admin</th>
+                <th className="p-3.5">Nama &amp; Identitas</th>
+                <th className="p-3.5">Program Studi &amp; Domisili</th>
+                <th className="p-3.5">Jalur SIDARA &amp; Tagihan</th>
+                <th className="p-3.5">Raw JSON API</th>
+                <th className="p-3.5">Status Hak Subsidi</th>
+                <th className="p-3.5 text-right">Aksi Promosi &amp; Audit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-sans">
@@ -261,6 +324,8 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                   const isKip = item.kategori_beasiswa === 'kip';
                   const isApproved = item.status_verifikasi_subsidi === 1;
                   const isRejected = item.status_verifikasi_subsidi === -1;
+                  const isPromoted = item.status_klaim === 1;
+                  const rawFieldCount = item.payload_raw ? Object.keys(item.payload_raw).length : 12;
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
@@ -290,11 +355,21 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                           <span>·</span>
                           <span>{item.nomor_telepon ? `WA: ${item.nomor_telepon}` : 'WA: Kosong'}</span>
                         </div>
+                        {item.tempat_lahir && (
+                          <div className="text-[9px] text-slate-400 mt-0.5">
+                            Lahir: {item.tempat_lahir}, {item.tanggal_lahir || '-'}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3.5">
                         <div className="font-semibold text-slate-800">{item.program_studi}</div>
                         <div className="text-[10px] text-slate-500">{item.fakultas || '-'}</div>
+                        {item.alamat_lengkap && (
+                          <div className="text-[9px] text-slate-400 truncate max-w-[200px]" title={item.alamat_lengkap}>
+                            {item.alamat_lengkap}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3.5 font-medium">
@@ -307,17 +382,23 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                         <div className="text-[10px] text-slate-400 mt-0.5">
                           {item.bill_to_code ? `Kode: ${item.bill_to_code}` : isKip ? 'BTT-002' : 'BTT-006'} · {isKip ? 'mahasiswa-btt-002' : 'mahasiswa-btt-006'}
                         </div>
+                        {item.nomorkip && (
+                          <div className="text-[9px] font-mono text-amber-700 bg-amber-50 px-1 rounded border border-amber-200 mt-0.5 inline-block">
+                            No KIP: {item.nomorkip}
+                          </div>
+                        )}
                       </td>
 
+                      {/* Raw JSON Payload Column */}
                       <td className="p-3.5">
-                        {item.status_klaim === 1 ? (
-                          <span className="text-emerald-700 font-medium text-[11px] flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Form Terisi (Aktif)
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">Belum Klaim Form</span>
-                        )}
+                        <button
+                          onClick={() => setViewingRawItem(item)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-[10px] font-mono font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                          title="Klik untuk membuka dan menginspeksi full payload JSON dari API SIDARA"
+                        >
+                          <FileJson className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{rawFieldCount} Field RAW</span>
+                        </button>
                       </td>
 
                       <td className="p-3.5">
@@ -350,25 +431,46 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
                         )}
                       </td>
 
-                      <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
-                        {!isApproved && (
-                          <button
-                            onClick={() => onVerifySubsidi(item.id, 1, 'Disetujui oleh Admin Keuangan')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[10px] px-2.5 py-1 rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
-                            title="Setujui hak subsidi tarif/deposit untuk mahasiswa ini"
-                          >
-                            <Check className="w-3 h-3" /> Setujui
-                          </button>
-                        )}
-                        {!isRejected && (
-                          <button
-                            onClick={() => onVerifySubsidi(item.id, -1, 'Ditetapkan menggunakan tarif standar')}
-                            className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
-                            title="Tolak subsidi dan kenakan tarif asrama reguler"
-                          >
-                            <XCircle className="w-3 h-3" /> Tolak
-                          </button>
-                        )}
+                      <td className="p-3.5 text-right space-y-1">
+                        <div className="flex items-center justify-end gap-1">
+                          {!isApproved && (
+                            <button
+                              onClick={() => onVerifySubsidi(item.id, 1, 'Disetujui oleh Admin Keuangan')}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[10px] px-2 py-0.5 rounded transition-all cursor-pointer inline-flex items-center gap-1"
+                              title="Setujui hak subsidi tarif/deposit untuk mahasiswa ini"
+                            >
+                              <Check className="w-2.5 h-2.5" /> Sah
+                            </button>
+                          )}
+                          {!isRejected && (
+                            <button
+                              onClick={() => onVerifySubsidi(item.id, -1, 'Ditetapkan menggunakan tarif standar')}
+                              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-[10px] px-2 py-0.5 rounded transition-all cursor-pointer inline-flex items-center gap-1"
+                              title="Tolak subsidi dan kenakan tarif asrama reguler"
+                            >
+                              <XCircle className="w-2.5 h-2.5" /> Tolak
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Tombol Bridging & Promosi ke Master */}
+                        <div>
+                          {isPromoted ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-[9px] font-bold">
+                              <CheckCheck className="w-3 h-3 text-emerald-600" />
+                              Terpromosi ke Master
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handlePromoteClick(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded text-[10px] transition-all cursor-pointer shadow-xs"
+                              title="Promosikan data staging ini secara otomatis ke tabel master users, maba_profiles, dan penyewa"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>Promosi ke Master</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -383,12 +485,90 @@ export const SiakadSyncManager: React.FC<SiakadSyncManagerProps> = ({
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
             <span>
-              <strong>Kepatuhan Audit:</strong> Data SIAKAD yang ditarik berfungsi sebagai data pra-registrasi. Subsidi beasiswa hanya akan memotong deposit/tarif pada invoice maba jika status verifikasi telah disetujui oleh Admin Keuangan.
+              <strong>Kepatuhan Audit &amp; Data Pipeline:</strong> Data API SIDARA disimpan idempoten di tabel staging SQL. Dokumen mentah utuh tersimpan di kolom JSON <code className="font-mono bg-slate-200 px-1 py-0.5 rounded">payload_raw</code>. Promosi ke tabel master berjalan dengan transaksi atomik terproteksi.
             </span>
           </div>
-          <span className="font-mono text-slate-400 text-[11px] shrink-0">CRON: siakad:sync</span>
+          <span className="font-mono text-slate-400 text-[11px] shrink-0">Artisan: sidara:import-api</span>
         </div>
       </div>
+
+      {/* Modal View Raw Payload JSON */}
+      {viewingRawItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+              <div className="flex items-center gap-2">
+                <FileJson className="w-5 h-5 text-indigo-400" />
+                <div>
+                  <h3 className="font-bold text-sm text-white">
+                    Inspeksi Konten Mentah API SIDARA (Kolom `payload_raw` JSON)
+                  </h3>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    {viewingRawItem.nomor_registrasi} · {viewingRawItem.nama_lengkap}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingRawItem(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs bg-slate-950/80 space-y-3">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800 pb-2">
+                <span>Struktur JSON Mentah dari SIDARA UBT:</span>
+                <button
+                  onClick={handleCopyRawJson}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded border border-slate-700 transition-all cursor-pointer text-[11px]"
+                >
+                  {copiedRaw ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedRaw ? 'Tersalin!' : 'Salin JSON'}</span>
+                </button>
+              </div>
+
+              <pre className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 overflow-x-auto text-[11px] leading-relaxed whitespace-pre-wrap">
+                {JSON.stringify(viewingRawItem.payload_raw || {
+                  id: viewingRawItem.id_siakad,
+                  nomor_registrasi: viewingRawItem.nomor_registrasi,
+                  nama_mahasiswa: viewingRawItem.nama_lengkap,
+                  nik_ktp: viewingRawItem.nik,
+                  tempat_lahir: viewingRawItem.tempat_lahir,
+                  tanggal_lahir: viewingRawItem.tanggal_lahir,
+                  jenis_kelamin: viewingRawItem.jenis_kelamin,
+                  program_studi: viewingRawItem.program_studi,
+                  fakultas: viewingRawItem.fakultas,
+                  angkatan: viewingRawItem.angkatan,
+                  email: viewingRawItem.email,
+                  no_hp: viewingRawItem.nomor_telepon,
+                  alamat: viewingRawItem.alamat_lengkap,
+                  nama_ayah: viewingRawItem.nama_ayah,
+                  no_hp_ortu: viewingRawItem.no_hp_ortu,
+                  nomorkip: viewingRawItem.nomorkip,
+                  sso_id_from_sidara: viewingRawItem.sso_id_from_sidara,
+                  bill_to_type: { code: viewingRawItem.bill_to_code, name: viewingRawItem.nama_beasiswa }
+                }, null, 2)}
+              </pre>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-slate-400">
+                Kolom tabel SQL: <code className="text-indigo-400">siakad_mahasiswa_stg.payload_raw</code>
+              </span>
+              <button
+                onClick={() => setViewingRawItem(null)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

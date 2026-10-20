@@ -5,7 +5,7 @@ import {
   Sparkles, 
   Wrench,
   FileText, 
-  Database,
+  Database, 
   Building2,
   Wallet,
   Settings2,
@@ -13,6 +13,7 @@ import {
   DatabaseZap,
   ChevronRight, 
   Settings,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
