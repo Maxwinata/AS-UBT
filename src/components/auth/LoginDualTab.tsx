@@ -23,12 +23,19 @@ import {
   Check
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { UserRole, SimabaStudent, SiakadMahasiswaStgRecord } from '../../types/asrama';
+import { UserRole, SimabaStudent, SiakadMahasiswaStgRecord, MabaProfile } from '../../types/asrama';
 import { INITIAL_SIAKAD_STAGING, INITIAL_SIMABA_STUDENTS } from '../../data/initialData';
 import { useTestingMode } from '../../context/TestingModeContext';
 
 interface LoginDualTabProps {
-  onLoginSuccess: (role: UserRole, nim: string, nama: string, notice?: string, scenario?: string) => void;
+  onLoginSuccess: (
+    role: UserRole,
+    nim: string,
+    nama: string,
+    notice?: string,
+    scenario?: string,
+    studentProfileData?: Partial<MabaProfile>
+  ) => void;
   siakadStaging?: SiakadMahasiswaStgRecord[];
 }
 
@@ -129,17 +136,66 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
     return [...fromSimaba, ...fromSiakad];
   }, [effectiveSiakad]);
 
-  const filteredStudents = debouncedSearch.trim().length >= 2
-    ? allCandidateStudents.filter((s) => {
-        const query = debouncedSearch.trim().toLowerCase();
-        return (
-          s.nama_mahasiswa.toLowerCase().includes(query) ||
-          s.nomor_pendaftaran.toLowerCase().includes(query) ||
-          (s.nik && s.nik.includes(query)) ||
-          s.program_studi.toLowerCase().includes(query)
-        );
-      }).slice(0, 8)
-    : [];
+  // Live query ke database endpoint /api/simaba/search-student (MySQL Laragon & Server API)
+  const [liveApiStudents, setLiveApiStudents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = debouncedSearch.trim();
+    if (q.length < 2) {
+      setLiveApiStudents([]);
+      return;
+    }
+
+    let isMounted = true;
+    fetch(`/api/simaba/search-student?q=${encodeURIComponent(q)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setLiveApiStudents(
+            data.map((item) => ({
+              id: item.id,
+              nomor_pendaftaran: item.nomor_pendaftaran,
+              nama_mahasiswa: item.nama_mahasiswa,
+              program_studi: item.program_studi,
+              jenis_mahasiswa: String(item.jenis_mahasiswa || '').toLowerCase() === 'kip' ? 'kip' : 'nonkip',
+              tanggal_lahir_formatted: item.tanggal_lahir_formatted,
+              tanggal_lahir: item.tanggal_lahir_raw,
+              source: 'SIMABA' as const,
+            }))
+          );
+        }
+      })
+      .catch(() => {
+        // Fallback anggun ke array kandidat lokal
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedSearch]);
+
+  const filteredStudents = React.useMemo(() => {
+    const query = debouncedSearch.trim().toLowerCase();
+    if (query.length < 2) return [];
+
+    const localMatches = allCandidateStudents.filter((s) => {
+      return (
+        s.nama_mahasiswa.toLowerCase().includes(query) ||
+        s.nomor_pendaftaran.toLowerCase().includes(query) ||
+        (s.nik && s.nik.includes(query)) ||
+        s.program_studi.toLowerCase().includes(query)
+      );
+    });
+
+    // Gabungkan hasil live API (MySQL) dengan hasil lokal, cegah duplikasi
+    const combined = [...liveApiStudents];
+    for (const local of localMatches) {
+      if (!combined.some((c) => c.nomor_pendaftaran === local.nomor_pendaftaran)) {
+        combined.push(local);
+      }
+    }
+    return combined.slice(0, 8);
+  }, [debouncedSearch, allCandidateStudents, liveApiStudents]);
 
   // Helper untuk menyorot bagian teks yang cocok dengan kata kunci pencarian
   const highlightMatch = (text: string, query: string) => {
@@ -354,9 +410,57 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
         return;
       }
 
-      const studentName = simabaMatch ? simabaMatch.nama_mahasiswa : (siakadMatch ? siakadMatch.nama_lengkap : 'Calon Mahasiswa Baru');
-      const studentNoReg = simabaMatch ? simabaMatch.nomor_pendaftaran : cleanReg;
-      onLoginSuccess('maba', studentNoReg, studentName, undefined, selectedScenario);
+      const computeFakultas = (prodi: string) => {
+        if (/Gizi|Kesehatan|Keperawatan|Kebidanan|Farmasi/i.test(prodi)) return 'Fakultas Ilmu Kesehatan';
+        if (/Hukum/i.test(prodi)) return 'Fakultas Hukum';
+        if (/Informatika|Teknik|Komputer/i.test(prodi)) return 'Fakultas Teknik';
+        if (/Manajemen|Ekonomi|Akuntansi/i.test(prodi)) return 'Fakultas Ekonomi & Bisnis';
+        if (/Pendidikan|Guru|FKIP/i.test(prodi)) return 'Fakultas Keguruan & Ilmu Pendidikan';
+        return 'Fakultas Terkait';
+      };
+
+      const studentName = simabaMatch ? simabaMatch.nama_mahasiswa : (siakadMatch ? siakadMatch.nama_lengkap : (selectedStudent ? selectedStudent.nama_mahasiswa : 'Calon Mahasiswa Baru'));
+      const studentNoReg = simabaMatch ? simabaMatch.nomor_pendaftaran : (selectedStudent ? selectedStudent.nomor_pendaftaran : cleanReg);
+      const isKip = simabaMatch
+        ? simabaMatch.jenis_mahasiswa === 'kip'
+        : (siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : (selectedStudent ? selectedStudent.jenis_mahasiswa === 'kip' : false));
+
+      const studentProdi = simabaMatch ? simabaMatch.program_studi : (siakadMatch ? siakadMatch.program_studi : (selectedStudent ? selectedStudent.program_studi : 'Teknik Informatika'));
+      const studentFakultas = siakadMatch?.fakultas || computeFakultas(studentProdi);
+      const studentPhone = simabaMatch?.no_hp || siakadMatch?.nomor_telepon || (selectedStudent?.no_hp) || '';
+      const studentEmail = simabaMatch?.email || siakadMatch?.email || (selectedStudent?.email) || '';
+      const studentNik = simabaMatch?.nik || siakadMatch?.nik || (selectedStudent?.nik) || '';
+      const rawGender = simabaMatch?.jenis_kelamin || siakadMatch?.jenis_kelamin || selectedStudent?.jenis_kelamin;
+      const studentGender = rawGender === 'P' || rawGender === 'Perempuan' ? 'Perempuan' : 'Laki-laki';
+      const studentAlamat = simabaMatch?.alamat || siakadMatch?.alamat_lengkap || selectedStudent?.alamat || '';
+      const studentTglLahir = simabaMatch?.tanggal_lahir_formatted || selectedStudent?.tanggal_lahir_formatted || cleanBirth;
+      const studentTempatLahir = simabaMatch?.tempat_lahir || siakadMatch?.tempat_lahir || selectedStudent?.tempat_lahir || 'TARAKAN';
+      const studentKipNumber = isKip ? (simabaMatch?.nomorkip || siakadMatch?.nomorkip || selectedStudent?.nomorkip || studentNoReg) : undefined;
+      const ssoId = siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined;
+
+      const profilePayload: Partial<MabaProfile> = {
+        nama: studentName,
+        noPmb: studentNoReg,
+        nim: siakadMatch?.has_active_nim && siakadMatch?.nim_resmi ? siakadMatch.nim_resmi : '',
+        nik: studentNik,
+        prodi: studentProdi,
+        fakultas: studentFakultas,
+        jenisKelamin: studentGender,
+        noHpWa: studentPhone,
+        email: studentEmail,
+        alamatKtpJalan: studentAlamat,
+        alamatDomisiliJalan: studentAlamat,
+        isKipStudent: isKip,
+        kategori: isKip ? 'KIP-Kuliah' : 'Reguler',
+        kipNumber: studentKipNumber,
+        tempatLahir: studentTempatLahir,
+        tanggalLahirFormatted: studentTglLahir,
+        ssoIdFromSidara: ssoId,
+        kycVerified: false,
+        kycSubmitted: false,
+      };
+
+      onLoginSuccess('maba', studentNoReg, studentName, undefined, selectedScenario, profilePayload);
     }, 600);
   };
 
@@ -407,12 +511,50 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
     const studentName = matched ? matched.nama_lengkap : 'Mahasiswa Aktif UBT';
     const scenario = 'SMART_PREFILL';
 
+    const computeFakultas = (prodi: string) => {
+      if (/Gizi|Kesehatan|Keperawatan|Kebidanan|Farmasi/i.test(prodi)) return 'Fakultas Ilmu Kesehatan';
+      if (/Hukum/i.test(prodi)) return 'Fakultas Hukum';
+      if (/Informatika|Teknik|Komputer/i.test(prodi)) return 'Fakultas Teknik';
+      if (/Manajemen|Ekonomi|Akuntansi/i.test(prodi)) return 'Fakultas Ekonomi & Bisnis';
+      if (/Pendidikan|Guru|FKIP/i.test(prodi)) return 'Fakultas Keguruan & Ilmu Pendidikan';
+      return 'Fakultas Terkait';
+    };
+
+    const isKip = matched ? matched.kategori_beasiswa === 'kip' : false;
+    const studentProdi = matched?.program_studi || 'S1 Teknik Informatika';
+    const studentFakultas = matched?.fakultas || computeFakultas(studentProdi);
+    const gender = matched?.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki';
+
+    const ssoProfilePayload: Partial<MabaProfile> = {
+      nama: studentName,
+      nim: matched?.nim_resmi || ssoUsername,
+      noPmb: matched?.nomor_registrasi || ssoUsername,
+      nik: matched?.nik || '',
+      prodi: studentProdi,
+      fakultas: studentFakultas,
+      jenisKelamin: gender,
+      noHpWa: matched?.nomor_telepon || '',
+      email: matched?.email || '',
+      alamatKtpJalan: matched?.alamat_lengkap || '',
+      alamatDomisiliJalan: matched?.alamat_lengkap || '',
+      isKipStudent: isKip,
+      kategori: isKip ? 'KIP-Kuliah' : 'Reguler',
+      kipNumber: isKip ? (matched?.nomorkip || ssoUsername) : undefined,
+      ssoIdFromSidara: matched?.sso_id_from_sidara !== undefined ? String(matched.sso_id_from_sidara) : undefined,
+      ssoSource: 'SIAKAD_SIDARA',
+      isFastTrackSso: false,
+      isKycRequired: true,
+      kycVerified: false,
+      kycSubmitted: false,
+    };
+
     onLoginSuccess(
       'maba',
       ssoUsername,
       studentName,
       `SSO SIAKAD terverifikasi (NIM ${ssoUsername}). Silakan lengkapi validasi identitas di Tahap 1.`,
-      scenario
+      scenario,
+      ssoProfilePayload
     );
   };
 
@@ -442,6 +584,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
               onClick={() => {
                 setCleanLoginTab('pmb');
                 setErrorMessage('');
+                setShowNameSuggestions(false);
               }}
               className={`py-2 rounded-lg transition-all cursor-pointer text-center ${
                 cleanLoginTab === 'pmb'
@@ -457,6 +600,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
               onClick={() => {
                 setCleanLoginTab('sso');
                 setErrorMessage('');
+                setShowNameSuggestions(false);
               }}
               className={`py-2 rounded-lg transition-all cursor-pointer text-center ${
                 cleanLoginTab === 'sso'
@@ -468,13 +612,21 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
             </button>
           </div>
 
-          {/* TAB 1: FORM PENDAFTARAN PMB */}
+          {/* TAB 1: FORM PENDAFTARAN PMB DENGAN LIVE QUERY SIMABA BERDASARKAN NAMA */}
           {cleanLoginTab === 'pmb' ? (
             <form id="form-clean-pmb" onSubmit={handleMabaSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Nomor Pendaftaran PMB / NIK
-                </label>
+              <div className="relative" ref={suggestionsRef}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Nama Calon Mahasiswa / No. PMB</span>
+                  </label>
+                  <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <Database className="w-3 h-3 text-teal-600" />
+                    Live Query SIMABA
+                  </span>
+                </div>
+
                 <div className="relative">
                   <input
                     id="clean-input-pmb"
@@ -482,15 +634,117 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
                     value={pmbNoReg}
                     onChange={(e) => {
                       setPmbNoReg(e.target.value);
-                      setDebouncedSearch(e.target.value);
+                      setShowNameSuggestions(true);
+                      if (selectedStudent && selectedStudent.nomor_pendaftaran !== e.target.value) {
+                        setSelectedStudent(null);
+                      }
                     }}
-                    placeholder="Contoh: PMB2026-08942 atau 260108001"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-mono shadow-xs"
+                    onKeyDown={handleInputKeyDown}
+                    onFocus={() => {
+                      if (pmbNoReg.trim().length >= 2 && !selectedStudent) {
+                        setShowNameSuggestions(true);
+                      }
+                    }}
+                    placeholder="Ketik nama (Grace, Jenny, Alvin, Maza) atau No. PMB..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-9 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-medium shadow-xs"
                     required
+                    autoComplete="off"
                   />
+                  {isSearching ? (
+                    <Loader2 className="w-4 h-4 text-teal-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  ) : (
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  )}
+                  {pmbNoReg && (
+                    <button
+                      type="button"
+                      onClick={handleResetSelectedStudent}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      title="Bersihkan input pencarian"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Masukkan nomor registrasi PMB resmi Anda dari sistem SIMABA/SIDARA.
+
+                {/* LIVE SUGGESTION DROPDOWN DI CLEAN MODE */}
+                {showNameSuggestions && filteredStudents.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-teal-300 rounded-xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-100 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                    <div className="bg-slate-50 px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-600 font-semibold border-b border-slate-200/80">
+                      <span className="flex items-center gap-1.5 text-teal-900 font-bold">
+                        <User className="w-3.5 h-3.5 text-teal-600" />
+                        Hasil Query SIMABA ({filteredStudents.length})
+                      </span>
+                      <span className="text-[10px] text-teal-800 font-mono bg-teal-100/70 px-1.5 py-0.5 rounded border border-teal-200">
+                        [↑][↓] & [Enter]
+                      </span>
+                    </div>
+                    {filteredStudents.map((s, idx) => {
+                      const isFocused = idx === activeSuggestionIndex;
+                      return (
+                        <div
+                          id={`suggestion-item-${idx}`}
+                          key={s.id}
+                          onClick={() => handleSelectStudent(s)}
+                          onMouseEnter={() => setActiveSuggestionIndex(idx)}
+                          className={`p-2.5 transition-colors cursor-pointer flex items-center justify-between gap-2.5 ${
+                            isFocused
+                              ? 'bg-teal-50 border-l-4 border-l-teal-600 pl-2 text-teal-950 font-medium'
+                              : 'hover:bg-slate-50 border-l-4 border-l-transparent text-slate-700'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-xs text-slate-900 truncate">
+                              {highlightMatch(s.nama_mahasiswa, debouncedSearch)}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-200">
+                                PMB: {highlightMatch(s.nomor_pendaftaran, debouncedSearch)}
+                              </span>
+                              <span className="text-[10px] font-medium bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded border border-teal-200 truncate max-w-[150px]">
+                                {s.program_studi}
+                              </span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                s.jenis_mahasiswa === 'kip'
+                                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                {s.jenis_mahasiswa === 'kip' ? 'KIP Kuliah' : 'Reguler'}
+                              </span>
+                            </div>
+                          </div>
+                          <BadgeCheck className="w-4 h-4 text-teal-600 shrink-0" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* VERIFIED STUDENT BADGE CHIP */}
+                {selectedStudent && (
+                  <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-950 animate-in fade-in">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-bold">{selectedStudent.nama_mahasiswa}</span>
+                        <span className="text-[11px] text-emerald-800 ml-1.5 font-medium truncate">
+                          ({selectedStudent.program_studi} · Tgl Lahir otomatis terisi)
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetSelectedStudent}
+                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline shrink-0 ml-2 cursor-pointer"
+                    >
+                      Ganti
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                  <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Ketik minimal 2 huruf nama untuk mencari otomatis dari pangkalan data PMB.</span>
                 </p>
               </div>
 
@@ -503,15 +757,7 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
                     id="clean-input-birthdate"
                     type="text"
                     value={mabaBirthDate}
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/[^0-9]/g, '');
-                      if (val.length > 2 && val.length <= 4) {
-                        val = `${val.slice(0, 2)}/${val.slice(2)}`;
-                      } else if (val.length > 4) {
-                        val = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}`;
-                      }
-                      setMabaBirthDate(val);
-                    }}
+                    onChange={(e) => handleBirthDateChange(e.target.value)}
                     placeholder="DD/MM/YYYY"
                     maxLength={10}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-mono shadow-xs"
@@ -647,11 +893,42 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
                   type="button"
                   onClick={() => {
                     setShowNimDetectedModal(false);
+                    const computeFakultas = (prodi: string) => {
+                      if (/Gizi|Kesehatan|Keperawatan|Kebidanan|Farmasi/i.test(prodi)) return 'Fakultas Ilmu Kesehatan';
+                      if (/Hukum/i.test(prodi)) return 'Fakultas Hukum';
+                      if (/Informatika|Teknik|Komputer/i.test(prodi)) return 'Fakultas Teknik';
+                      if (/Manajemen|Ekonomi|Akuntansi/i.test(prodi)) return 'Fakultas Ekonomi & Bisnis';
+                      if (/Pendidikan|Guru|FKIP/i.test(prodi)) return 'Fakultas Keguruan & Ilmu Pendidikan';
+                      return 'Fakultas Terkait';
+                    };
+                    const isKip = detectedNimStudent.kategori_beasiswa === 'kip';
+                    const payload: Partial<MabaProfile> = {
+                      nama: detectedNimStudent.nama_lengkap,
+                      nim: detectedNimStudent.nim_resmi,
+                      noPmb: detectedNimStudent.nomor_registrasi,
+                      nik: detectedNimStudent.nik,
+                      prodi: detectedNimStudent.program_studi,
+                      fakultas: detectedNimStudent.fakultas || computeFakultas(detectedNimStudent.program_studi),
+                      jenisKelamin: detectedNimStudent.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki',
+                      noHpWa: detectedNimStudent.nomor_telepon || '',
+                      email: detectedNimStudent.email || '',
+                      alamatKtpJalan: detectedNimStudent.alamat_lengkap || '',
+                      alamatDomisiliJalan: detectedNimStudent.alamat_lengkap || '',
+                      isKipStudent: isKip,
+                      kategori: isKip ? 'KIP-Kuliah' : 'Reguler',
+                      kipNumber: isKip ? (detectedNimStudent.nomorkip || detectedNimStudent.nim_resmi) : undefined,
+                      ssoIdFromSidara: detectedNimStudent.sso_id_from_sidara !== undefined ? String(detectedNimStudent.sso_id_from_sidara) : undefined,
+                      ssoSource: 'SIAKAD_SIDARA',
+                      kycVerified: false,
+                      kycSubmitted: false,
+                    };
                     onLoginSuccess(
                       'maba',
                       detectedNimStudent.nim_resmi,
                       detectedNimStudent.nama_lengkap,
-                      `NIM Resmi (${detectedNimStudent.nim_resmi}) telah tersinkronisasi.`
+                      `NIM Resmi (${detectedNimStudent.nim_resmi}) telah tersinkronisasi.`,
+                      'SMART_PREFILL',
+                      payload
                     );
                   }}
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs cursor-pointer"

@@ -1,92 +1,134 @@
-# Rencana Implementasi: Transisi Mode Produksi Riil (Non-Dummy) & Penyimpanan Permanen MySQL Laragon
+# Rencana Implementasi: Sinkronisasi Penuh Data Akademik Calon Mahasiswa ke Formulir Validasi Identitas & Isolasi Draf per Akun
 
-Rencana kerja ini disusun untuk merespons kebutuhan pengguna: menjadikan Portal Asrama UBT beroperasi secara praktis, bersih, dan berorientasi produksi langsung (*production-first*), dengan penyimpanan data permanen ke basis data MySQL Laragon secara default, serta menyediakan kontrol elegan untuk beralih antara **Mode Produksi (Riil)** dan **Mode Simulasi (Demo/Uji Coba)**.
-
----
-
-## 1. User Review Required (Keputusan & Konfirmasi Kunci)
-
-- **Default Mode Aplikasi**: Sistem akan secara default berjalan dalam **Mode Produksi (Real Mode)**:
-  - Formulir login, pendaftaran kamar, e-KYC, dan invoice tampil bersih tanpa banner simulasi, tanpa tombol preset nama demo (Maximilian, Jenny, dll.), dan tanpa bilah sandbox mengambang.
-- **Mekanisme Switch / Toggle Mode**:
-  - Diletakkan tombol switch profesional (*discreet toggle*) di header navigasi atau footer sistem: **[Mode: Produksi Riil 🟢]** $\leftrightarrow$ **[Mode: Simulasi / Sandbox 🧪]**.
-  - Status tersimpan dalam `localStorage` dan session server (`HandleInertiaRequests.php`).
-- **Penyimpanan Permanen MySQL Laragon**:
-  - Memastikan seluruh form pada alur pendaftaran mahasiswa (Maba), unggah dokumen e-KYC, pemesanan kamar, dan persetujuan admin terkoneksi ke rute backend Laravel 11 (`routes/web.php` & `routes/api.php`) yang melakukan commit permanen ke tabel MySQL `asrama_ubt_db`.
-  - Mengupdate `laragon-setup.bat` agar secara default menggunakan `ProductionSeeder.php` (hanya akun staf resmi, master tarif SK Rektor, dan 64 kamar fisik riil, 100% bebas dari akun dummy mahasiswa).
+Rencana kerja ini disusun untuk mengatasi kendala yang Anda temukan: pilihan calon mahasiswa / username saat di halaman login belum tersambung secara berkelanjutan ke data akademik yang bersangkutan pada formulir Validasi Identitas (Tahap 1) di Dashboard Maba.
 
 ---
 
-## 2. Rincian Perubahan Kode & Komponen
+## 1. Analisis Akar Masalah (Root Cause Analysis)
 
-### A. Frontend UI & State Mode (`src/` & `resources/js/`)
+Setelah melakukan audit mendalam pada aliran data antara `LoginDualTab.tsx` → `App.tsx` → `MabaDashboard.tsx`, ditemukan 4 kendala utama:
 
-1. **`src/context/TestingModeContext.tsx`**:
-   - Mengubah nilai bawaan (`defaultState`) agar secara default `isCleanTesting: true` (Mode Produksi).
-   - Menambahkan opsi eksplisit switch `activeMode: 'production' | 'simulation'`.
-   - Mengintegrasikan deteksi environment server (Inertia shared props `props.uiMode`) agar otomatis sinkron dengan file `.env` di Laragon.
-
-2. **Komponen Pengalih Mode (`src/components/layout/ProductionModeSwitch.tsx`)**:
-   - Membuat komponen switch mode yang elegan dan non-intrusif di bilah navigasi atas atau sudut footer:
-     - Badge status: `🟢 Mode Produksi (Data Riil MySQL)` dengan indikator koneksi.
-     - Opsi dropdown/toggle: Beralih ke `🧪 Mode Simulasi / Demo Presets` jika pengguna membutuhkan demonstrasi pengujian cepat.
-
-3. **Pembersihan Formulir Login (`src/components/auth/LoginDualTab.tsx`)**:
-   - Di Mode Produksi (Default):
-     - Menghilangkan deretan tombol preset demo (*Maximilian Wimin Winata*, *Jenny*, *Ahmad Zaky*, dll.) dari tampilan form login utama.
-     - Menyediakan input bersih untuk Nomor Pendaftaran PMB / NIK / Nama Mahasiswa dan Tanggal Lahir (DD/MM/YYYY).
-     - Menghilangkan badge floating sandbox simulasi dari area login.
-   - Di Mode Simulasi (Saat Diaktifkan):
-     - Membuka laci (*drawer*) alat bantu pengujian bagi evaluator atau pengembang.
-
-4. **Pembersihan Dashboard Mahasiswa Baru (`src/components/maba/MabaDashboard.tsx`)**:
-   - Di Mode Produksi (Default):
-     - Menyembunyikan banner promosi demo dan *floating quick sandbox bar*.
-     - Alur langsung fokus pada 4 tahap pendaftaran resmi (Tahap 1: Profil & e-KYC, Tahap 2: Pilih Kamar Riil, Tahap 3: Tagihan BSI & Bukti Transfer, Tahap 4: Kontrak Digital).
-     - Status data mencerminkan data aktual dari database.
-
-5. **Konektor API & Sinkronisasi Form (`src/services/apiSync.ts` atau Axios Helper)**:
-   - Memastikan saat berjalan di peramban yang terhubung ke backend Laravel Laragon (`http://asrama-ubt.test` atau `http://127.0.0.1:8000`), seluruh pengiriman formulir memicu HTTP request POST/PUT ke rute Laravel dengan proteksi CSRF.
-
-### B. Backend Laravel 11 & Laragon Database Setup (`app/`, `database/`, `laragon-setup.bat`)
-
-1. **`laragon-setup.bat` & `laragon-setup.sh`**:
-   - Memodifikasi langkah migrasi: Menyediakan pilihan otomatis atau menjadikan `ProductionSeeder` sebagai pilihan seeder utama untuk lingkungan produksi riil.
-   - Memastikan pembuatan tabel MySQL `asrama_ubt_db` siap menerima data pendaftar baru tanpa konflik ID dengan data dummy.
-
-2. **Middleware Inertia (`app/Http/Middleware/HandleInertiaRequests.php`)**:
-   - Memastikan pembacaan konfigurasi `APP_UI_MODE` dan `APP_ENV`:
-     - Jika `APP_ENV=production` atau `APP_UI_MODE=production`: Menyajikan props `isCleanTesting: true` dan menyembunyikan semua artefak pengujian.
-     - Mengizinkan session toggle `testing_ui_mode_active` jika pengguna secara sadar mengaktifkannya via switch UI.
-
-3. **Pengendali Pendaftaran Mahasiswa (`app/Http/Controllers/Maba/MabaDashboardController.php`)**:
-   - Memastikan metode `updateProfile`, `reserveRoom`, dan `signContract` menyimpan data lengkap ke tabel `maba_profiles`, `rooms`, `billing_invoices`, dan `contracts`.
+1. **State `profile` di `MabaDashboard.tsx` Tidak Ter-sinkronisasi Ulang saat Berganti Akun**:
+   - `MabaDashboard.tsx` hanya menginisialisasi state `profile` saat *mount* pertama melalui `useState(initialProfile)`.
+   - Tidak ada `React.useEffect` yang mendengarkan perubahan prop `initialProfile`. Akibatnya, ketika pengguna login dengan akun berbeda (misalnya Grace Marlin, Alvin Hutasoit, atau Maza Aditiya), data di Tahap 1 tetap menampilkan data siswa sebelumnya atau data *default* Maximilian.
+2. **Kunci Penyimpanan Draf `localStorage` Bercampur (*Draft Collision*)**:
+   - Fungsi `getDraftStorageKey` menggunakan *fallback* `'default'` atau `'Belum tersedia'`. Jika satu mahasiswa menyimpan draf biodata, draf tersebut secara keliru dimuat oleh mahasiswa lain yang login berikutnya.
+3. **Pemotongan Nilai NIM pada `App.tsx`**:
+   - Pada `handleLoginSuccess`, terdapat aturan `/^\d{8,10}$/.test(nim)` yang secara keliru mengosongkan nilai `finalNim = ''` untuk seluruh nomor 8–10 digit (termasuk NIM resmi mahasiswa dari SSO SIAKAD).
+   - Akibatnya, mahasiswa yang masuk lewat jalur SSO atau mahasiswa PMB dengan NIM resmi mendapati kolom NIM di formulir menjadi kosong (*"Belum tersedia"*).
+4. **Kehilangan Metadata Akademik saat Transmisi Login**:
+   - Callback `onLoginSuccess(role, nim, nama, notice, scenario)` hanya mengirimkan string nama dan nomor identitas dasar tanpa membawa objek data akademik lengkap (Program Studi, Fakultas, Tempat/Tanggal Lahir, Jenis Kelamin, Status Beasiswa KIP, No. HP, Email, dan Alamat asal).
 
 ---
 
-## 3. Arah Desain & Disiplin Visual (Sesuai `frontend-design` & SaaS Standards)
+## 2. Rencana Perubahan Arsitektur & Antarmuka
 
-- **Tone & Persona**: Utilitarian, bersih, formal institusional Universitas Bunda Thamrin.
-- **Palette**:
-  - Primary: Deep Slate (`#0f172a`), Dark Charcoal (`#1e293b`), Crisp Institutional Border (`#e2e8f0`).
-  - Accent: Medical/Academic Teal (`#0d9488` / `#0f766e`) untuk aksi primer dan indikator status aktif.
-  - Background: Crisp Slate 50 (`#f8fafc`) dengan kontras kartu putih murni (`#ffffff`).
-- **Zero-Pill Discipline**:
-  - Menghindari tombol pill oval bulat penuh ala prototipe mainan.
-  - Menggunakan sudut melengkung mikro modern (`rounded-md` atau `rounded-lg`) dengan ketegasan hierarki tipografi.
-- **Visual Clarity**:
-  - Tidak ada floating badges animasi yang mengganggu fokus kerja kasir dan pendaftar.
-  - Status koneksi database ditampilkan sebagai badge status profesional kecil (misal: `🟢 Terhubung ke MySQL Laragon`).
+Mengacu pada prinsip desain *Universal Frontend Design Constitution* (integritas fungsional, hierarki informasi yang jelas, dan penolakan data tiruan):
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               ALUR KONTINUITAS DATA AKADEMIK LOGIN KE VALIDASI IDENTITAS               │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+
+ [HALAMAN LOGIN: LoginDualTab.tsx]
+  • Pencarian Nama / No. PMB (SIMABA) atau Input NIM (SSO SIDARA)
+  • Pengambilan Record Akademik Lengkap:
+    (nama, no_pmb, nim, nik, prodi, fakultas, gender, phone, email, alamat, jalur KIP)
+                   │
+                   ▼
+ [ORCHESTRATOR APP: App.tsx (handleLoginSuccess)]
+  • Rekonstruksi MabaProfile utuh & spesifik untuk siswa terpilih
+  • Pertahankan NIM resmi (tanpa pemotongan regex salah)
+  • Inisialisasi Invoice & Billing sesuai kategori beasiswa (KIP vs Reguler)
+  • Injeksi ke state mabaProfile
+                   │
+                   ▼
+ [FORMULIR VALIDASI IDENTITAS: MabaDashboard.tsx (Tahap 1)]
+  • useEffect Reaktif: Sync otomatis saat initialProfile berubah
+  • Isolasi Draf: mabaProfileDraft_{nomor_pendaftaran}
+  • Tampilan Data Akademik Terkunci & Terverifikasi:
+    - Nama Lengkap (Sesuai SIMABA/SIDARA)
+    - Nomor Pendaftaran PMB & NIM Resmi
+    - NIK KTP & Tanggal Lahir Terkalibrasi
+    - Program Studi & Fakultas Terkait
+    - Kategori Pembayaran (Reguler / KIP-Kuliah)
+```
 
 ---
 
-## 4. Rencana Verifikasi & Validasi
+## 3. Rincian Modifikasi Berkas
 
-1. **Uji Kompilasi & Build**:
-   - Menjalankan `compile_applet` untuk memastikan tidak ada kesalahan kompilasi TypeScript/Vite.
-   - Menjalankan `lint_applet` untuk memastikan kepatuhan kode dan kebersihan imports.
-2. **Uji Mode Switch (Client & Laragon)**:
-   - Memverifikasi saat mode "Produksi" aktif: seluruh tombol preset dummy dan floating sandbox hilang 100%.
-   - Memverifikasi saat mode dialihkan ke "Simulasi": panel pengujian dapat dibuka kembali secara aman.
-3. **Uji Integritas MySQL Laragon**:
-   - Menjalankan skrip `laragon-test-crud.bat` untuk memverifikasi kesiapan tabel master (`asrama_ubt_db`) dan model Eloquent.
+### A. `src/types/asrama.ts`
+- Perluas antarmuka `LoginDualTabProps.onLoginSuccess` agar menerima payload opsional `studentProfileData?: Partial<MabaProfile>`.
+
+### B. `src/components/auth/LoginDualTab.tsx`
+- **Pendaftaran PMB**: Saat calon mahasiswa memilih hasil pencarian nama atau melakukan *submit*, bangun payload akademik lengkap (`nama`, `noPmb`, `nik`, `prodi`, `fakultas`, `jenisKelamin`, `noHpWa`, `email`, `alamat`, `isKipStudent`, `tanggalLahirFormatted`) dan kirimkan langsung via `onLoginSuccess`.
+- **Login SSO SIAKAD**: Saat mahasiswa SSO masuk dan dialihkan ke pendaftaran, lakukan pencocokan ke `effectiveSiakad` atau `INITIAL_SIMABA_STUDENTS` dan kirimkan data akademik resminya (termasuk NIM 10 digit, Prodi, Fakultas, dan Email).
+
+### C. `src/App.tsx`
+- Modifikasi `handleLoginSuccess`:
+  - Tangkap payload profil akademik langsung dari login.
+  - Perbaiki evaluasi NIM: Jika input adalah nomor mahasiswa (misal: 10 digit NIM SSO atau nomor pendaftaran), petakan secara akurat:
+    - `noPmb`: Nomor Pendaftaran PMB siswa.
+    - `nim`: NIM resmi jika sudah diterbitkan, atau string kosong jika calon mahasiswa murni.
+  - Set `mabaProfile` dengan seluruh data akademik siswa terpilih (Nama, Prodi, Fakultas, Angkatan, NIK, Gender, No HP, Alamat).
+  - Sinkronkan `invoices[0]` dengan nama dan status KIP/Reguler siswa.
+
+### D. `src/components/maba/MabaDashboard.tsx`
+- **Reaktifitas Prop `initialProfile`**:
+  Tambahkan `useEffect` yang memantau perubahan `initialProfile`:
+  ```tsx
+  React.useEffect(() => {
+    const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
+    const saved = localStorage.getItem(draftKey);
+    if (saved && (!initialProfile.kycSubmitted || initialProfile.correctionStatus === 'unlocked')) {
+      try {
+        const parsed = JSON.parse(saved);
+        const draftProfile = parsed.profile ? parsed.profile : parsed;
+        setProfile({ ...initialProfile, ...draftProfile });
+        return;
+      } catch {}
+    }
+    setProfile(initialProfile);
+  }, [initialProfile.noPmb, initialProfile.nim, initialProfile.nama]);
+  ```
+- **Isolasi Draf per Akun (`getDraftStorageKey`)**:
+  Pastikan setiap akun memiliki kunci draf terpisah berbasis `noPmb` atau `nim` spesifik (`mabaProfileDraft_${cleanId}`). Cegah penggunaan kunci global yang dapat membocorkan draf antar akun pengujian.
+
+---
+
+## 4. Rencana Verifikasi & Pengujian Kasus Nyata
+
+1. **Kasus Uji 1 (Mahasiswa Reguler SIMABA - Grace Marlin)**:
+   - Login via pencarian nama "Grace Marlin" (`260108001`).
+   - Verifikasi di Tahap 1:
+     - Nama Lengkap: `GRACE MARLIN TELAUMBANUA`
+     - No. PMB: `260108001`
+     - Program Studi: `S1 Gizi`
+     - Fakultas: `Fakultas Ilmu Kesehatan`
+     - Status: `Reguler`
+
+2. **Kasus Uji 2 (Mahasiswa Hukum - Alvin Hutasoit)**:
+   - Login via pencarian nama "Alvin" (`260727002`).
+   - Verifikasi di Tahap 1:
+     - Nama Lengkap: `Alvin Octavianus Hasiholan Hutasoit`
+     - No. PMB: `260727002`
+     - Program Studi: `S1 Hukum`
+     - Fakultas: `Fakultas Hukum`
+
+3. **Kasus Uji 3 (Penerima Beasiswa KIP - Maza Aditiya)**:
+   - Login via nama "Maza" (`250830002`).
+   - Verifikasi di Tahap 1:
+     - Nama Lengkap: `MAZA ADITIYA`
+     - Status Kategori: `KIP-Kuliah` (Badge KIP otomatis terpasang)
+     - Nomor KIP: `1125102647611790758`
+
+4. **Kasus Uji 4 (Login SSO SIAKAD - Ahmad Zaky / Nurhaliza)**:
+   - Login via SSO NIM `2240101088`.
+   - Verifikasi di Tahap 1:
+     - NIM: `2240101088` (tidak terpotong kosong)
+     - Nama: `Ahmad Zaky`
+     - Program Studi: `S1 Teknik Informatika`
+
+5. **Kompilasi & Linting**:
+   - Jalankan `npm run lint` (`tsc --noEmit`) dan `compile_applet` untuk memastikan nol error tipe atau sintaks.

@@ -37,6 +37,11 @@ export interface MabaProfile {
   noHpWa: string;
   email: string;
   ssoIdFromSidara?: string | number; // Foreign key penghubung akun SSO SIDARA
+  tempatLahir?: string;
+  tanggalLahir?: string;
+  tanggalLahirFormatted?: string;
+  agama?: string;
+  asalSekolah?: string;
 
   // Alamat KTP (Asal)
   alamatKtpJalan: string;

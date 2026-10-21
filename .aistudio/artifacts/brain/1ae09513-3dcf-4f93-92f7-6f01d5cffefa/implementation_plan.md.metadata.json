@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana implementasi transisi Portal Asrama UBT ke Mode Produksi Riil (Non-Dummy) default dengan opsi beralih mode simulasi elegan, penyimpanan permanen langsung ke MySQL Laragon, dan eliminasi distraksi elemen dummy prototipe.",
-  "updatedAt":  "2026-10-21T07:15:01.282391852Z",
+  "summary":  "Rencana implementasi sinkronisasi penuh data akademik calon mahasiswa (SIMABA & SIDARA) dari halaman login ke formulir Validasi Identitas (Tahap 1), penanganan NIM resmi, dan isolasi penyimpanan draf per akun pendaftar.",
+  "updatedAt":  "2026-10-21T08:09:27.857621876Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

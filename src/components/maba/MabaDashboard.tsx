@@ -198,21 +198,33 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
     }, 100); // small delay to ensure DOM is ready
   }, [currentStep]);
 
-  // Helper to generate unique storage key for student draft
+  // Helper to generate unique storage key for student draft (Isolated per student account)
   const getDraftStorageKey = (nim?: string, pmb?: string) => {
-    const id = (nim && !nim.startsWith('REG') && nim !== 'Belum tersedia' ? nim : '') || pmb || nim || 'default';
+    const cleanPmb = pmb && pmb.trim() && pmb !== 'Belum tersedia' ? pmb.trim() : '';
+    const cleanNim = nim && !nim.startsWith('REG') && !nim.startsWith('PMB') && nim !== 'Belum tersedia' ? nim.trim() : '';
+    const id = cleanPmb || cleanNim || (nim && nim.trim()) || 'default';
     return `mabaProfileDraft_${id}`;
   };
 
   // Profile & e-KYC State with Draft Auto-Recovery
   const [profile, setProfile] = useState<any>(() => {
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
-    const saved = localStorage.getItem(draftKey) || localStorage.getItem(`mabaProfileDraft_${initialProfile.nim}`);
+    const saved = localStorage.getItem(draftKey);
     if (saved && (!initialProfile.kycSubmitted || initialProfile.correctionStatus === 'unlocked')) {
       try {
         const parsed = JSON.parse(saved);
         const draftProfile = parsed.profile ? parsed.profile : parsed;
-        return { ...initialProfile, ...draftProfile };
+        return {
+          ...initialProfile,
+          ...draftProfile,
+          nama: initialProfile.nama || draftProfile.nama,
+          noPmb: initialProfile.noPmb || draftProfile.noPmb,
+          nim: initialProfile.nim !== undefined ? initialProfile.nim : draftProfile.nim,
+          prodi: initialProfile.prodi || draftProfile.prodi,
+          fakultas: initialProfile.fakultas || draftProfile.fakultas,
+          isKipStudent: initialProfile.isKipStudent !== undefined ? initialProfile.isKipStudent : draftProfile.isKipStudent,
+          kategori: initialProfile.kategori || draftProfile.kategori,
+        };
       } catch (e) {
         return initialProfile;
       }
@@ -222,7 +234,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
   const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(() => {
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
-    const saved = localStorage.getItem(draftKey) || localStorage.getItem(`mabaProfileDraft_${initialProfile.nim}`);
+    const saved = localStorage.getItem(draftKey);
     if (saved && (!initialProfile.kycSubmitted || initialProfile.correctionStatus === 'unlocked')) {
       try {
         const parsed = JSON.parse(saved);
@@ -238,7 +250,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(() => {
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
-    const saved = localStorage.getItem(draftKey) || localStorage.getItem(`mabaProfileDraft_${initialProfile.nim}`);
+    const saved = localStorage.getItem(draftKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -252,17 +264,16 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'restored'>(() => {
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
-    const saved = localStorage.getItem(draftKey) || localStorage.getItem(`mabaProfileDraft_${initialProfile.nim}`);
+    const saved = localStorage.getItem(draftKey);
     return saved && (!initialProfile.kycSubmitted || initialProfile.correctionStatus === 'unlocked') ? 'restored' : 'idle';
   });
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isInitialMountRef = useRef<boolean>(true);
   const latestProfileRef = useRef(profile);
   latestProfileRef.current = profile;
 
   const [ktpFileName, setKtpFileName] = useState<string>(() => {
-    if (profile.ktpUrl) return 'KTP_Scan_File.jpg';
+    if (initialProfile.ktpUrl) return 'KTP_Scan_File.jpg';
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
@@ -271,12 +282,11 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
         if (parsed.ktpFileName) return parsed.ktpFileName;
       } catch {}
     }
-    const legacy = localStorage.getItem(`mabaKtpNameDraft_${initialProfile.nim}`);
-    return legacy && !initialProfile.kycSubmitted ? legacy : '';
+    return '';
   });
 
   const [selfieFileName, setSelfieFileName] = useState<string>(() => {
-    if (profile.selfieUrl) return 'Selfie_KTP_File.jpg';
+    if (initialProfile.selfieUrl) return 'Selfie_KTP_File.jpg';
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
@@ -285,28 +295,35 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
         if (parsed.selfieFileName) return parsed.selfieFileName;
       } catch {}
     }
-    const legacy = localStorage.getItem(`mabaSelfieNameDraft_${initialProfile.nim}`);
-    return legacy && !initialProfile.kycSubmitted ? legacy : '';
+    return '';
   });
 
-  // Keep local state in sync if initialProfile changes from external prop
+  // Keep local state in sync whenever initialProfile changes (e.g. login as different student)
   React.useEffect(() => {
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      return;
-    }
     const draftKey = getDraftStorageKey(initialProfile.nim, initialProfile.noPmb);
-    const saved = localStorage.getItem(draftKey) || localStorage.getItem(`mabaProfileDraft_${initialProfile.nim}`);
+    const saved = localStorage.getItem(draftKey);
     if (saved && (!initialProfile.kycSubmitted || initialProfile.correctionStatus === 'unlocked')) {
       try {
         const parsed = JSON.parse(saved);
         const draftProfile = parsed.profile ? parsed.profile : parsed;
-        setProfile({ ...initialProfile, ...draftProfile });
+        setProfile({
+          ...initialProfile,
+          ...draftProfile,
+          nama: initialProfile.nama || draftProfile.nama,
+          noPmb: initialProfile.noPmb || draftProfile.noPmb,
+          nim: initialProfile.nim !== undefined ? initialProfile.nim : draftProfile.nim,
+          prodi: initialProfile.prodi || draftProfile.prodi,
+          fakultas: initialProfile.fakultas || draftProfile.fakultas,
+          isKipStudent: initialProfile.isKipStudent !== undefined ? initialProfile.isKipStudent : draftProfile.isKipStudent,
+          kategori: initialProfile.kategori || draftProfile.kategori,
+        });
         if (parsed.savedAt) {
           setLastSavedTime(new Date(parsed.savedAt));
           setHasRestoredDraft(true);
           setAutoSaveStatus('restored');
         }
+        if (parsed.ktpFileName) setKtpFileName(parsed.ktpFileName);
+        if (parsed.selfieFileName) setSelfieFileName(parsed.selfieFileName);
         return;
       } catch (e) {
         // ignore
@@ -315,9 +332,11 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
     setProfile(initialProfile);
     setHasRestoredDraft(false);
     setAutoSaveStatus('idle');
-  }, [initialProfile.nim, initialProfile.noPmb, initialProfile.kycSubmitted]);
+    setKtpFileName(initialProfile.ktpUrl ? 'KTP_Scan_File.jpg' : '');
+    setSelfieFileName(initialProfile.selfieUrl ? 'Selfie_KTP_File.jpg' : '');
+  }, [initialProfile.noPmb, initialProfile.nim, initialProfile.nama, initialProfile.kycSubmitted]);
 
-  // Synchronous saver to persist profile snapshot to localStorage
+  // Synchronous saver to persist profile snapshot to localStorage (Draft isolated per account)
   const saveDraftToStorage = React.useCallback((currentProfile: any, ktpName?: string, selfieName?: string) => {
     if (currentProfile.kycSubmitted && currentProfile.correctionStatus !== 'unlocked') {
       return;
@@ -331,9 +350,11 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
         savedAt: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(payload));
-      localStorage.setItem(`mabaProfileDraft_${currentProfile.nim}`, JSON.stringify(currentProfile));
-      if (ktpName) localStorage.setItem(`mabaKtpNameDraft_${currentProfile.nim}`, ktpName);
-      if (selfieName) localStorage.setItem(`mabaSelfieNameDraft_${currentProfile.nim}`, selfieName);
+      const accountId = (currentProfile.noPmb && currentProfile.noPmb.trim()) || (currentProfile.nim && currentProfile.nim.trim()) || '';
+      if (accountId) {
+        if (ktpName) localStorage.setItem(`mabaKtpNameDraft_${accountId}`, ktpName);
+        if (selfieName) localStorage.setItem(`mabaSelfieNameDraft_${accountId}`, selfieName);
+      }
       setLastSavedTime(new Date());
       setAutoSaveStatus('saved');
 
@@ -417,10 +438,13 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
   const handleClearDraft = () => {
     const draftKey = getDraftStorageKey(profile.nim, profile.noPmb);
+    const accountId = (profile.noPmb && profile.noPmb.trim()) || (profile.nim && profile.nim.trim()) || '';
     localStorage.removeItem(draftKey);
-    localStorage.removeItem(`mabaProfileDraft_${profile.nim}`);
-    localStorage.removeItem(`mabaKtpNameDraft_${profile.nim}`);
-    localStorage.removeItem(`mabaSelfieNameDraft_${profile.nim}`);
+    if (accountId) {
+      localStorage.removeItem(`mabaProfileDraft_${accountId}`);
+      localStorage.removeItem(`mabaKtpNameDraft_${accountId}`);
+      localStorage.removeItem(`mabaSelfieNameDraft_${accountId}`);
+    }
     setHasRestoredDraft(false);
     setAutoSaveStatus('idle');
     setProfile(initialProfile);
@@ -1246,7 +1270,21 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
   const handleGenerateTicket = () => {
     const ticketId = 'TIX-' + Math.random().toString(36).substring(2, 9).toUpperCase();
-    onUpdateTicket({ ...ticket, ticketId: ticketId, qrData: ticketId, barcode: ticketId, status: 'ACTIVE' });
+    const effectiveNim = (profile.nim && profile.nim !== 'Belum tersedia' && profile.nim.trim()) || profile.noPmb || 'PMB2026';
+    const effectiveRoomNo = room ? `Kamar ${room.nomorKamar}` : (ticket.kamar || 'Kamar 204');
+    const effectiveGedung = room?.gedung || ticket.gedung || 'Gedung Asrama';
+    onUpdateTicket({ 
+      ...ticket, 
+      ticketId: ticketId, 
+      nim: effectiveNim,
+      nama: profile.nama,
+      kamar: effectiveRoomNo,
+      gedung: effectiveGedung,
+      qrData: `UBT-CHECKIN|${effectiveNim}|${effectiveRoomNo}|${ticketId}`, 
+      qrCode: `UBT-TKT-${effectiveNim}-${ticketId}`,
+      barcode: ticketId, 
+      status: 'ACTIVE' 
+    });
     toast.success('e-Ticket Asrama berhasil diterbitkan!');
     setTimeout(() => {
       onClearSsoNotice && onClearSsoNotice();
@@ -1265,6 +1303,10 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       format: 'a5'
     });
     
+    const effectiveNim = (profile.nim && profile.nim !== 'Belum tersedia' && profile.nim.trim()) || profile.noPmb || 'PMB2026';
+    const effectiveRoomNo = room ? `Kamar ${room.nomorKamar}` : (ticket.kamar || '204');
+    const effectiveGedung = room?.gedung || ticket.gedung || 'Gedung Asrama';
+
     doc.setFillColor(248, 250, 252);
     doc.rect(0, 0, 148, 210, 'F');
 
@@ -1274,16 +1316,17 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text('ID Tiket: ' + ticket.ticketId, 148/2, 26, { align: 'center' });
+    doc.text('ID Tiket: ' + (ticket.ticketId || 'TIX-UBT-2026'), 148/2, 26, { align: 'center' });
 
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
     doc.text('Nama: ' + profile.nama, 15, 45);
-    doc.text('NIM: ' + profile.nim, 15, 52);
-    doc.text('Gedung: ' + room?.gedung, 15, 59);
-    doc.text('Kamar: ' + room?.nomorKamar, 15, 66);
+    doc.text('NIM / No. Reg: ' + effectiveNim, 15, 52);
+    doc.text('Program Studi: ' + (profile.prodi || '-'), 15, 59);
+    doc.text('Gedung: ' + effectiveGedung, 15, 66);
+    doc.text('Kamar: ' + effectiveRoomNo, 15, 73);
 
-    doc.save(`Ticket_Asrama_${profile.nim}.pdf`);
+    doc.save(`Ticket_Asrama_${effectiveNim}.pdf`);
   };
 
   const handleKycApprovalComplete = (updatedProfile: MabaProfile) => {
@@ -2412,11 +2455,21 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                     )}
                   </div>
 
+                  <div className="col-span-2 md:col-span-1">
+                    <label className="text-slate-700 block mb-1 text-[11px] font-bold">Tempat & Tanggal Lahir (Sesuai KTP/SIMABA)</label>
+                    <input
+                      type="text"
+                      value={profile.tanggalLahirFormatted ? `${profile.tempatLahir || 'TARAKAN'}, ${profile.tanggalLahirFormatted}` : (profile.tempatLahir || 'TARAKAN, 15/04/2005')}
+                      readOnly
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-medium text-xs cursor-default"
+                    />
+                  </div>
+
                   <div className="col-span-2">
                     <label className="text-slate-700 block mb-1 text-[11px] font-bold">Kategori Status Penerimaan</label>
                     <div className="flex gap-2">
                       <select
-                        value={profile.kategori || 'Reguler'}
+                        value={profile.kategori || (profile.isKipStudent ? 'KIP-Kuliah' : 'Reguler')}
                         onChange={(e) => {
                           const val = e.target.value;
                           updateProfileObject({
@@ -2433,6 +2486,21 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                       </select>
                     </div>
                   </div>
+
+                  {Boolean(profile.isKipStudent || profile.kipNumber) && (
+                    <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-amber-950 animate-in fade-in">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold bg-amber-600 text-white text-[10px] px-2 py-0.5 rounded shadow-2xs">KIP-KULIAH</span>
+                        <span className="font-mono text-[11px] font-semibold text-amber-900">
+                          No. KIP: {profile.kipNumber || profile.noPmb || '-'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Subsidi Terverifikasi
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -4164,7 +4232,12 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 </button>
              </div>
            ) : (
-             <BastkStep nim={profile.nim} nama={profile.nama} kamar={room ? room.nomorKamar : ""} onComplete={() => {}} />
+             <BastkStep 
+               nim={profile.nim && profile.nim !== 'Belum tersedia' ? profile.nim : profile.noPmb} 
+               nama={profile.nama} 
+               kamar={room ? `${room.gedung} — Kamar ${room.nomorKamar}` : (ticket.kamar || "Kamar 204")} 
+               onComplete={() => {}} 
+             />
            )}
         </div>
       )}

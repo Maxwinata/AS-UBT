@@ -107,8 +107,9 @@ export const DigitalContractView: React.FC<Props> = ({
   }, [contract.status]);
 
   // Contract and Pakta references
-  const contractNumber = contract.contractId || `F-19/UPA/${new Date().getFullYear()}/${(profile.nim || '2026').slice(-4)}`;
-  const paktaNumber = `F-02/UPA/${new Date().getFullYear()}/${(profile.nim || '2026').slice(-4)}`;
+  const effectiveNim = (profile.nim && profile.nim !== 'Belum tersedia' ? profile.nim : profile.noPmb) || '2026';
+  const contractNumber = contract.contractId || `F-19/UPA/${new Date().getFullYear()}/${effectiveNim.slice(-4)}`;
+  const paktaNumber = `F-02/UPA/${new Date().getFullYear()}/${effectiveNim.slice(-4)}`;
   const monthlyRent = invoice.biayaSewa && invoice.durasiBulan ? Math.round(invoice.biayaSewa / invoice.durasiBulan) : 500000;
   const depositText = invoice.isCicilanDeposit 
     ? `Rp ${invoice.biayaDepositTotal?.toLocaleString('id-ID')} (Dicicil ${invoice.opsiCicilan}x, Pembayaran Pertama: Rp ${invoice.biayaDeposit?.toLocaleString('id-ID')})`
@@ -194,6 +195,10 @@ export const DigitalContractView: React.FC<Props> = ({
 
       const signedContract: DigitalContract = {
         ...contract,
+        nim: effectiveNim,
+        nama: profile.nama || contract.nama,
+        waNumber: profile.noHpWa || contract.waNumber,
+        parentWaNumber: profile.kontakDaruratNoHp || contract.parentWaNumber,
         contractId: contractNumber,
         signatureData: draftSignature || contract.signatureData,
         signedAt: new Date().toISOString(),

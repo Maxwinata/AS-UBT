@@ -40,18 +40,36 @@ export const GateScannerModal: React.FC<GateScannerModalProps> = ({
       scanner.render(
         (decodedText) => {
           try {
-            const data = JSON.parse(decodedText);
-            if (data.id === expectedTicket.ticketId && data.nim === expectedTicket.nim) {
+            let isValid = false;
+            try {
+              const data = JSON.parse(decodedText);
+              if (data.id === expectedTicket.ticketId || data.nim === expectedTicket.nim) {
+                isValid = true;
+              }
+            } catch {
+              // Pipe-delimited or plain token string
+              if (
+                decodedText.includes(expectedTicket.ticketId) ||
+                (expectedTicket.nim && decodedText.includes(expectedTicket.nim)) ||
+                decodedText.startsWith('UBT-CHECKIN') ||
+                decodedText.startsWith('UBT-TKT') ||
+                decodedText.startsWith('TIX-')
+              ) {
+                isValid = true;
+              }
+            }
+
+            if (isValid) {
               setScanResult('RATIFIKASI_PENDING');
               scanner.clear();
             } else {
               setScanResult('ERROR');
-              setErrorMessage('Tiket ini bukan milik Anda atau tidak valid.');
+              setErrorMessage(`Tiket QR tidak cocok dengan identitas mahasiswa ${expectedTicket.nama || ''} (${expectedTicket.nim || ''}).`);
               setTimeout(() => setScanResult('IDLE'), 3000);
             }
           } catch (e) {
             setScanResult('ERROR');
-            setErrorMessage('Format QR Code tidak dikenali.');
+            setErrorMessage('Format QR Code tidak dapat diproses.');
             setTimeout(() => setScanResult('IDLE'), 3000);
           }
         },

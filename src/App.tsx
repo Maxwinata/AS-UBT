@@ -161,7 +161,14 @@ function AppContent() {
     setPaymentSchemes(newSchemes);
   };
 
-  const handleLoginSuccess = (role: UserRole, nim: string, nama: string, notice?: string, scenario?: string) => {
+  const handleLoginSuccess = (
+    role: UserRole,
+    nim: string,
+    nama: string,
+    notice?: string,
+    scenario?: string,
+    studentProfileData?: Partial<MabaProfile>
+  ) => {
     setIsLoggedIn(true);
     setCurrentRole(role);
     setCurrentScenario(scenario);
@@ -171,9 +178,10 @@ function AppContent() {
       setSsoNoticeBanner(null);
     }
     
-    if (role === 'maba' && scenario) {
-      const isSimulateNoNim = nim.startsWith('REG') || nim.startsWith('PMB') || /^\d{8,10}$/.test(nim);
-      const finalNim = isSimulateNoNim ? '' : nim;
+    if (role === 'maba') {
+      const isOfficialNim = /^(22|23|24|25)\d{4,8}$/.test(nim) || Boolean(studentProfileData?.nim && /^\d{8,10}$/.test(studentProfileData.nim));
+      const isRegistrationNumber = nim.startsWith('REG') || nim.startsWith('PMB') || /^26\d{7}$/.test(nim);
+      const finalNim = isOfficialNim ? (studentProfileData?.nim || nim) : (isRegistrationNumber ? '' : (studentProfileData?.nim ?? ''));
       
       const simabaMatch = INITIAL_SIMABA_STUDENTS.find(
         (s) => s.nomor_pendaftaran.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim) || s.nama_mahasiswa.toLowerCase() === nama.toLowerCase()
@@ -183,176 +191,142 @@ function AppContent() {
         (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim) || (simabaMatch && s.nomor_registrasi === simabaMatch.nomor_pendaftaran)
       );
 
-      const isKip = simabaMatch 
-        ? simabaMatch.jenis_mahasiswa === 'kip' 
-        : (siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : false);
+      const isKip = studentProfileData?.isKipStudent !== undefined
+        ? studentProfileData.isKipStudent
+        : (simabaMatch 
+            ? simabaMatch.jenis_mahasiswa === 'kip' 
+            : (siakadMatch ? siakadMatch.kategori_beasiswa === 'kip' : false));
 
-      const studentName = simabaMatch ? simabaMatch.nama_mahasiswa : (siakadMatch ? siakadMatch.nama_lengkap : nama);
-      const studentProdi = simabaMatch ? simabaMatch.program_studi : (siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi);
+      const studentName = studentProfileData?.nama || (simabaMatch ? simabaMatch.nama_mahasiswa : (siakadMatch ? siakadMatch.nama_lengkap : nama));
+      const studentProdi = studentProfileData?.prodi || (simabaMatch ? simabaMatch.program_studi : (siakadMatch ? siakadMatch.program_studi : INITIAL_MABA.prodi));
 
-      const studentFakultas = simabaMatch 
-        ? (simabaMatch.program_studi.includes('Keperawatan') || simabaMatch.program_studi.includes('Kesehatan') || simabaMatch.program_studi.includes('Kebidanan')
-            ? 'Fakultas Ilmu Kesehatan'
-            : (simabaMatch.program_studi.includes('Hukum')
-                ? 'Fakultas Hukum'
-                : (simabaMatch.program_studi.includes('Informatika')
-                    ? 'Fakultas Teknik'
-                    : 'Fakultas Ekonomi & Bisnis')))
-        : (siakadMatch ? siakadMatch.fakultas : INITIAL_MABA.fakultas);
+      const computeFakultas = (prodi: string) => {
+        if (/Gizi|Kesehatan|Keperawatan|Kebidanan|Farmasi/i.test(prodi)) return 'Fakultas Ilmu Kesehatan';
+        if (/Hukum/i.test(prodi)) return 'Fakultas Hukum';
+        if (/Informatika|Teknik|Komputer/i.test(prodi)) return 'Fakultas Teknik';
+        if (/Manajemen|Ekonomi|Akuntansi/i.test(prodi)) return 'Fakultas Ekonomi & Bisnis';
+        if (/Pendidikan|Guru|FKIP/i.test(prodi)) return 'Fakultas Keguruan & Ilmu Pendidikan';
+        return 'Fakultas Terkait';
+      };
 
-      const studentPhone = simabaMatch ? (simabaMatch.no_hp || '') : (siakadMatch ? (siakadMatch.nomor_telepon || '') : INITIAL_MABA.noHpWa);
-      const studentEmail = simabaMatch ? (simabaMatch.email || '') : (siakadMatch ? (siakadMatch.email || '') : INITIAL_MABA.email);
-      const studentNik = simabaMatch?.nik || siakadMatch?.nik || INITIAL_MABA.nik;
-      const studentGender = simabaMatch 
+      const studentFakultas = studentProfileData?.fakultas || (siakadMatch ? siakadMatch.fakultas : computeFakultas(studentProdi));
+      const studentPhone = studentProfileData?.noHpWa || (simabaMatch ? (simabaMatch.no_hp || '') : (siakadMatch ? (siakadMatch.nomor_telepon || '') : INITIAL_MABA.noHpWa));
+      const studentEmail = studentProfileData?.email || (simabaMatch ? (simabaMatch.email || '') : (siakadMatch ? (siakadMatch.email || '') : INITIAL_MABA.email));
+      const studentNik = studentProfileData?.nik || simabaMatch?.nik || siakadMatch?.nik || INITIAL_MABA.nik;
+      const studentGender = studentProfileData?.jenisKelamin || (simabaMatch 
         ? (simabaMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
         : (siakadMatch?.jenis_kelamin
             ? (siakadMatch.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-laki')
-            : INITIAL_MABA.jenisKelamin);
-      const ssoId = siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined;
-      const studentAlamat = simabaMatch?.alamat || INITIAL_MABA.alamatKtpJalan;
+            : INITIAL_MABA.jenisKelamin));
+      const ssoId = studentProfileData?.ssoIdFromSidara || (siakadMatch?.sso_id_from_sidara !== undefined ? String(siakadMatch.sso_id_from_sidara) : undefined);
+      const studentAlamat = studentProfileData?.alamatKtpJalan || simabaMatch?.alamat || siakadMatch?.alamat_lengkap || INITIAL_MABA.alamatKtpJalan;
+      const studentNoPmb = studentProfileData?.noPmb || (simabaMatch ? simabaMatch.nomor_pendaftaran : (siakadMatch?.nomor_registrasi || nim));
+      const studentKipNumber = isKip ? (studentProfileData?.kipNumber || simabaMatch?.nomorkip || siakadMatch?.nomorkip || studentNoPmb) : undefined;
+      const studentTempatLahir = studentProfileData?.tempatLahir || simabaMatch?.tempat_lahir || siakadMatch?.tempat_lahir || 'TARAKAN';
+      const studentTglLahir = studentProfileData?.tanggalLahirFormatted || simabaMatch?.tanggal_lahir_formatted || '';
 
       if (simabaMatch) {
         toast.success(`[SIMABA PMB] Data ${studentName} (${studentProdi} - ${isKip ? 'Jalur KIP' : 'Reguler'}) berhasil dimuat dari database SIMABA!`, { duration: 4500 });
       } else if (siakadMatch) {
-        toast.success(`[SIAKAD CONNECTED] Data ${studentName} (${siakadMatch.nama_beasiswa}) berhasil ditarik otomatis ke formulir pendaftaran!`, { duration: 4500 });
+        toast.success(`[SIAKAD CONNECTED] Data ${studentName} (${siakadMatch.nama_beasiswa || 'Akademik'}) berhasil ditarik otomatis ke formulir pendaftaran!`, { duration: 4500 });
       }
-      
-      if (scenario === 'NEW') {
-        setMabaProfile({
-          ...INITIAL_MABA,
-          nim: finalNim,
-          noPmb: simabaMatch ? simabaMatch.nomor_pendaftaran : nim,
-          nama: studentName,
-          prodi: studentProdi,
-          fakultas: studentFakultas,
-          noHpWa: studentPhone,
-          email: studentEmail,
-          nik: studentNik,
-          jenisKelamin: studentGender,
-          alamatKtpJalan: studentAlamat,
-          alamatDomisiliJalan: studentAlamat,
-          ssoIdFromSidara: ssoId,
-          isKipStudent: isKip,
-          kategori: isKip ? 'KIP' : 'Reguler',
-          kipNumber: isKip ? (simabaMatch?.nomorkip || nim) : undefined,
-          kycVerified: false,
-          kycSubmitted: false,
-          ktpUrl: undefined,
-          selfieUrl: undefined
-        });
-        setInvoices([{
-          ...INITIAL_INVOICE,
-          nim: finalNim || nim,
-          nama: studentName,
-          isKip,
-          status: 'UNPAID'
-        }]);
-        setTicket(INITIAL_TICKET);
-        setContract(INITIAL_CONTRACT);
-      } else if (scenario === 'INVOICE_FORMED') {
-        setMabaProfile({
-          ...INITIAL_MABA,
-          nim: finalNim,
-          noPmb: nim,
-          nama: studentName,
-          prodi: studentProdi,
-          fakultas: studentFakultas,
-          noHpWa: studentPhone,
-          nik: studentNik,
-          jenisKelamin: studentGender,
-          ssoIdFromSidara: ssoId,
-          isKipStudent: isKip,
-          kategori: isKip ? 'KIP' : 'Reguler',
-          kipNumber: isKip ? nim : undefined,
-          kycVerified: true,
-          kycSubmitted: true,
-          ktpUrl: 'mock.jpg',
-          selfieUrl: 'mock.jpg'
-        });
-        setInvoices([{
-          ...INITIAL_INVOICE,
-          nim: finalNim || nim,
-          nama: studentName,
-          isKip,
-          status: 'UNPAID',
-          totalBayar: isKip ? 1600000 : 3600142,
-          durasiBulan: 6,
-          isCicilanDeposit: false
-        }]);
-        setTicket(INITIAL_TICKET);
-        setContract(INITIAL_CONTRACT);
-      } else if (scenario === 'SMART_PREFILL' || scenario === 'FAST_TRACK') {
-        // SKENARIO 2A: Mahasiswa Eksisting (Bukan Penghuni) - Smart Pre-Fill SIAKAD & SIDARA
-        // Data akademik terisi otomatis, wajib melengkapi foto e-KTP, selfie, dan data orang tua di Step 1
-        setMabaProfile({
-          ...INITIAL_MABA,
-          nim: finalNim || nim,
-          noPmb: siakadMatch?.nomor_registrasi || nim,
-          nama: studentName,
-          prodi: studentProdi,
-          fakultas: studentFakultas,
-          noHpWa: studentPhone,
-          nik: studentNik,
-          jenisKelamin: studentGender,
-          ssoIdFromSidara: ssoId,
-          isKipStudent: isKip,
-          kategori: isKip ? 'KIP' : 'Reguler',
-          kipNumber: isKip ? nim : undefined,
-          kycVerified: false, // Wajib unggah KTP fisik & selfie di Step 1
-          kycSubmitted: false,
-          ktpUrl: undefined,
-          selfieUrl: undefined,
-          isFastTrackSso: false,
-          isKycRequired: true,
-          ssoSource: 'SIAKAD_SIDARA',
-        });
-        setInvoices([{
-          ...INITIAL_INVOICE,
-          nim: finalNim || nim,
-          nama: studentName,
-          isKip,
-          status: 'UNPAID',
-          totalBayar: isKip ? 1600000 : 3600142,
-          durasiBulan: 6,
-          isCicilanDeposit: false,
-        }]);
-        setTicket(INITIAL_TICKET);
-        setContract(INITIAL_CONTRACT);
+
+      const newMabaProfile: MabaProfile = {
+        ...INITIAL_MABA,
+        ...(studentProfileData || {}),
+        nim: finalNim,
+        noPmb: studentNoPmb,
+        nama: studentName,
+        prodi: studentProdi,
+        fakultas: studentFakultas,
+        noHpWa: studentPhone,
+        email: studentEmail,
+        nik: studentNik,
+        jenisKelamin: studentGender,
+        alamatKtpJalan: studentAlamat,
+        alamatDomisiliJalan: studentAlamat,
+        ssoIdFromSidara: ssoId,
+        isKipStudent: isKip,
+        kategori: isKip ? 'KIP-Kuliah' : 'Reguler',
+        kipNumber: studentKipNumber,
+        tempatLahir: studentTempatLahir,
+        tanggalLahirFormatted: studentTglLahir,
+        kycVerified: scenario === 'INVOICE_FORMED',
+        kycSubmitted: scenario === 'INVOICE_FORMED',
+        ktpUrl: scenario === 'INVOICE_FORMED' ? 'mock.jpg' : undefined,
+        selfieUrl: scenario === 'INVOICE_FORMED' ? 'mock.jpg' : undefined,
+        isFastTrackSso: false,
+        isKycRequired: true,
+        ssoSource: (scenario === 'SMART_PREFILL' || isOfficialNim) ? 'SIAKAD_SIDARA' : 'PMB',
+      };
+
+      setMabaProfile(newMabaProfile);
+
+      setInvoices([{
+        ...INITIAL_INVOICE,
+        nim: finalNim || nim,
+        nama: studentName,
+        isKip,
+        status: 'UNPAID',
+        totalBayar: isKip ? 1600000 : 3600142,
+        durasiBulan: 6,
+        isCicilanDeposit: false
+      }]);
+      const studentRoom = studentGender === 'Perempuan' 
+        ? {
+            roomId: 'RM-B204',
+            gedung: 'Gedung B (Roemah 54 - Putri)',
+            lantai: 2,
+            nomorKamar: '204',
+            kapasitas: 2,
+            terisi: 0,
+            fasilitas: ['2 Bed Springbed', '2 Study Desk + Ergonomic Chair', 'AC 1.5PK', 'Kamar Mandi Dalam + Water Heater', 'Wi-Fi 100Mbps'],
+          }
+        : {
+            roomId: 'RM-A101',
+            gedung: 'Gedung A (Thamrin Utara - Putra)',
+            lantai: 1,
+            nomorKamar: '101',
+            kapasitas: 2,
+            terisi: 0,
+            fasilitas: ['2 Kasur Busa Single', '2 Meja Belajar', 'AC 1PK', 'Kamar Mandi Dalam', 'Lemari 2 Pintu'],
+          };
+
+      const effectiveRegOrNim = finalNim || studentNoPmb || nim;
+
+      setContract({
+        ...INITIAL_CONTRACT,
+        contractId: `KONTRAK-UBT-${effectiveRegOrNim.slice(-4)}-${Math.floor(100 + Math.random() * 900)}`,
+        nim: effectiveRegOrNim,
+        nama: studentName,
+        nomorKamar: studentRoom.nomorKamar,
+        gedung: studentRoom.gedung,
+        waNumber: studentPhone || '081234567890',
+        parentWaNumber: studentProfileData?.kontakDaruratNoHp || INITIAL_MABA.kontakDaruratNoHp,
+        status: 'DRAFT',
+        bastkSigned: false,
+      });
+
+      setTicket({
+        ...INITIAL_TICKET,
+        ticketId: `TCK-UBT-2026-${effectiveRegOrNim.slice(-4)}`,
+        nim: effectiveRegOrNim,
+        nama: studentName,
+        gedung: studentRoom.gedung,
+        kamar: `Kamar ${studentRoom.nomorKamar}`,
+        status: 'PENDING',
+        qrData: `UBT-CHECKIN|${effectiveRegOrNim}|${studentRoom.nomorKamar}|2026-08-15`,
+        barcode: effectiveRegOrNim,
+        isBastkVerified: false,
+      });
+
+      if (scenario === 'SMART_PREFILL' || scenario === 'FAST_TRACK') {
         toast.success(`[SMART PRE-FILL SIAKAD] Data akademik mahasiswa ${studentName} terhubung. Sesuai regulasi, wajib unggah e-KTP & lengkapi data orang tua di Tahap 1 sebelum membuka Skema Pembayaran.`, { duration: 6000 });
       } else if (scenario === 'INCOMPLETE_DATA') {
-        // SKENARIO 2B: Mahasiswa Eksisting (Bukan Penghuni) - Data Belum Lengkap
-        setMabaProfile({
-          ...INITIAL_MABA,
-          nim: finalNim || nim,
-          noPmb: siakadMatch?.nomor_registrasi || nim,
-          nama: studentName,
-          prodi: studentProdi,
-          fakultas: studentFakultas,
-          noHpWa: studentPhone,
-          nik: studentNik,
-          jenisKelamin: studentGender,
-          ssoIdFromSidara: ssoId,
-          isKipStudent: isKip,
-          kategori: isKip ? 'KIP' : 'Reguler',
-          kipNumber: isKip ? nim : undefined,
-          kycVerified: false,
-          kycSubmitted: false,
-          isFastTrackSso: false,
-          ssoSource: 'SIAKAD_SIDARA',
-        });
-        setInvoices([{
-          ...INITIAL_INVOICE,
-          nim: finalNim || nim,
-          nama: studentName,
-          isKip,
-          status: 'UNPAID',
-        }]);
-        setTicket(INITIAL_TICKET);
-        setContract(INITIAL_CONTRACT);
         toast.info(`[LENGKAPI BIODATA] Kredensial SSO SIDARA terhubung (${studentName}). Mohon lengkapi NIK dan kontak pada formulir Step 1.`, { duration: 5000 });
       }
     } else if (nim && nama) {
-      // 1. Try to restore saved progress from localStorage (Auto-Resume)
+      // Role eksisting or other
       const savedProgress = localStorage.getItem(`maba_progress_${nim}`);
       if (savedProgress) {
         try {
@@ -363,31 +337,6 @@ function AppContent() {
           if (parsed.ticket) setTicket(parsed.ticket);
         } catch (error) {
           console.error("Failed to parse saved progress", error);
-        }
-      } else {
-        const siakadMatch = siakadStaging.find(
-          (s) => s.nomor_registrasi.toLowerCase() === nim.toLowerCase() || (s.nik && s.nik === nim)
-        );
-        if (siakadMatch) {
-          setMabaProfile((prev) => ({
-            ...prev,
-            nim: nim.startsWith('PMB') ? '' : nim,
-            noPmb: nim,
-            nama: siakadMatch.nama_lengkap,
-            prodi: siakadMatch.program_studi || prev.prodi,
-            fakultas: siakadMatch.fakultas || prev.fakultas,
-            noHpWa: siakadMatch.nomor_telepon || prev.noHpWa,
-            nik: siakadMatch.nik || prev.nik,
-            isKipStudent: siakadMatch.kategori_beasiswa === 'kip',
-            kategori: siakadMatch.kategori_beasiswa === 'kip' ? 'KIP' : 'Reguler',
-            kipNumber: siakadMatch.kategori_beasiswa === 'kip' ? nim : undefined,
-          }));
-        } else {
-          setMabaProfile((prev) => ({
-            ...prev,
-            nim: nim,
-            nama: nama,
-          }));
         }
       }
     }
@@ -406,18 +355,30 @@ function AppContent() {
   const handleUpdateProfile = React.useCallback((updatedProfile: MabaProfile) => {
     queueMicrotask(() => {
       setMabaProfile(updatedProfile);
-      const currentInv = invoices[0];
-      if (
-        updatedProfile.nim &&
-        !updatedProfile.nim.startsWith('REG') &&
-        updatedProfile.nim !== 'Belum tersedia' &&
-        currentInv &&
-        updatedProfile.nim !== currentInv.nim
-      ) {
-        setInvoices(prev => prev.map(inv => inv.invoiceId === currentInv.invoiceId ? { ...inv, nim: updatedProfile.nim } : inv));
-      }
+      const effectiveId = (updatedProfile.nim && !updatedProfile.nim.startsWith('REG') && updatedProfile.nim !== 'Belum tersedia' ? updatedProfile.nim : updatedProfile.noPmb) || '';
+      
+      setInvoices(prev => prev.map(inv => ({
+        ...inv,
+        nim: effectiveId || inv.nim,
+        nama: updatedProfile.nama || inv.nama,
+        isKip: updatedProfile.isKipStudent !== undefined ? updatedProfile.isKipStudent : inv.isKip,
+      })));
+
+      setContract(prev => ({
+        ...prev,
+        nim: effectiveId || prev.nim,
+        nama: updatedProfile.nama || prev.nama,
+        waNumber: updatedProfile.noHpWa || prev.waNumber,
+        parentWaNumber: updatedProfile.kontakDaruratNoHp || prev.parentWaNumber,
+      }));
+
+      setTicket(prev => ({
+        ...prev,
+        nim: effectiveId || prev.nim,
+        nama: updatedProfile.nama || prev.nama,
+      }));
     });
-  }, [invoices]);
+  }, []);
 
   const handleUpdateContract = React.useCallback((updated: DigitalContract) => {
     queueMicrotask(() => {
@@ -538,6 +499,15 @@ function AppContent() {
   const { isCleanTesting } = useTestingMode();
   const currentInvoice = invoices[0] || INITIAL_INVOICE;
 
+  const activeStudentRoom = React.useMemo(() => {
+    const isFemale = mabaProfile.jenisKelamin === 'Perempuan' || mabaProfile.jenisKelamin === 'P';
+    if (isFemale) {
+      return rooms.find(r => r.gedung.includes('Gedung B') || r.gedung.includes('Roemah 54')) || rooms[1] || rooms[0];
+    } else {
+      return rooms.find(r => r.gedung.includes('Gedung A') || r.gedung.includes('Thamrin Utara')) || rooms[0];
+    }
+  }, [rooms, mabaProfile.jenisKelamin]);
+
   if (isCleanTesting) {
     return (
       <MinimalTestingLayout
@@ -562,7 +532,7 @@ function AppContent() {
                 siakadStaging={siakadStaging}
                 profile={mabaProfile}
                 invoice={currentInvoice}
-                room={rooms[1]}
+                room={activeStudentRoom}
                 contract={contract}
                 ticket={ticket}
                 ssoNoticeBanner={ssoNoticeBanner || undefined}
@@ -669,7 +639,7 @@ function AppContent() {
                 siakadStaging={siakadStaging}
                 profile={mabaProfile}
                 invoice={currentInvoice}
-                room={rooms[1]} // Gedung B Kamar 204
+                room={activeStudentRoom}
                 contract={contract}
                 ticket={ticket}
                 ssoNoticeBanner={ssoNoticeBanner || undefined}

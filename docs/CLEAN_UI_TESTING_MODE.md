@@ -20,6 +20,7 @@ Masalah pada antarmuka standar:
 2. **Zero In-Component Pollution**: Menggunakan `MinimalTestingLayout` di tingkat root daripada menaburkan puluhan percabangan `if (isTestingMode)` ke dalam setiap komponen kecil.
 3. **Dual Activation Mechanism**: Mode dapat dinyalakan melalui file konfigurasi `.env` (`APP_UI_MODE=clean`), serta mendukung aktivasi on-demand via URL query parameter (`?ui_mode=clean` atau `?testing=true`) khusus pada environment non-production (`local`, `testing`, `staging`).
 4. **Production-First Security**: Parameter URL diabaikan secara mutlak jika `APP_ENV=production` guna mencegah mode testing diakses sembarangan pada live production.
+5. **Live Query SIMABA Tetap Aktif**: Meskipun tombol preset demo/simulasi disembunyikan demi kebersihan UI produksi, fitur pencarian (*live query*) calon mahasiswa baru berdasarkan nama ke basis data SIMABA (`u540633926_simaba`) tetap diaktifkan secara penuh. Calon mahasiswa cukup mengetik minimal 2 huruf nama untuk mendeteksi nomor pendaftaran dan mengisi tanggal lahir secara otomatis.
 
 ---
 

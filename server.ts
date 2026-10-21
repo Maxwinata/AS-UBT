@@ -127,6 +127,37 @@ async function startServer() {
     });
   });
 
+  // API Route: Live Search Calon Mahasiswa SIMABA berdasarkan Nama atau No. Pendaftaran
+  app.get('/api/simaba/search-student', async (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim().toLowerCase();
+      if (q.length < 2) {
+        return res.json([]);
+      }
+
+      const { INITIAL_SIMABA_STUDENTS } = await import('./src/data/initialData');
+      const results = INITIAL_SIMABA_STUDENTS.filter(s => 
+        s.nama_mahasiswa.toLowerCase().includes(q) ||
+        s.nomor_pendaftaran.toLowerCase().includes(q) ||
+        (s.nik && s.nik.includes(q)) ||
+        s.program_studi.toLowerCase().includes(q)
+      ).slice(0, 8).map(s => ({
+        id: s.id,
+        nomor_pendaftaran: s.nomor_pendaftaran,
+        nama_mahasiswa: s.nama_mahasiswa,
+        program_studi: s.program_studi,
+        jenis_mahasiswa: (s.jenis_mahasiswa || 'REGULER').toUpperCase(),
+        tanggal_lahir_raw: s.tanggal_lahir,
+        tanggal_lahir_formatted: s.tanggal_lahir_formatted || s.tanggal_lahir,
+      }));
+
+      return res.json(results);
+    } catch (err) {
+      console.error('Error searching SIMABA students:', err);
+      return res.status(500).json({ error: 'Gagal mencari calon mahasiswa' });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
