@@ -83,6 +83,7 @@ import { VerifikasiTrail, VerificationAttempt } from './VerifikasiTrail';
 
 import { TariffItem, PaymentScheme, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { INITIAL_SIAKAD_STAGING } from '../../data/initialData';
+import { useTestingMode } from '../../context/TestingModeContext';
 
 interface MabaDashboardProps {
   tariffs?: TariffItem[];
@@ -138,6 +139,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   siakadStaging = INITIAL_SIAKAD_STAGING,
   onUpdateProfile,
 }) => {
+  const { isCleanTesting } = useTestingMode();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [showBastk, setShowBastk] = useState(false);
   const [showQuickCompletionModal, setShowQuickCompletionModal] = useState(false);
@@ -1316,6 +1318,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
 
   const renderSandbox = () => {
+    if (isCleanTesting) return null;
     return (
       <>
         {isSandboxOpen && (

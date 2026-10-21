@@ -1,6 +1,6 @@
 {
-  "summary": "Rencana kerja kesiapan operasional Go-Live hari ini agar portal registrasi dan booking asrama dapat langsung digunakan oleh mahasiswa dan admin di lingkungan Web Hosting terpadu. Mencakup login instan berbasis data SIDARA, alur 4 tahap pendaftaran mandiri maba, kunci reservasi kamar di staging (BOOKED_STAGING), antrean verifikasi admin keuangan & asrama, serta penerbitan otomatis e-Ticket hunian resmi.",
-  "updatedAt": "2026-10-20T03:02:35.903991114Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Rencana arsitektur dan implementasi Clean UI / Testing Mode untuk Portal Asrama UBT berbasis Laravel 11 + Inertia.js + React + Tailwind CSS. Merinci mekanisme aktivasi ganda (env dan URL parameter), MinimalTestingLayout khusus, kondisional rendering komponen non-esensial, proteksi kredensial publik, serta struktur kode modular yang aman untuk environment production.",
+  "updatedAt":  "2026-10-20T21:07:55.572756843Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

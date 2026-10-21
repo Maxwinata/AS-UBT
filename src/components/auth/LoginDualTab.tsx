@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { UserRole, SimabaStudent, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { INITIAL_SIAKAD_STAGING, INITIAL_SIMABA_STUDENTS } from '../../data/initialData';
+import { useTestingMode } from '../../context/TestingModeContext';
 
 interface LoginDualTabProps {
   onLoginSuccess: (role: UserRole, nim: string, nama: string, notice?: string, scenario?: string) => void;
@@ -32,6 +33,7 @@ interface LoginDualTabProps {
 }
 
 export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siakadStaging }) => {
+  const { isCleanTesting } = useTestingMode();
   const [viewMode, setViewMode] = useState<'main' | 'sso'>('main');
   const [showPmbModal, setShowPmbModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -536,153 +538,160 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
               </div>
 
               {/* SIMULATOR PILIHAN STATUS MAHAKOT / EKSISTING */}
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
-                <label className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
-                  <span>Simulasi Status Database Mahasiswa Eksisting:</span>
-                  <span className="text-[10px] text-teal-800 font-mono font-bold">[DB Check Handler]</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSsoAccount('NON_ACTIVE_COMPLETE');
-                      setSsoUsername('2240101088');
-                    }}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      selectedSsoAccount === 'NON_ACTIVE_COMPLETE'
-                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500 text-emerald-950 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-emerald-900">NIM: 2240101088</span>
-                      <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        SMART PRE-FILL
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-normal">
-                      Ahmad Zaky • Data SIAKAD Lengkap (Wajib KTP & Orang Tua di Step 1)
-                    </div>
-                  </button>
+              {!isCleanTesting ? (
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
+                  <label className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                    <span>Simulasi Status Database Mahasiswa Eksisting:</span>
+                    <span className="text-[10px] text-teal-800 font-mono font-bold">[DB Check Handler]</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSsoAccount('NON_ACTIVE_COMPLETE');
+                        setSsoUsername('2240101088');
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        selectedSsoAccount === 'NON_ACTIVE_COMPLETE'
+                          ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500 text-emerald-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-emerald-900">NIM: 2240101088</span>
+                        <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                          SMART PRE-FILL
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 font-normal">
+                        Ahmad Zaky • Data SIAKAD Lengkap (Wajib KTP & Orang Tua di Step 1)
+                      </div>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSsoAccount('NON_ACTIVE_INCOMPLETE');
-                      setSsoUsername('2240101099');
-                    }}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      selectedSsoAccount === 'NON_ACTIVE_INCOMPLETE'
-                        ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500 text-amber-950 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-amber-900">NIM: 2240101099</span>
-                      <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        PRE-FILL PARSIAL
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-normal">
-                      Rina Anggraini • Data SIAKAD Parsial (Lengkapi NIK & Dokumen di Step 1)
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSsoAccount('NON_ACTIVE_INCOMPLETE');
+                        setSsoUsername('2240101099');
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        selectedSsoAccount === 'NON_ACTIVE_INCOMPLETE'
+                          ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500 text-amber-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-amber-900">NIM: 2240101099</span>
+                        <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                          PRE-FILL PARSIAL
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 font-normal">
+                        Rina Anggraini • Data SIAKAD Parsial (Lengkapi NIK & Dokumen di Step 1)
+                      </div>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSsoAccount('OFFICIAL_NIM_MIGRATED');
-                      setSsoUsername('2601015001');
-                    }}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      selectedSsoAccount === 'OFFICIAL_NIM_MIGRATED'
-                        ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500 text-indigo-950 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-indigo-900">NIM: 2601015001</span>
-                      <span className="bg-indigo-100 text-indigo-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        TERBIT DARI PMB
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-normal">
-                      Maximilian Winata • Migrasi Resmi PMB2026-08942
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSsoAccount('OFFICIAL_NIM_MIGRATED');
+                        setSsoUsername('2601015001');
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        selectedSsoAccount === 'OFFICIAL_NIM_MIGRATED'
+                          ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500 text-indigo-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-indigo-900">NIM: 2601015001</span>
+                        <span className="bg-indigo-100 text-indigo-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                          TERBIT DARI PMB
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 font-normal">
+                        Maximilian Winata • Migrasi Resmi PMB2026-08942
+                      </div>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSsoAccount('ACTIVE_RESIDENT');
-                      setSsoUsername('2240101004');
-                    }}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      selectedSsoAccount === 'ACTIVE_RESIDENT'
-                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-950 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px] mb-0.5">
-                      <span className="font-mono text-blue-900">NIM: 2240101004</span>
-                      <span className="bg-blue-100 text-blue-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        PENGHUNI AKTIF
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-normal">
-                      Ahmad Raihan • Kamar 101 Gedung A (Dashboard Eksisting)
-                    </div>
-                  </button>
-                  {import.meta.env.DEV && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSsoAccount('ACTIVE_RESIDENT_INSTALLMENT');
-                          setSsoUsername('2240101004');
-                        }}
-                        className={`p-2.5 rounded-lg border text-left transition-all ${
-                          selectedSsoAccount === 'ACTIVE_RESIDENT_INSTALLMENT'
-                            ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-950 font-bold'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px] mb-0.5">
-                          <span className="font-mono text-blue-900">[DEV] Skenario 3</span>
-                          <span className="bg-blue-100 text-blue-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                            CICILAN DEPOSIT
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-600 font-normal">
-                          Menunggak Cicilan ke-2 (Auto-Resume ke Form Bayar)
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSsoAccount('ACTIVE_RESIDENT_RENEWAL');
-                          setSsoUsername('2240101004');
-                        }}
-                        className={`p-2.5 rounded-lg border text-left transition-all ${
-                          selectedSsoAccount === 'ACTIVE_RESIDENT_RENEWAL'
-                            ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500 text-purple-950 font-bold'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px] mb-0.5">
-                          <span className="font-mono text-purple-900">[DEV] Skenario 2</span>
-                          <span className="bg-purple-100 text-purple-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
-                            DRAFT RENEWAL
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-600 font-normal">
-                          Draft Perpanjangan Sewa (Auto-Resume Banner)
-                        </div>
-                      </button>
-                    </>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSsoAccount('ACTIVE_RESIDENT');
+                        setSsoUsername('2240101004');
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        selectedSsoAccount === 'ACTIVE_RESIDENT'
+                          ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-blue-900">NIM: 2240101004</span>
+                        <span className="bg-blue-100 text-blue-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                          PENGHUNI AKTIF
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 font-normal">
+                        Ahmad Raihan • Kamar 101 Gedung A (Dashboard Eksisting)
+                      </div>
+                    </button>
+                    {import.meta.env.DEV && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSsoAccount('ACTIVE_RESIDENT_INSTALLMENT');
+                            setSsoUsername('2240101004');
+                          }}
+                          className={`p-2.5 rounded-lg border text-left transition-all ${
+                            selectedSsoAccount === 'ACTIVE_RESIDENT_INSTALLMENT'
+                              ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 text-blue-950 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[11px] mb-0.5">
+                            <span className="font-mono text-blue-900">[DEV] Skenario 3</span>
+                            <span className="bg-blue-100 text-blue-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                              CICILAN DEPOSIT
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-600 font-normal">
+                            Menunggak Cicilan ke-2 (Auto-Resume ke Form Bayar)
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSsoAccount('ACTIVE_RESIDENT_RENEWAL');
+                            setSsoUsername('2240101004');
+                          }}
+                          className={`p-2.5 rounded-lg border text-left transition-all ${
+                            selectedSsoAccount === 'ACTIVE_RESIDENT_RENEWAL'
+                              ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500 text-purple-950 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[11px] mb-0.5">
+                            <span className="font-mono text-purple-900">[DEV] Skenario 2</span>
+                            <span className="bg-purple-100 text-purple-800 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                              DRAFT RENEWAL
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-600 font-normal">
+                            Draft Perpanjangan Sewa (Auto-Resume Banner)
+                          </div>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-600">
+                  <span className="font-bold text-slate-800 block mb-0.5">Form Login SSO UBT (Clean Testing Mode):</span>
+                  <span>Silakan masukkan NIM terdaftar dan password SSO Anda untuk memverifikasi autentikasi.</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -938,178 +947,187 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
                       </div>
                     )}
 
-                    {/* PRESETS DARI DUMP BASIS DATA ASLI SIMABA UBT */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                        <span className="flex items-center gap-1 text-teal-800 font-bold">
-                          <Link2 className="w-3 h-3 text-teal-600" />
-                          Sampel Mahasiswa SIMABA (`u540633926_simaba`):
-                        </span>
-                        <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '260108001');
-                            if (st) handleSelectStudent(st);
-                          }}
-                          className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                            pmbNoReg === '260108001'
-                              ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">GRACE MARLIN TELAUMBANUA</div>
-                            <div className="text-[10px] text-slate-500 font-mono">260108001 · D III Kep · 12/02/2008</div>
+                    {/* PRESETS DARI DUMP BASIS DATA ASLI SIMABA UBT & SIDARA */}
+                    {!isCleanTesting ? (
+                      <>
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span className="flex items-center gap-1 text-teal-800 font-bold">
+                              <Link2 className="w-3 h-3 text-teal-600" />
+                              Sampel Mahasiswa SIMABA (`u540633926_simaba`):
+                            </span>
+                            <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
                           </div>
-                          <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
-                            KIP
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '250830001');
-                            if (st) handleSelectStudent(st);
-                          }}
-                          className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                            pmbNoReg === '250830001'
-                              ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">Jenny Agustina Shellyana</div>
-                            <div className="text-[10px] text-slate-500 font-mono">250830001 · D III Kep · 29/08/2006</div>
-                          </div>
-                          <span className="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
-                            Reguler
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '250830002');
-                            if (st) handleSelectStudent(st);
-                          }}
-                          className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                            pmbNoReg === '250830002'
-                              ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">MAZA ADITIYA</div>
-                            <div className="text-[10px] text-slate-500 font-mono">250830002 · S1 Kesmas · 19/06/2006</div>
-                          </div>
-                          <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
-                            KIP
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '260727002');
-                            if (st) handleSelectStudent(st);
-                          }}
-                          className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                            pmbNoReg === '260727002'
-                              ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-bold shadow-xs'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">Alvin Octavianus H.</div>
-                            <div className="text-[10px] text-indigo-700 font-mono font-semibold">260727002 · NIM Resmi SIAKAD</div>
-                          </div>
-                          <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
-                            Early NIM
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* PRESETS DARI STAGING API SIDARA */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                        <span className="flex items-center gap-1 text-indigo-900 font-bold">
-                          <Database className="w-3 h-3 text-indigo-600" />
-                          Sampel Pendaftar Hasil Impor API SIDARA (`siakad_mahasiswa_stg`):
-                        </span>
-                        <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
-                        {effectiveSiakad.slice(0, 2).map((stg) => {
-                          const formattedBirth = stg.tanggal_lahir
-                            ? `${stg.tanggal_lahir.slice(8, 10)}/${stg.tanggal_lahir.slice(5, 7)}/${stg.tanggal_lahir.slice(0, 4)}`
-                            : '15/04/2005';
-                          const isSelected = pmbNoReg === stg.nomor_registrasi;
-                          return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
                             <button
-                              key={stg.id}
                               type="button"
                               onClick={() => {
-                                handleSelectStudent({
-                                  id: stg.id + 20000,
-                                  nomor_pendaftaran: stg.nomor_registrasi,
-                                  nama_mahasiswa: stg.nama_lengkap,
-                                  nik: stg.nik,
-                                  tempat_lahir: stg.tempat_lahir || 'TARAKAN',
-                                  tanggal_lahir: stg.tanggal_lahir || '2005-04-15',
-                                  tanggal_lahir_formatted: formattedBirth,
-                                  jenis_kelamin: (stg.jenis_kelamin || 'L') as 'L' | 'P',
-                                  program_studi: stg.program_studi || 'Teknik',
-                                  jenis_mahasiswa: (stg.kategori_beasiswa === 'kip' ? 'kip' : 'nonkip') as 'kip' | 'nonkip',
-                                  nomorkip: stg.nomorkip,
-                                  no_hp: stg.nomor_telepon,
-                                  email: stg.email,
-                                  alamat: stg.alamat_lengkap,
-                                  source: 'SIDARA' as const
-                                });
+                                const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '260108001');
+                                if (st) handleSelectStudent(st);
                               }}
                               className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                                isSelected
+                                pmbNoReg === '260108001'
+                                  ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">GRACE MARLIN TELAUMBANUA</div>
+                                <div className="text-[10px] text-slate-500 font-mono">260108001 · D III Kep · 12/02/2008</div>
+                              </div>
+                              <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
+                                KIP
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '250830001');
+                                if (st) handleSelectStudent(st);
+                              }}
+                              className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                pmbNoReg === '250830001'
+                                  ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">Jenny Agustina Shellyana</div>
+                                <div className="text-[10px] text-slate-500 font-mono">250830001 · D III Kep · 29/08/2006</div>
+                              </div>
+                              <span className="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
+                                Reguler
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '250830002');
+                                if (st) handleSelectStudent(st);
+                              }}
+                              className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                pmbNoReg === '250830002'
+                                  ? 'bg-teal-50 border-teal-500 text-teal-950 font-bold shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">MAZA ADITIYA</div>
+                                <div className="text-[10px] text-slate-500 font-mono">250830002 · S1 Kesmas · 19/06/2006</div>
+                              </div>
+                              <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
+                                KIP
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const st = INITIAL_SIMABA_STUDENTS.find(s => s.nomor_pendaftaran === '260727002');
+                                if (st) handleSelectStudent(st);
+                              }}
+                              className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                pmbNoReg === '260727002'
                                   ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-bold shadow-xs'
                                   : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                               }`}
                             >
                               <div className="min-w-0">
-                                <div className="font-semibold truncate">{stg.nama_lengkap}</div>
-                                <div className="text-[10px] text-slate-500 font-mono">
-                                  {stg.nomor_registrasi} · {stg.program_studi || 'Teknik'} · {formattedBirth}
-                                </div>
+                                <div className="font-semibold truncate">Alvin Octavianus H.</div>
+                                <div className="text-[10px] text-indigo-700 font-mono font-semibold">260727002 · NIM Resmi SIAKAD</div>
                               </div>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5 ${
-                                stg.kategori_beasiswa === 'kip'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-indigo-100 text-indigo-800'
-                              }`}>
-                                {stg.kategori_beasiswa === 'kip' ? 'KIP' : 'SIDARA'}
+                              <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5">
+                                Early NIM
                               </span>
                             </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          </div>
+                        </div>
 
-                    {import.meta.env.DEV && (
-                      <div className="pt-2">
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          [DEV ONLY] Simulasi Skenario Resume (Auto-Jump):
-                        </label>
-                        <select
-                          value={selectedScenario}
-                          onChange={(e) => setSelectedScenario(e.target.value as 'NEW' | 'INVOICE_FORMED')}
-                          className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white shadow-xs mb-2"
-                        >
-                          <option value="NEW">Maba Baru (Mulai dari Form e-KYC - Step 1)</option>
-                          <option value="INVOICE_FORMED">Tagihan Sudah Terbentuk & Belum Transfer (Resume ke Step 3)</option>
-                        </select>
+                        {/* PRESETS DARI STAGING API SIDARA */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span className="flex items-center gap-1 text-indigo-900 font-bold">
+                              <Database className="w-3 h-3 text-indigo-600" />
+                              Sampel Pendaftar Hasil Impor API SIDARA (`siakad_mahasiswa_stg`):
+                            </span>
+                            <span className="font-mono text-[9px] text-slate-400">Pilih cepat</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
+                            {effectiveSiakad.slice(0, 2).map((stg) => {
+                              const formattedBirth = stg.tanggal_lahir
+                                ? `${stg.tanggal_lahir.slice(8, 10)}/${stg.tanggal_lahir.slice(5, 7)}/${stg.tanggal_lahir.slice(0, 4)}`
+                                : '15/04/2005';
+                              const isSelected = pmbNoReg === stg.nomor_registrasi;
+                              return (
+                                <button
+                                  key={stg.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSelectStudent({
+                                      id: stg.id + 20000,
+                                      nomor_pendaftaran: stg.nomor_registrasi,
+                                      nama_mahasiswa: stg.nama_lengkap,
+                                      nik: stg.nik,
+                                      tempat_lahir: stg.tempat_lahir || 'TARAKAN',
+                                      tanggal_lahir: stg.tanggal_lahir || '2005-04-15',
+                                      tanggal_lahir_formatted: formattedBirth,
+                                      jenis_kelamin: (stg.jenis_kelamin || 'L') as 'L' | 'P',
+                                      program_studi: stg.program_studi || 'Teknik',
+                                      jenis_mahasiswa: (stg.kategori_beasiswa === 'kip' ? 'kip' : 'nonkip') as 'kip' | 'nonkip',
+                                      nomorkip: stg.nomorkip,
+                                      no_hp: stg.nomor_telepon,
+                                      email: stg.email,
+                                      alamat: stg.alamat_lengkap,
+                                      source: 'SIDARA' as const
+                                    });
+                                  }}
+                                  className={`text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-bold shadow-xs'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-semibold truncate">{stg.nama_lengkap}</div>
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      {stg.nomor_registrasi} · {stg.program_studi || 'Teknik'} · {formattedBirth}
+                                    </div>
+                                  </div>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-1.5 ${
+                                    stg.kategori_beasiswa === 'kip'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-indigo-100 text-indigo-800'
+                                  }`}>
+                                    {stg.kategori_beasiswa === 'kip' ? 'KIP' : 'SIDARA'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {import.meta.env.DEV && (
+                          <div className="pt-2">
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              [DEV ONLY] Simulasi Skenario Resume (Auto-Jump):
+                            </label>
+                            <select
+                              value={selectedScenario}
+                              onChange={(e) => setSelectedScenario(e.target.value as 'NEW' | 'INVOICE_FORMED')}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white shadow-xs mb-2"
+                            >
+                              <option value="NEW">Maba Baru (Mulai dari Form e-KYC - Step 1)</option>
+                              <option value="INVOICE_FORMED">Tagihan Sudah Terbentuk & Belum Transfer (Resume ke Step 3)</option>
+                            </select>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">
+                        <span className="font-bold text-slate-800 block">Form Input Pengujian Bersih:</span>
+                        <p>Kredensial demo disembunyikan untuk keperluan UAT. Masukkan Nomor Registrasi PMB atau NIM dan Tanggal Lahir Anda secara manual untuk menguji validasi formulir.</p>
                       </div>
                     )}
 

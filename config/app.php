@@ -28,4 +28,18 @@ return [
         ),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Clean UI & Testing Mode Settings
+    |--------------------------------------------------------------------------
+    |
+    | 'ui_mode' controls the visual presentation density.
+    | Options: 'standard' (full features, banners, dev tools) or 'clean' (minimal testing).
+    | 'test_mode' activates UAT-focused flows and suppresses non-essential widgets.
+    |
+    */
+    'ui_mode' => env('APP_UI_MODE', 'standard'),
+
+    'test_mode' => (bool) env('TEST_MODE', false),
+
 ];

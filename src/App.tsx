@@ -27,8 +27,10 @@ import { SqlImporter } from './components/architecture/SqlImporter';
 import { SchemaDiagram } from './components/architecture/SchemaDiagram';
 import { NotificationProvider } from './context/NotificationContext';
 import { MaintenanceTicketing } from './components/maintenance/MaintenanceTicketing';
+import { TestingModeProvider, useTestingMode } from './context/TestingModeContext';
+import { MinimalTestingLayout } from './components/layout/MinimalTestingLayout';
 
-export default function App() {
+function AppContent() {
   const [currentRole, setCurrentRole] = useState<UserRole>('maba');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); // Default to false so user lands on login page first
 
@@ -533,11 +535,107 @@ export default function App() {
     toast.success(`[SIDARA SYNC SUCCESS] NIM ${newNim} berhasil disinkronisasi untuk Invoice ${invoiceId}. Status otomatis bermigrasi dari BOOKING menjadi PENYEWA (Master).`);
   };
 
+  const { isCleanTesting } = useTestingMode();
   const currentInvoice = invoices[0] || INITIAL_INVOICE;
 
+  if (isCleanTesting) {
+    return (
+      <MinimalTestingLayout
+        currentRole={currentRole}
+        isLoggedIn={isLoggedIn}
+        userName={mabaProfile.nama}
+        onLogout={handleLogout}
+        onSwitchRole={(role) => {
+          setCurrentRole(role);
+          if (!isLoggedIn) setIsLoggedIn(true);
+        }}
+      >
+        <Toaster position="top-right" richColors />
+        {!isLoggedIn ? (
+          <LoginDualTab onLoginSuccess={handleLoginSuccess} siakadStaging={siakadStaging} />
+        ) : (
+          <>
+            {currentRole === 'maba' && (
+              <MabaDashboard
+                tariffs={tariffs}
+                paymentSchemes={paymentSchemes}
+                siakadStaging={siakadStaging}
+                profile={mabaProfile}
+                invoice={currentInvoice}
+                room={rooms[1]}
+                contract={contract}
+                ticket={ticket}
+                ssoNoticeBanner={ssoNoticeBanner || undefined}
+                onClearSsoNotice={handleClearSsoNotice}
+                onUpdateInvoice={handleUpdateInvoice}
+                onUpdateContract={handleUpdateContract}
+                onUpdateTicket={handleUpdateTicket}
+                onUpdateProfile={handleUpdateProfile}
+              />
+            )}
+
+            {currentRole === 'admin_keuangan' && (
+              <AdminKeuangan
+                invoices={invoices}
+                onVerifyInvoice={handleVerifyInvoiceFromAdmin}
+                onSyncNim={handleSyncNim}
+                tariffs={tariffs}
+                setTariffs={handleSetTariffs}
+                paymentSchemes={paymentSchemes}
+                setPaymentSchemes={handleSetPaymentSchemes}
+                apiLinks={apiLinks}
+                siakadStaging={siakadStaging}
+                onTriggerSiakadSync={handleTriggerSiakadSync}
+                onVerifySubsidi={handleVerifySubsidi}
+                onPromoteToMaster={handlePromoteToMaster}
+              />
+            )}
+
+            {currentRole === 'admin_asrama' && (
+              <AdminAsrama 
+                rooms={rooms} 
+                modificationLogs={modificationLogs} 
+                invoices={invoices} 
+                initialTab="operasional" 
+                tariffs={tariffs} 
+                setTariffs={handleSetTariffs} 
+                paymentSchemes={paymentSchemes} 
+                setPaymentSchemes={handleSetPaymentSchemes}
+                apiLinks={apiLinks}
+                siakadStaging={siakadStaging}
+                onTriggerSiakadSync={handleTriggerSiakadSync}
+                onVerifySubsidi={handleVerifySubsidi}
+                onPromoteToMaster={handlePromoteToMaster}
+              />
+            )}
+
+            {currentRole === 'eksisting' && (
+              <EksistingDashboard
+                nim="2240101004"
+                nama="Ahmad Raihan"
+                kamar="Gedung A (Enggang Utara) — Kamar 101"
+                scenario={currentScenario}
+                onOpenMaintenance={() => setCurrentRole('maintenance_ticketing')}
+              />
+            )}
+
+            {currentRole === 'maintenance_ticketing' && (
+              <MaintenanceTicketing
+                userNim="2240101004"
+                userName="Ahmad Raihan"
+                userPhone="081254332190"
+                userRoom="Gedung A (Enggang Utara) — Kamar 101"
+                onNavigateHome={() => setCurrentRole('eksisting')}
+              />
+            )}
+          </>
+        )}
+      </MinimalTestingLayout>
+    );
+  }
+
   return (
-    <NotificationProvider>
-      <div id="app-root" className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-teal-600 selection:text-white">
+    <div id="app-root" className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-teal-600 selection:text-white">
       {/* Dev Tools & Persona Switcher */}
       <SidebarGuide 
         currentRole={currentRole} 
@@ -686,6 +784,15 @@ export default function App() {
         </div>
       </footer>
     </div>
-    </NotificationProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <TestingModeProvider>
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
+    </TestingModeProvider>
   );
 }

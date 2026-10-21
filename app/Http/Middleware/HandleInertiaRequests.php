@@ -35,6 +35,27 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Evaluasi Clean UI / Testing Mode
+        $isCleanEnv = config('app.ui_mode') === 'clean' || config('app.test_mode') === true;
+        
+        // Dukungan override URL query (?ui_mode=clean atau ?testing=true) HANYA untuk non-production
+        $isNonProd = app()->environment(['local', 'testing', 'staging', 'development']) || config('app.env') !== 'production';
+        $queryOverride = false;
+        
+        if ($isNonProd) {
+            if ($request->query('ui_mode') === 'clean' || $request->query('testing') === 'true' || $request->query('clean') === '1') {
+                $queryOverride = true;
+                $request->session()->put('testing_ui_mode_active', true);
+            } elseif ($request->query('ui_mode') === 'standard' || $request->query('testing') === 'false') {
+                $queryOverride = false;
+                $request->session()->forget('testing_ui_mode_active');
+            } elseif ($request->session()->get('testing_ui_mode_active')) {
+                $queryOverride = true;
+            }
+        }
+
+        $isTestingMode = $isCleanEnv || $queryOverride;
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user() ? [
@@ -57,6 +78,19 @@ class HandleInertiaRequests extends Middleware
                 'name' => config('app.name', 'Portal SI-GABUNG 54'),
                 'bankBsiAccount' => '7123 456 789 (a.n. Asrama Mahasiswa UBT)',
                 'adminFee' => 100000,
+            ],
+            'uiMode' => [
+                'isCleanTesting' => $isTestingMode,
+                'mode' => $isTestingMode ? 'clean' : 'standard',
+                'environment' => config('app.env', 'production'),
+                'features' => [
+                    'hideMarketingBanners' => $isTestingMode,
+                    'hideDevToolsSidebar' => $isTestingMode,
+                    'hideDemoPresets' => $isTestingMode,
+                    'hideStatisticsCards' => $isTestingMode,
+                    'hideOnboardingModals' => $isTestingMode,
+                    'focusRegistrationFlow' => $isTestingMode,
+                ],
             ],
         ]);
     }
