@@ -71,21 +71,27 @@ KYC_SIGNED_URL_TTL_MINUTES=15
 ```
 
 ### Langkah 3.2: Eksekusi Migrasi & Database Seeding
-Jalankan perintah berikut di terminal Laragon:
+Jalankan perintah berikut di terminal Laragon (atau cukup jalankan `laragon-setup.bat`):
 
 ```bash
 # 1. Pastikan Apache & MySQL Laragon dalam status "Start All"
 # 2. Masuk ke folder proyek
 cd C:\laragon\www\asrama-ubt
 
-# 3. Jalankan migrasi bersih dan seeder data awal master
+# 3A. MODE PRODUKSI RIIL (DEFAULT & DISARANKAN - Bebas Akun Dummy Mahasiswa):
+php artisan migrate:fresh --seed --seeder=ProductionSeeder
+
+# 3B. MODE SIMULASI PENGUJIAN (Menyertakan Akun Sampel Mahasiswa untuk QA):
 php artisan migrate:fresh --seed
 ```
 
-Perintah ini akan:
+Perintah di atas akan:
 1. Membangun seluruh tabel di `asrama_ubt_db` (users, kamar, tarif, skema bayar, request_pembayaran, pembayaran, transaksi).
 2. Membangun tabel simulasi `pendaftaranmahasiswa` di database `u540633926_simaba`.
-3. Memasukkan data master kamar hunian (Gedung A, B, C) dan tarif sewa standar Yayasan Gleni.
+3. Memasukkan data master kamar hunian riil Roemah 54 (64 kamar / 128 ranjang), tarif sewa resmi SK Rektor UBT, dan akun staf berwenang.
+
+> ⚡ **Verifikasi Cepat Tanpa Menunggu Browser**:  
+> Anda dapat langsung menjalankan file `laragon-test-crud.bat` untuk memverifikasi bahwa operasi Create, Read, Update, Delete berjalan mulus di MySQL.
 
 ### Langkah 3.3: Menjalankan Server Aplikasi
 Untuk menjalankan interaksi CRUD nyata, Anda membutuhkan dua proses terminal yang aktif bersamaan:

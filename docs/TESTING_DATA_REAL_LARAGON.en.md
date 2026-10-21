@@ -84,8 +84,11 @@ The script automatically executes 7 setup phases:
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1';
    FLUSH PRIVILEGES;
    ```
-6. Executes database migrations and seeds real PMB data (`php artisan migrate --seed`).
+6. Runs calibrated database migrations and seeders:
+   - **Real Production Mode (Default / Recommended)**: `php artisan migrate --seed --seeder=ProductionSeeder` (100% free of dummy student accounts; initializes Rector Tariff Decree, 64 physical rooms at Roemah 54, and official staff accounts).
+   - **Simulation Testing Mode**: `php artisan migrate --seed` (includes sample student personas for QA).
 7. Creates the public storage symlink (`php artisan storage:link`).
+8. Provides the **`laragon-test-crud.bat`** rapid test utility for immediate console verification of MySQL CRUD operations.
 
 ---
 

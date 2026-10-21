@@ -22,6 +22,9 @@ All technical and operational documentation is published primarily in **Bahasa I
 | **System Specifications (PRD & SAS)** | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md) | Product requirements, 6-step flow, data models, and Inertia controller routes. |
 | **Laragon Setup Guide (Automated)** | [LARAGON_SETUP.md](LARAGON_SETUP.md) | [LARAGON_SETUP.en.md](LARAGON_SETUP.en.md) | 1-click automated setup in Laragon via `laragon-setup.bat`. |
 | **Real Data Testing Guide** | [docs/TESTING_DATA_REAL_LARAGON.md](docs/TESTING_DATA_REAL_LARAGON.md) | [docs/TESTING_DATA_REAL_LARAGON.en.md](docs/TESTING_DATA_REAL_LARAGON.en.md) | Practical steps to transition from simulation to real MySQL database in Laragon (intake & master promotion). |
+| **Real Database CRUD Manual** | [docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md](docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md) | - | Technical HTTP wiring manual, executing real database CRUD against port 8000 and MySQL verification. |
+| **Pre-Production Readiness & Sanitization** | [docs/PRE_PRODUCTION_READINESS.md](docs/PRE_PRODUCTION_READINESS.md) | [docs/PRE_PRODUCTION_READINESS.en.md](docs/PRE_PRODUCTION_READINESS.en.md) | Data sanitization protocol, real room inventory setup, 3-digit unique cashier code SOP, & go-live checklist. |
+| **Clean UI & Testing Mode Architecture** | [docs/CLEAN_UI_TESTING_MODE.md](docs/CLEAN_UI_TESTING_MODE.md) | - | Clean UI design (Default Real Production Mode) and distraction-free QA simulation switcher. |
 | **XAMPP Setup Guide (Automated)** | [XAMPP_SETUP.md](XAMPP_SETUP.md) | [XAMPP_SETUP.en.md](XAMPP_SETUP.en.md) | Automated setup steps for Windows XAMPP via `xampp-setup.bat`. |
 | **Architecture & Logic Diagram** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md) | Staging vs Master database flow, room concurrency lock, and transactions. |
 | **Dormitory Regulations & JUKLAK** | [docs/JUKLAK_REFERENCE.md](docs/JUKLAK_REFERENCE.md) | [docs/JUKLAK_REFERENCE.en.md](docs/JUKLAK_REFERENCE.en.md) | Legal compliance: JUKLAK-02 (e-Signature OTP), JUKLAK-03 & F-22 (Collective Ratification), F-19, and F-02. |
@@ -44,6 +47,7 @@ All technical and operational documentation is published primarily in **Bahasa I
    - **Terminal 1 (Vite Frontend):** `npm run dev`
    - **Terminal 2 (Laravel Backend):** `php artisan serve`
 4. Access via browser: `http://127.0.0.1:8000` or `http://asrama-ubt.test`
+5. **Live CRUD Verification**: Run `laragon-test-crud.bat` in root to immediately verify MySQL read-write operations without opening a browser.
 
 ---
 

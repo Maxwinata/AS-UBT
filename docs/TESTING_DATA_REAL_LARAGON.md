@@ -89,8 +89,11 @@ Skrip ini secara otomatis mengeksekusi 7 langkah instalasi:
    GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1';
    FLUSH PRIVILEGES;
    ```
-6. Menjalankan migrasi dan seeder data riil (`php artisan migrate --seed`).
+6. Menjalankan migrasi dan seeder data terkalibrasi:
+   - **Mode Produksi Riil (Default)**: `php artisan migrate --seed --seeder=ProductionSeeder` (100% bebas akun dummy mahasiswa; hanya master tarif SK Rektor, 64 kamar fisik riil Roemah 54, dan akun staf resmi).
+   - **Mode Simulasi Pengujian**: `php artisan migrate --seed` (menyertakan akun sampel mahasiswa untuk QA).
 7. Melakukan *symlink* direktori publik (`php artisan storage:link`).
+8. Menyediakan utilitas uji cepat **`laragon-test-crud.bat`** untuk verifikasi instan baca-tulis MySQL.
 
 ---
 

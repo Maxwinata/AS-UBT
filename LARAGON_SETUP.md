@@ -20,7 +20,10 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
      - Meng-copy `.env.example` ke `.env`
      - Menjalankan `composer install`
      - Men-generate `APP_KEY`
-     - Menjalankan `php artisan migrate --seed` (Membuat tabel & mengisi master tarif: Biaya Administrasi Rp 100.000, Sewa Rp 500.000, Deposit Jaminan, Kamar, dan Skema Pembayaran)
+     - Menyiapkan dual database MySQL (`asrama_ubt_db` & `u540633926_simaba`)
+     - **Pilihan Seeder Terkalibrasi**:
+       * **[1] Mode Produksi Riil (Default / Disarankan)**: Menjalankan `ProductionSeeder` (100% bebas akun dummy mahasiswa; hanya menginisialisasi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, dan akun staf resmi).
+       * **[2] Mode Simulasi**: Menjalankan `DatabaseSeeder` (menyertakan akun sampel mahasiswa untuk keperluan QA).
      - Menjalankan `npm install`
 4. Jalankan Vite frontend di terminal:
    ```bash
@@ -29,6 +32,9 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
 5. Buka browser:
    * **Domain otomatis Laragon**: `http://asrama-ubt.test`
    * Atau via server lokal: `http://127.0.0.1:8000` (jika menggunakan `php artisan serve`).
+
+> ⚡ **Uji Live CRUD MySQL (1-Klik Tanpa Browser)**:  
+> Jalankan file **`laragon-test-crud.bat`** di root folder untuk menguji operasi Create, Read, Update, Delete nyata langsung ke tabel MySQL `asrama_ubt_db` dan memverifikasi koneksi handshake dual-database.
 
 > 🧪 **Langkah Pengujian Logika Program (Data Real)**:  
 > Untuk panduan rinci langkah-demi-langkah menguji alur pendaftaran mahasiswa baru dari formulir hingga migrasi otomatis ke tabel master di MySQL Laragon, silakan baca:  
@@ -57,7 +63,7 @@ Struktur kode telah terorganisir rapi mengikuti konvensi resmi Laravel + Inertia
 ├── config/                                             # filesystems.php (Private KYC Disk), database.php, app.php, auth.php
 ├── database/
 │   ├── migrations/                                     # 4 Berkas migrasi database MySQL terkalibrasi lengkap
-│   └── seeders/                                        # DatabaseSeeder, TariffSeeder (Admin Rp 100rb), RoomSeeder
+│   └── seeders/                                        # ProductionSeeder (Non-Dummy Default), DatabaseSeeder (Simulasi), TariffSeeder, RealRoomSeeder
 ├── resources/
 │   ├── js/
 │   │   ├── Pages/                                      # Inertia Page Views (Maba/Dashboard, Admin/Dashboard, Eksisting/Dashboard, Auth/Login, Sop/CronMonitor)
@@ -69,7 +75,8 @@ Struktur kode telah terorganisir rapi mengikuti konvensi resmi Laravel + Inertia
 │   ├── web.php                                         # Rute Halaman Web Inertia.js
 │   ├── api.php                                         # Rute Webhook BSI & Virtual Account
 │   └── console.php                                     # Jadwal CRON Eksekusi Otomatis Harian Pukul 00:01 WIB
-├── laragon-setup.bat                                   # Skrip Otomatisasi 1-Klik Laragon
+├── laragon-setup.bat                                   # Skrip Otomatisasi 1-Klik Setup Laragon
+├── laragon-test-crud.bat                              # Skrip Pengujian Live CRUD Dual Database MySQL
 ├── composer.json                                       # Dependensi PHP Laravel 11 & Inertia
 └── .env.example                                        # Konfigurasi Lingkungan Laragon Presets
 ```

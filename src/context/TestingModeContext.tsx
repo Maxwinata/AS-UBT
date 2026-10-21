@@ -16,11 +16,15 @@ export interface UiModeConfig {
   features: UiModeFeatures;
 }
 
+export type AppOperationalMode = 'production' | 'simulation';
+
 interface TestingModeContextType {
   isCleanTesting: boolean;
+  appMode: AppOperationalMode;
   uiModeConfig: UiModeConfig;
   toggleCleanTesting: () => void;
   setCleanTesting: (active: boolean) => void;
+  setAppMode: (mode: AppOperationalMode) => void;
 }
 
 const DEFAULT_CLEAN_FEATURES: UiModeFeatures = {
@@ -48,25 +52,32 @@ export const TestingModeProvider: React.FC<{
   initialUiMode?: Partial<UiModeConfig>;
 }> = ({ children, initialUiMode }) => {
   // 1. Initial evaluation from URL search params, props, or localStorage
+  // Default to TRUE (Mode Produksi Riil / Non-Dummy)
   const [isCleanTesting, setIsCleanTesting] = useState<boolean>(() => {
-    // Check URL parameters first (?ui_mode=clean, ?testing=true, ?clean=1)
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlUiMode = params.get('ui_mode');
+      const urlMode = params.get('mode');
       const urlTesting = params.get('testing');
       const urlClean = params.get('clean');
 
-      if (urlUiMode === 'clean' || urlTesting === 'true' || urlClean === '1') {
-        return true;
-      }
-      if (urlUiMode === 'standard' || urlTesting === 'false' || urlClean === '0') {
+      // Explicit simulation / standard requests
+      if (urlUiMode === 'simulation' || urlUiMode === 'standard' || urlMode === 'simulation' || urlTesting === 'false' || urlClean === '0') {
         return false;
       }
+      // Explicit production / clean requests
+      if (urlUiMode === 'clean' || urlUiMode === 'production' || urlMode === 'production' || urlTesting === 'true' || urlClean === '1') {
+        return true;
+      }
 
-      // Check localStorage for persisted testing state in dev/staging
-      const stored = localStorage.getItem('portal_ubt_clean_mode');
-      if (stored !== null) {
-        return stored === 'true';
+      // Check localStorage for persisted choice
+      const storedMode = localStorage.getItem('asrama_app_mode');
+      if (storedMode === 'simulation') return false;
+      if (storedMode === 'production') return true;
+
+      const storedClean = localStorage.getItem('portal_ubt_clean_mode');
+      if (storedClean !== null) {
+        return storedClean === 'true';
       }
     }
 
@@ -75,10 +86,12 @@ export const TestingModeProvider: React.FC<{
       return initialUiMode.isCleanTesting;
     }
 
-    // Fallback to Vite environment flag (VITE_APP_UI_MODE or VITE_TEST_MODE)
+    // Default to TRUE (Mode Produksi / Real Mode)
     const viteUiMode = import.meta.env.VITE_APP_UI_MODE;
-    const viteTestMode = import.meta.env.VITE_TEST_MODE;
-    return viteUiMode === 'clean' || viteTestMode === 'true';
+    if (viteUiMode === 'simulation' || viteUiMode === 'standard') {
+      return false;
+    }
+    return true;
   });
 
   // Listen to URL changes if user navigates with pushState
@@ -98,10 +111,30 @@ export const TestingModeProvider: React.FC<{
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  const syncUrlParam = (active: boolean) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (active) {
+          url.searchParams.set('ui_mode', 'clean');
+        } else {
+          url.searchParams.delete('ui_mode');
+          url.searchParams.delete('testing');
+          url.searchParams.delete('clean');
+        }
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        // Safe fallback in restricted iframes
+      }
+    }
+  };
+
   const toggleCleanTesting = () => {
     setIsCleanTesting((prev) => {
       const next = !prev;
       localStorage.setItem('portal_ubt_clean_mode', String(next));
+      localStorage.setItem('asrama_app_mode', next ? 'production' : 'simulation');
+      syncUrlParam(next);
       return next;
     });
   };
@@ -109,7 +142,15 @@ export const TestingModeProvider: React.FC<{
   const setCleanTesting = (active: boolean) => {
     setIsCleanTesting(active);
     localStorage.setItem('portal_ubt_clean_mode', String(active));
+    localStorage.setItem('asrama_app_mode', active ? 'production' : 'simulation');
+    syncUrlParam(active);
   };
+
+  const setAppMode = (mode: AppOperationalMode) => {
+    setCleanTesting(mode === 'production');
+  };
+
+  const appMode: AppOperationalMode = isCleanTesting ? 'production' : 'simulation';
 
   const uiModeConfig = useMemo<UiModeConfig>(() => {
     return {
@@ -124,9 +165,11 @@ export const TestingModeProvider: React.FC<{
     <TestingModeContext.Provider
       value={{
         isCleanTesting,
+        appMode,
         uiModeConfig,
         toggleCleanTesting,
         setCleanTesting,
+        setAppMode,
       }}
     >
       {children}
@@ -137,17 +180,19 @@ export const TestingModeProvider: React.FC<{
 export const useTestingMode = (): TestingModeContextType => {
   const context = useContext(TestingModeContext);
   if (!context) {
-    // Graceful fallback if used outside Provider
+    // Graceful fallback if used outside Provider: Default to Clean Production Mode
     return {
-      isCleanTesting: false,
+      isCleanTesting: true,
+      appMode: 'production',
       uiModeConfig: {
-        isCleanTesting: false,
-        mode: 'standard',
+        isCleanTesting: true,
+        mode: 'clean',
         environment: 'production',
-        features: DEFAULT_STANDARD_FEATURES,
+        features: DEFAULT_CLEAN_FEATURES,
       },
       toggleCleanTesting: () => {},
       setCleanTesting: () => {},
+      setAppMode: () => {},
     };
   }
   return context;

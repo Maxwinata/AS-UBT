@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Settings, Bell } from 'lucide-react';
+import { ChevronDown, ChevronUp, Settings, Bell, SlidersHorizontal } from 'lucide-react';
 import { UserRole, MabaProfile } from '../types/asrama';
 import { ShieldCheck, UserCheck, CreditCard, Building2, Cpu, FileText, Sparkles, LogOut, Code2, Database, Wifi, WifiOff } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { NotificationBoardModal } from './notifications/NotificationBoardModal';
+import { useTestingMode } from '../context/TestingModeContext';
+import { ProductionModeSwitch } from './layout/ProductionModeSwitch';
 
 interface HeaderProps {
   currentRole: UserRole;
@@ -27,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   invoiceStatus
 }) => {
   const { unreadCount, setIsBoardOpen } = useNotifications();
+  const { isCleanTesting, toggleCleanTesting } = useTestingMode();
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -65,9 +68,13 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Role & Perspective Selector Tabs */}
 
-        {/* User Account / Logout */}
-        {isLoggedIn && (
-          <div id="user-profile-badge" className="flex items-center gap-2 sm:gap-3.5 sm:border-l border-slate-200 sm:pl-4 order-2 lg:order-3 relative flex-shrink-0 md:ml-auto">
+        {/* Actions Zone: Mode Switcher & User Account */}
+        <div className="flex items-center gap-2 sm:gap-3 order-2 lg:order-3 md:ml-auto">
+          {/* Mode Switcher (Production Real vs Simulation) */}
+          <ProductionModeSwitch compact />
+
+          {isLoggedIn && (
+            <div id="user-profile-badge" className="flex items-center gap-2 sm:gap-3.5 sm:border-l border-slate-200 sm:pl-3 relative flex-shrink-0">
             
             {/* Combined UBT Logo & Network Status Badge */}
             <div className={`flex items-center rounded-lg border shadow-sm transition-colors ${isOnline ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/50'}`} title={isOnline ? 'Koneksi Stabil (Siap Sinkronisasi & Upload)' : 'Koneksi Terputus (Sinkronisasi Tertunda)'}>
@@ -249,6 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Global Board Announcement Modal */}

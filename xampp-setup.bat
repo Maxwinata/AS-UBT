@@ -68,12 +68,19 @@ echo.
 echo [4/6] Men-generate Application Key Laravel...
 call php artisan key:generate
 
-:: 8. Migrasi Database
+echo       PILIHAN SEEDER BASIS DATA:
+echo       [1] Mode Produksi Riil (Default / Disarankan) - 100%% Bebas Akun Dummy Mahasiswa
+echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, & Akun Staf Resmi)
+echo       [2] Mode Simulasi Pengujian - Menyertakan 1 akun sampel mahasiswa untuk QA
 echo.
-echo [5/6] Menjalankan migrasi basis data dan seeder master tarif...
-echo Pastikan servis MySQL di XAMPP Control Panel sudah AKTIF (Start)
-echo dan database "asrama_ubt_db" sudah dibuat di phpMyAdmin (http://localhost/phpmyadmin).
-call php artisan migrate --seed
+set /p seederchoice="Pilih mode seeder [1 atau 2, default: 1]: "
+if "%seederchoice%"=="2" (
+    echo       + Menjalankan migrasi dengan DatabaseSeeder (Mode Simulasi)...
+    call php artisan migrate --seed
+) else (
+    echo       + Menjalankan migrasi dengan ProductionSeeder (Mode Produksi Riil Tanpa Dummy)...
+    call php artisan migrate --seed --seeder=ProductionSeeder
+)
 
 :: 9. Install NPM Dependencies
 echo.

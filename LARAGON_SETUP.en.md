@@ -20,7 +20,10 @@ This project is pre-configured as a **turnkey full-stack application** designed 
      - Copies `.env.example` to `.env` (if not present)
      - Installs PHP packages: `composer install`
      - Generates encryption key: `php artisan key:generate`
-     - Runs database migrations & seeds initial tariffs: `php artisan migrate --seed` (Creates tables, sets admin fee Rp 100,000, standard rent Rp 500,000, deposit schemes, and rooms)
+     - Configures dual MySQL databases (`asrama_ubt_db` & `u540633926_simaba`)
+     - **Calibrated Seeder Selection**:
+       * **[1] Real Production Mode (Default / Recommended)**: Runs `ProductionSeeder` (100% free of dummy student accounts; initializes Rector Tariff Decree, 64 physical rooms at Roemah 54, and official staff accounts).
+       * **[2] Simulation Mode**: Runs `DatabaseSeeder` (includes sample student personas for QA/evaluation).
      - Installs frontend packages: `npm install`
 4. Start the Vite development server in your terminal:
    ```bash
@@ -29,6 +32,9 @@ This project is pre-configured as a **turnkey full-stack application** designed 
 5. Open your web browser at:
    * **Laragon automatic virtual host**: `http://asrama-ubt.test`
    * Or local PHP development server: `http://127.0.0.1:8000` (if running `php artisan serve`).
+
+> ⚡ **Live MySQL CRUD Test (1-Click Console Execution)**:  
+> Execute **`laragon-test-crud.bat`** in the root directory to perform real Create, Read, Update, Delete queries on the `asrama_ubt_db` database and verify the dual-database handshake.
 
 > 🧪 **Real Data Program Logic Testing Guide**:  
 > For detailed step-by-step instructions on verifying the entire admission intake flow and its automatic staging-to-master database migration in Laragon MySQL, please read:  
@@ -57,7 +63,9 @@ The codebase strictly adheres to standard Laravel 11 + Inertia conventions:
 ├── config/                                             # filesystems.php (private_kyc disk), database.php, app.php
 ├── database/
 │   ├── migrations/                                     # 4 calibrated MySQL migrations
-│   └── seeders/                                        # DatabaseSeeder, TariffSeeder, RoomSeeder
+│   └── seeders/                                        # ProductionSeeder (Non-Dummy Default), DatabaseSeeder (Simulasi), TariffSeeder, RealRoomSeeder
+├── laragon-setup.bat                                   # 1-Click Automated Setup Script
+├── laragon-test-crud.bat                              # 1-Click Live MySQL CRUD Test Script
 ├── public/
 │   ├── index.php                                       # Front Controller for Apache/PHP server
 │   └── .htaccess                                       # Apache rewrite rules for Laragon
@@ -77,7 +85,11 @@ The codebase strictly adheres to standard Laravel 11 + Inertia conventions:
 
 ## 🔧 Useful Artisan Commands in Laragon
 
-- **Re-run fresh database migrations with seed data:**
+- **Re-run fresh database migrations with Real Production Seeder (Zero Dummy):**
+  ```bash
+  php artisan migrate:fresh --seed --seeder=ProductionSeeder
+  ```
+- **Re-run fresh database migrations with Simulation Seeder (for QA):**
   ```bash
   php artisan migrate:fresh --seed
   ```

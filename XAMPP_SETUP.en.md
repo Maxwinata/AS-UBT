@@ -27,7 +27,8 @@ This guide is designed for developers running the **XAMPP (Apache + MySQL + PHP)
 
 ### 2. Create the Database in phpMyAdmin:
 - Navigate to `http://localhost/phpmyadmin` in your browser.
-- Create a new database named: **`asrama_ubt_db`** (Collation: `utf8mb4_unicode_ci`).
+- Create the primary operations database: **`asrama_ubt_db`** (Collation: `utf8mb4_unicode_ci`).
+- (Optional for local dual-database testing): Create **`u540633926_simaba`**.
 
 ### 3. Run the Automated Script:
 - Open your terminal / Command Prompt inside the project folder: `C:\xampp\htdocs\asrama-ubt` (or click **Shell** in the XAMPP Control Panel).
@@ -35,7 +36,9 @@ This guide is designed for developers running the **XAMPP (Apache + MySQL + PHP)
   ```cmd
   xampp-setup.bat
   ```
-  *(The script will automatically verify PHP, Composer, and Node.js availability, duplicate `.env`, install dependencies, generate the app key, and run migrations with seeders).*
+  *The script will prompt you for the database seeder mode:*
+  * **[1] Real Production Mode (Default / Recommended)**: Runs `ProductionSeeder` (100% free of dummy student accounts; initializes Rector Tariff Decree, 64 physical rooms at Roemah 54, and official staff accounts).
+  * **[2] Simulation Mode**: Runs `DatabaseSeeder` with sample student personas for QA/evaluation.
 
 ---
 

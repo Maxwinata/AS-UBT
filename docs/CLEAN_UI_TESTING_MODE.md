@@ -112,30 +112,39 @@ class HandleInertiaRequests extends Middleware
 {
     public function share(Request $request): array
     {
-        // 1. Cek variabel environment server
-        $isCleanEnv = config('app.ui_mode') === 'clean' || config('app.test_mode') === true;
+        // 1. Evaluasi Clean UI / Production Mode: Default adalah PRODUKSI RIIL (Clean / Non-Dummy)
+        // Kecuali jika secara spesifik diatur sebagai 'simulation' atau 'standard'
+        $isCleanEnv = config('app.ui_mode') !== 'simulation' && config('app.ui_mode') !== 'standard';
 
-        // 2. Dukungan override URL query (?ui_mode=clean atau ?testing=true) HANYA untuk non-production
+        // 2. Dukungan override URL query (?mode=production vs ?mode=simulation atau ?ui_mode=clean)
         $isNonProd = app()->environment(['local', 'testing', 'staging', 'development']) || config('app.env') !== 'production';
-        $queryOverride = false;
+        $queryOverride = null;
 
         if ($isNonProd) {
-            if ($request->query('ui_mode') === 'clean' || $request->query('testing') === 'true' || $request->query('clean') === '1') {
-                $queryOverride = true;
-                $request->session()->put('testing_ui_mode_active', true);
-            } elseif ($request->query('ui_mode') === 'standard' || $request->query('testing') === 'false') {
+            $modeQuery = $request->query('mode');
+            $uiModeQuery = $request->query('ui_mode');
+            $cleanQuery = $request->query('clean');
+            $testQuery = $request->query('testing');
+
+            if ($modeQuery === 'simulation' || $uiModeQuery === 'simulation' || $uiModeQuery === 'standard' || $testQuery === 'false' || $cleanQuery === '0') {
                 $queryOverride = false;
-                $request->session()->forget('testing_ui_mode_active');
-            } elseif ($request->session()->get('testing_ui_mode_active')) {
+                $request->session()->put('asrama_operational_mode', 'simulation');
+            } elseif ($modeQuery === 'production' || $uiModeQuery === 'clean' || $uiModeQuery === 'production' || $testQuery === 'true' || $cleanQuery === '1') {
+                $queryOverride = true;
+                $request->session()->put('asrama_operational_mode', 'production');
+            } elseif ($request->session()->get('asrama_operational_mode') === 'simulation') {
+                $queryOverride = false;
+            } elseif ($request->session()->get('asrama_operational_mode') === 'production') {
                 $queryOverride = true;
             }
         }
 
-        $isTestingMode = $isCleanEnv || $queryOverride;
+        $isTestingMode = $queryOverride !== null ? $queryOverride : $isCleanEnv;
 
         return array_merge(parent::share($request), [
             'uiMode' => [
                 'isCleanTesting' => $isTestingMode,
+                'appMode'        => $isTestingMode ? 'production' : 'simulation',
                 'mode'           => $isTestingMode ? 'clean' : 'standard',
                 'environment'    => config('app.env', 'production'),
                 'features'       => [
@@ -156,49 +165,63 @@ class HandleInertiaRequests extends Middleware
 ```tsx
 import React, { createContext, useContext, useState, useMemo } from 'react';
 
+export type AppOperationalMode = 'production' | 'simulation';
+
 export interface UiModeConfig {
   isCleanTesting: boolean;
+  appMode?: AppOperationalMode;
   mode: 'standard' | 'clean';
   environment: string;
 }
 
 interface TestingModeContextType {
   isCleanTesting: boolean;
+  appMode: AppOperationalMode;
+  uiModeConfig: UiModeConfig;
   toggleCleanTesting: () => void;
   setCleanTesting: (active: boolean) => void;
+  setAppMode: (mode: AppOperationalMode) => void;
 }
 
 const TestingModeContext = createContext<TestingModeContextType | undefined>(undefined);
 
 export const TestingModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Default to TRUE (Mode Produksi Riil / Non-Dummy)
   const [isCleanTesting, setIsCleanTesting] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const urlUiMode = params.get('ui_mode');
-      const urlTesting = params.get('testing');
-      if (urlUiMode === 'clean' || urlTesting === 'true') return true;
-      if (urlUiMode === 'standard' || urlTesting === 'false') return false;
+      const urlMode = params.get('mode');
+      if (urlMode === 'production' || urlMode === 'clean') return true;
+      if (urlMode === 'simulation' || urlMode === 'standard') return false;
 
-      const stored = localStorage.getItem('portal_ubt_clean_mode');
-      if (stored !== null) return stored === 'true';
+      const storedMode = localStorage.getItem('asrama_app_mode');
+      if (storedMode === 'production') return true;
+      if (storedMode === 'simulation') return false;
     }
-    return import.meta.env.VITE_APP_UI_MODE === 'clean';
+    // Default adalah Mode Produksi (true)
+    return true;
   });
 
+  const appMode: AppOperationalMode = isCleanTesting ? 'production' : 'simulation';
+
   const toggleCleanTesting = () => {
-    setIsCleanTesting(prev => {
-      localStorage.setItem('portal_ubt_clean_mode', String(!prev));
-      return !prev;
+    setIsCleanTesting((prev) => {
+      const next = !prev;
+      localStorage.setItem('portal_ubt_clean_mode', String(next));
+      localStorage.setItem('asrama_app_mode', next ? 'production' : 'simulation');
+      return next;
     });
   };
 
-  const setCleanTesting = (active: boolean) => {
-    setIsCleanTesting(active);
-    localStorage.setItem('portal_ubt_clean_mode', String(active));
+  const setAppMode = (mode: AppOperationalMode) => {
+    const isClean = mode === 'production';
+    setIsCleanTesting(isClean);
+    localStorage.setItem('portal_ubt_clean_mode', String(isClean));
+    localStorage.setItem('asrama_app_mode', mode);
   };
 
   return (
-    <TestingModeContext.Provider value={{ isCleanTesting, toggleCleanTesting, setCleanTesting }}>
+    <TestingModeContext.Provider value={{ isCleanTesting, appMode, toggleCleanTesting, setAppMode, ... }}>
       {children}
     </TestingModeContext.Provider>
   );

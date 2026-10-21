@@ -28,9 +28,22 @@ call composer install
 echo [4/7] Men-generate Application Key Laravel...
 call php artisan key:generate
 
-echo [5/7] Memastikan database asrama_ubt_db & u540633926_simaba serta user database siap...
+echo [5/7] Memastikan database asrama_ubt_db & u540633926_simaba siap di MySQL Laragon...
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS asrama_ubt_db; CREATE DATABASE IF NOT EXISTS u540633926_simaba; CREATE USER IF NOT EXISTS 'u540633926_simaba'@'localhost'; CREATE USER IF NOT EXISTS 'u540633926_simaba'@'127.0.0.1'; GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'localhost'; GRANT ALL PRIVILEGES ON u540633926_simaba.* TO 'u540633926_simaba'@'127.0.0.1'; FLUSH PRIVILEGES;" 2>nul
-call php artisan migrate --seed
+echo.
+echo       PILIHAN SEEDER BASIS DATA:
+echo       [1] Mode Produksi Riil (Default / Disarankan) - 100%% Bebas Akun Dummy Mahasiswa
+echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, & Akun Staf Resmi)
+echo       [2] Mode Simulasi Pengujian - Menyertakan 1 akun sampel mahasiswa untuk QA
+echo.
+set /p seederchoice="Pilih mode seeder [1 atau 2, default: 1]: "
+if "%seederchoice%"=="2" (
+    echo       + Menjalankan migrasi dengan DatabaseSeeder (Mode Simulasi)...
+    call php artisan migrate --seed
+) else (
+    echo       + Menjalankan migrasi dengan ProductionSeeder (Mode Produksi Riil Tanpa Dummy)...
+    call php artisan migrate --seed --seeder=ProductionSeeder
+)
 
 echo [6/7] Menginstal dependensi Node.js / NPM...
 call npm install

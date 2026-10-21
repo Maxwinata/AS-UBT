@@ -27,7 +27,8 @@ Panduan ini ditujukan bagi pengembang yang menggunakan lingkungan **XAMPP (Apach
 
 ### 2. Buat Database di phpMyAdmin:
 - Buka browser ke `http://localhost/phpmyadmin`
-- Buat database baru bernama: `asrama_ubt_db` (Collation: `utf8mb4_unicode_ci`)
+- Buat database operasional: `asrama_ubt_db` (Collation: `utf8mb4_unicode_ci`)
+- (Opsional jika ingin dual database PMB lokal): Buat database `u540633926_simaba`
 
 ### 3. Eksekusi Script Otomatis:
 - Buka folder proyek di `C:\xampp\htdocs\asrama-ubt`.
@@ -36,7 +37,9 @@ Panduan ini ditujukan bagi pengembang yang menggunakan lingkungan **XAMPP (Apach
   ```cmd
   xampp-setup.bat
   ```
-  *(Atau Anda juga bisa menjalankan `laragon-setup.bat`, isinya sama-sama menjalankan migrasi, composer, dan npm)*.
+  *Skrip akan menanyakan pilihan seeder:*
+  * **[1] Mode Produksi Riil (Default)**: Menjalankan `ProductionSeeder` (100% bebas dummy mahasiswa, hanya master tarif resmi, kamar Roemah 54, dan akun staf resmi).
+  * **[2] Mode Simulasi**: Menjalankan `DatabaseSeeder` dengan akun sampel mahasiswa untuk QA.
 
 ---
 

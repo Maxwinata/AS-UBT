@@ -22,6 +22,9 @@ Seluruh dokumentasi teknis dan operasional disediakan dalam **Bahasa Indonesia (
 | **Spesifikasi Sistem (PRD & SAS)** | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.md) | [ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md](ASRAMA_UBT_SYSTEM_DOCUMENTATION.en.md) | Dokumen kebutuhan produk, alur 6-langkah, model data, dan rute Inertia controller. |
 | **Panduan Laragon (Otomatis)** | [LARAGON_SETUP.md](LARAGON_SETUP.md) | [LARAGON_SETUP.en.md](LARAGON_SETUP.en.md) | Langkah instalasi 1-klik di Laragon via `laragon-setup.bat`. |
 | **Panduan Testing Data Real** | [docs/TESTING_DATA_REAL_LARAGON.md](docs/TESTING_DATA_REAL_LARAGON.md) | [docs/TESTING_DATA_REAL_LARAGON.en.md](docs/TESTING_DATA_REAL_LARAGON.en.md) | Langkah praktis transisi dari web simulasi ke database MySQL riil di Laragon (uji pendaftaran & promosi master). |
+| **Manual CRUD Database Nyata** | [docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md](docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md) | - | Manual teknis pengkabelan HTTP, eksekusi CRUD database nyata ke port 8000 & verifikasi MySQL. |
+| **Kesiapan Pra-Produksi & Sanitasi** | [docs/PRE_PRODUCTION_READINESS.md](docs/PRE_PRODUCTION_READINESS.md) | [docs/PRE_PRODUCTION_READINESS.en.md](docs/PRE_PRODUCTION_READINESS.en.md) | Protokol sanitasi data dummy, inisialisasi master kamar riil, SOP kasir kode unik 3 digit, & go-live checklist. |
+| **Arsitektur Mode Bersih & Pengujian** | [docs/CLEAN_UI_TESTING_MODE.md](docs/CLEAN_UI_TESTING_MODE.md) | - | Desain Clean UI (Mode Produksi Riil Non-Dummy default) dan switch mode simulasi QA bebas distraksi. |
 | **Panduan XAMPP (Otomatis)** | [XAMPP_SETUP.md](XAMPP_SETUP.md) | [XAMPP_SETUP.en.md](XAMPP_SETUP.en.md) | Langkah instalasi di XAMPP Windows via `xampp-setup.bat`. |
 | **Arsitektur & Diagram Logika** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md) | Alur *staging* vs *master*, *concurrency lock* kamar, dan logika transaksi. |
 | **Regulasi & JUKLAK Asrama** | [docs/JUKLAK_REFERENCE.md](docs/JUKLAK_REFERENCE.md) | [docs/JUKLAK_REFERENCE.en.md](docs/JUKLAK_REFERENCE.en.md) | Landasan hukum JUKLAK-02 (TTE OTP), JUKLAK-03 & F-22 (Ratifikasi Kolektif), F-19, dan F-02. |
@@ -44,6 +47,7 @@ Seluruh dokumentasi teknis dan operasional disediakan dalam **Bahasa Indonesia (
    - **Terminal 1 (Frontend Vite):** `npm run dev`
    - **Terminal 2 (Backend Laravel):** `php artisan serve`
 4. Akses melalui peramban: `http://127.0.0.1:8000` atau `http://asrama-ubt.test`
+5. **Uji Live CRUD Langsung**: Jalankan `laragon-test-crud.bat` untuk verifikasi instan baca-tulis ke database MySQL `asrama_ubt_db` tanpa harus melalui browser.
 
 ---
 

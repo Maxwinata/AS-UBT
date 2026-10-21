@@ -34,6 +34,7 @@ interface LoginDualTabProps {
 
 export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siakadStaging }) => {
   const { isCleanTesting } = useTestingMode();
+  const [cleanLoginTab, setCleanLoginTab] = useState<'pmb' | 'sso'>('pmb');
   const [viewMode, setViewMode] = useState<'main' | 'sso'>('main');
   const [showPmbModal, setShowPmbModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -414,6 +415,289 @@ export const LoginDualTab: React.FC<LoginDualTabProps> = ({ onLoginSuccess, siak
       scenario
     );
   };
+
+  if (isCleanTesting) {
+    return (
+      <div id="clean-landing-container" className="w-full flex flex-col items-center justify-center py-4 sm:py-8">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8 space-y-6">
+          {/* Header Clean Card */}
+          <div className="text-center space-y-2 border-b border-slate-100 pb-5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span>Portal Resmi Asrama Mahasiswa · UBT</span>
+            </div>
+            <h2 className="text-xl font-black tracking-tight text-slate-900">
+              Gerbang Masuk SI-GABUNG 54
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Layanan Pendaftaran Asrama, Seleksi Kamar & Verifikasi Berkas e-KYC
+            </p>
+          </div>
+
+          {/* Segmented Tab Switch (PMB vs SSO) */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+            <button
+              id="clean-tab-pmb"
+              type="button"
+              onClick={() => {
+                setCleanLoginTab('pmb');
+                setErrorMessage('');
+              }}
+              className={`py-2 rounded-lg transition-all cursor-pointer text-center ${
+                cleanLoginTab === 'pmb'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Pendaftaran PMB
+            </button>
+            <button
+              id="clean-tab-sso"
+              type="button"
+              onClick={() => {
+                setCleanLoginTab('sso');
+                setErrorMessage('');
+              }}
+              className={`py-2 rounded-lg transition-all cursor-pointer text-center ${
+                cleanLoginTab === 'sso'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Login SSO Kampus
+            </button>
+          </div>
+
+          {/* TAB 1: FORM PENDAFTARAN PMB */}
+          {cleanLoginTab === 'pmb' ? (
+            <form id="form-clean-pmb" onSubmit={handleMabaSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Nomor Pendaftaran PMB / NIK
+                </label>
+                <div className="relative">
+                  <input
+                    id="clean-input-pmb"
+                    type="text"
+                    value={pmbNoReg}
+                    onChange={(e) => {
+                      setPmbNoReg(e.target.value);
+                      setDebouncedSearch(e.target.value);
+                    }}
+                    placeholder="Contoh: PMB2026-08942 atau 260108001"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-mono shadow-xs"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Masukkan nomor registrasi PMB resmi Anda dari sistem SIMABA/SIDARA.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Tanggal Lahir (DD/MM/YYYY)
+                </label>
+                <div className="relative">
+                  <input
+                    id="clean-input-birthdate"
+                    type="text"
+                    value={mabaBirthDate}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val.length > 2 && val.length <= 4) {
+                        val = `${val.slice(0, 2)}/${val.slice(2)}`;
+                      } else if (val.length > 4) {
+                        val = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}`;
+                      }
+                      setMabaBirthDate(val);
+                    }}
+                    placeholder="DD/MM/YYYY"
+                    maxLength={10}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-mono shadow-xs"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Format: Hari/Bulan/Tahun (Contoh: 12/02/2008 atau 15/04/2005).
+                </p>
+              </div>
+
+              {errorMessage && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3 text-xs flex items-start gap-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <button
+                id="clean-button-submit-pmb"
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Memverifikasi Database...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span>Masuk Portal Pendaftaran Asrama</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* TAB 2: FORM LOGIN SSO KAMPUS */
+            <form id="form-clean-sso" onSubmit={handleSsoSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  NIM / Akun SSO UBT
+                </label>
+                <input
+                  id="clean-input-sso-username"
+                  type="text"
+                  value={ssoUsername}
+                  onChange={(e) => setSsoUsername(e.target.value)}
+                  placeholder="Contoh: 2240101004"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white font-mono shadow-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Password SSO
+                </label>
+                <input
+                  id="clean-input-sso-password"
+                  type="password"
+                  value={ssoPassword}
+                  onChange={(e) => setSsoPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-teal-700 focus:bg-white shadow-xs"
+                  required
+                />
+              </div>
+
+              {errorMessage && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3 text-xs flex items-start gap-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <button
+                id="clean-button-submit-sso"
+                type="submit"
+                disabled={isCheckingSsoDb}
+                className="w-full bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                {isCheckingSsoDb ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Verifikasi SSO SIAKAD...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span>Masuk via SSO Kampus</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Database & Institutional Footer Note */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span className="flex items-center gap-1 text-emerald-800 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Basis Data: MySQL Laragon
+            </span>
+            <span className="font-mono text-slate-400 text-[10px]">
+              asrama_ubt_db & simaba
+            </span>
+          </div>
+        </div>
+
+        {/* MODAL JIKA TERDETEKSI NIM RESMI (EARLY DETECTION) */}
+        {showNimDetectedModal && detectedNimStudent && (
+          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 sm:p-7 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 text-emerald-800">
+                <BadgeCheck className="w-6 h-6 text-emerald-600 shrink-0" />
+                <h3 className="text-base font-bold text-slate-900">
+                  NIM Resmi Terbit di SIAKAD
+                </h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                NIM Resmi Anda <span className="font-mono font-bold text-slate-900">{detectedNimStudent.nim_resmi}</span> telah aktif di sistem SIAKAD/SIDARA. Anda dapat langsung melanjutkan pendaftaran asrama.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNimDetectedModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNimDetectedModal(false);
+                    onLoginSuccess(
+                      'maba',
+                      detectedNimStudent.nim_resmi,
+                      detectedNimStudent.nama_lengkap,
+                      `NIM Resmi (${detectedNimStudent.nim_resmi}) telah tersinkronisasi.`
+                    );
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs cursor-pointer"
+                >
+                  Lanjut dengan NIM Resmi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL REDIRECTION FOR NON-ACTIVE RESIDENT SSO */}
+        {showRedirectModal && (
+          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 sm:p-7 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 text-teal-800">
+                <GraduationCap className="w-6 h-6 text-teal-600 shrink-0" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Verifikasi Akun SIAKAD
+                </h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Akun SSO <span className="font-mono font-bold text-slate-900">{ssoUsername}</span> terverifikasi aktif di SIAKAD UBT namun belum terdaftar sebagai penghuni asrama. Silakan lanjutkan pendaftaran kamar asrama.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRedirectModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProceedToRegistration}
+                  className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs cursor-pointer"
+                >
+                  Lanjut Pendaftaran Asrama
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div id="login-container" className="min-h-[100dvh] sm:min-h-[calc(100vh-120px)] bg-slate-100 flex flex-col justify-end sm:justify-center items-center p-0 sm:py-12 sm:px-6 lg:px-8 relative overflow-hidden">

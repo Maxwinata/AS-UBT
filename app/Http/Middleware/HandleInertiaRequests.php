@@ -35,26 +35,34 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        // Evaluasi Clean UI / Testing Mode
-        $isCleanEnv = config('app.ui_mode') === 'clean' || config('app.test_mode') === true;
+        // Evaluasi Clean UI / Production Mode: Default adalah PRODUKSI RIIL (Clean / Non-Dummy)
+        // Kecuali jika secara spesifik diatur sebagai 'simulation' atau 'standard'
+        $isCleanEnv = config('app.ui_mode') !== 'simulation' && config('app.ui_mode') !== 'standard';
         
-        // Dukungan override URL query (?ui_mode=clean atau ?testing=true) HANYA untuk non-production
+        // Dukungan override URL query (?ui_mode=clean atau ?mode=production vs ?mode=simulation)
         $isNonProd = app()->environment(['local', 'testing', 'staging', 'development']) || config('app.env') !== 'production';
-        $queryOverride = false;
+        $queryOverride = null;
         
         if ($isNonProd) {
-            if ($request->query('ui_mode') === 'clean' || $request->query('testing') === 'true' || $request->query('clean') === '1') {
-                $queryOverride = true;
-                $request->session()->put('testing_ui_mode_active', true);
-            } elseif ($request->query('ui_mode') === 'standard' || $request->query('testing') === 'false') {
+            $modeQuery = $request->query('mode');
+            $uiModeQuery = $request->query('ui_mode');
+            $cleanQuery = $request->query('clean');
+            $testQuery = $request->query('testing');
+
+            if ($modeQuery === 'simulation' || $uiModeQuery === 'simulation' || $uiModeQuery === 'standard' || $testQuery === 'false' || $cleanQuery === '0') {
                 $queryOverride = false;
-                $request->session()->forget('testing_ui_mode_active');
-            } elseif ($request->session()->get('testing_ui_mode_active')) {
+                $request->session()->put('asrama_operational_mode', 'simulation');
+            } elseif ($modeQuery === 'production' || $uiModeQuery === 'clean' || $uiModeQuery === 'production' || $testQuery === 'true' || $cleanQuery === '1') {
+                $queryOverride = true;
+                $request->session()->put('asrama_operational_mode', 'production');
+            } elseif ($request->session()->get('asrama_operational_mode') === 'simulation') {
+                $queryOverride = false;
+            } elseif ($request->session()->get('asrama_operational_mode') === 'production') {
                 $queryOverride = true;
             }
         }
 
-        $isTestingMode = $isCleanEnv || $queryOverride;
+        $isTestingMode = $queryOverride !== null ? $queryOverride : $isCleanEnv;
 
         return array_merge(parent::share($request), [
             'auth' => [

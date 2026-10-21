@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana arsitektur dan implementasi Clean UI / Testing Mode untuk Portal Asrama UBT berbasis Laravel 11 + Inertia.js + React + Tailwind CSS. Merinci mekanisme aktivasi ganda (env dan URL parameter), MinimalTestingLayout khusus, kondisional rendering komponen non-esensial, proteksi kredensial publik, serta struktur kode modular yang aman untuk environment production.",
-  "updatedAt":  "2026-10-20T21:07:55.572756843Z",
+  "summary":  "Rencana implementasi transisi Portal Asrama UBT ke Mode Produksi Riil (Non-Dummy) default dengan opsi beralih mode simulasi elegan, penyimpanan permanen langsung ke MySQL Laragon, dan eliminasi distraksi elemen dummy prototipe.",
+  "updatedAt":  "2026-10-21T07:15:01.282391852Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
