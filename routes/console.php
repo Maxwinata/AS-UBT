@@ -21,3 +21,15 @@ Artisan::command('asrama:test-live-crud {--cleanup : Bersihkan data uji setelah 
     ]);
 })->purpose('Menguji operasi CRUD nyata pada tabel master pembayaran, penyewa, dan contracts di MySQL Laragon');
 
+// Cron Hostinger: Pelepasan Kuota Kamar Reservasi yang Melewati Batas 48 Jam
+Schedule::command('asrama:release-expired-reservations')
+    ->hourly()
+    ->timezone('Asia/Jakarta');
+
+Artisan::command('asrama:release-expired-reservations {--dry-run} {--hours=48}', function () {
+    $this->call(\App\Console\Commands\ReleaseExpiredReservationsCommand::class, [
+        '--dry-run' => $this->option('dry-run'),
+        '--hours' => $this->option('hours'),
+    ]);
+})->purpose('Melepas kuota kamar staging jika belum dibayar dalam kurun 48 jam kalender');
+

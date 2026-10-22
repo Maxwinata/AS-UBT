@@ -13,11 +13,13 @@ import {
   DigitalContract,
   ETicket,
   AdmissionStep,
+  ModificationLog,
 } from '../../types/asrama';
 import { AutoResumeBanner } from '../common/AutoResumeBanner';
 import { StudentInvoiceSummary } from './StudentInvoiceSummary';
 import { VisualProgressIndicator } from './VisualProgressIndicator';
 import { AuditLogView } from '../shared/AuditLogView';
+import { ReservationCountdownBanner } from './ReservationCountdownBanner';
 import { DigitalContractView } from './DigitalContractView';
 import { IndonesianRegionSelector } from './IndonesianRegionSelector';
 import {
@@ -100,6 +102,8 @@ interface MabaDashboardProps {
   onUpdateContract: (updated: DigitalContract) => void;
   onUpdateTicket: (updated: ETicket) => void;
   onUpdateProfile?: (updated: MabaProfile) => void;
+  onAutoReleaseRoom?: (invoiceId: string) => void;
+  onRebookRoom?: () => void;
 }
 
 const getInitialStep = (
@@ -138,6 +142,8 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
   paymentSchemes = [],
   siakadStaging = INITIAL_SIAKAD_STAGING,
   onUpdateProfile,
+  onAutoReleaseRoom,
+  onRebookRoom,
 }) => {
   const { isCleanTesting } = useTestingMode();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -857,9 +863,37 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
             message: `KTP Valid. NIK diekstrak: ${data.nik || 'Tidak tersedia'}`
           }, ...prev]);
           toast.success(`Berhasil! ${data.message || 'KTP Valid'}`, { id: loadingToastId, duration: 4000 });
-          setKtpFileName(fileName);
+          
+          // Versioning compliant with AGENTS.md (Audit Trail retention)
+          const prevKtpVersion = profile.ktpVersion || (profile.ktpUrl ? 1 : 0);
+          const nextKtpVersion = prevKtpVersion + 1;
+          const cleanNim = (profile.nim && !profile.nim.startsWith('REG') && profile.nim !== 'Belum tersedia' ? profile.nim.trim() : profile.noPmb) || '260108001';
+          const versionedKtpName = `ktp_${cleanNim}_v${nextKtpVersion}_${Math.floor(Date.now() / 1000)}.jpg`;
+
+          const ktpAuditLog: ModificationLog = {
+            id: `log-ktp-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            actor: 'User',
+            action: profile.ktpUrl ? `Koreksi Berkas KTP (Versi ${nextKtpVersion})` : `Unggah Dokumen KTP (Versi ${nextKtpVersion})`,
+            changedFields: [
+              {
+                field: 'Berkas e-KYC KTP (Hostinger Private Storage)',
+                oldValue: profile.ktpFileName || (profile.ktpUrl ? 'Versi Sebelumnya' : 'Belum diunggah'),
+                newValue: versionedKtpName,
+              }
+            ]
+          };
+
+          setKtpFileName(versionedKtpName);
           setKtpPreview(previewUrl || base64Image);
-          const updatedKtpProfile = { ...profile, nik: data.nik || profile.nik, ktpUrl: previewUrl || base64Image };
+          const updatedKtpProfile = { 
+            ...profile, 
+            nik: data.nik || profile.nik, 
+            ktpUrl: previewUrl || base64Image,
+            ktpFileName: versionedKtpName,
+            ktpVersion: nextKtpVersion,
+            modificationLogs: [ktpAuditLog, ...(profile.modificationLogs || [])],
+          };
           setProfile(updatedKtpProfile);
           if (onUpdateProfile) onUpdateProfile(updatedKtpProfile);
           if (data.nik) {
@@ -905,9 +939,36 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           }, ...prev]);
           
           toast.success('Berhasil! Wajah terdeteksi. Foto Anda disimpan untuk verifikasi Admin.', { id: loadingToastId, duration: 4000 });
-          setSelfieFileName(fileName);
+          
+          // Versioning compliant with AGENTS.md (Audit Trail retention)
+          const prevSelfieVersion = profile.selfieVersion || (profile.selfieUrl ? 1 : 0);
+          const nextSelfieVersion = prevSelfieVersion + 1;
+          const cleanNim = (profile.nim && !profile.nim.startsWith('REG') && profile.nim !== 'Belum tersedia' ? profile.nim.trim() : profile.noPmb) || '260108001';
+          const versionedSelfieName = `selfie_${cleanNim}_v${nextSelfieVersion}_${Math.floor(Date.now() / 1000)}.jpg`;
+
+          const selfieAuditLog: ModificationLog = {
+            id: `log-selfie-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            actor: 'User',
+            action: profile.selfieUrl ? `Koreksi Berkas Pasfoto Selfie (Versi ${nextSelfieVersion})` : `Unggah Pasfoto Selfie (Versi ${nextSelfieVersion})`,
+            changedFields: [
+              {
+                field: 'Berkas e-KYC Pasfoto Selfie (Hostinger Private Storage)',
+                oldValue: profile.selfieFileName || (profile.selfieUrl ? 'Versi Sebelumnya' : 'Belum diunggah'),
+                newValue: versionedSelfieName,
+              }
+            ]
+          };
+
+          setSelfieFileName(versionedSelfieName);
           setSelfiePreview(previewUrl || base64Image);
-          const updatedSelfieProfile = { ...profile, selfieUrl: previewUrl || base64Image };
+          const updatedSelfieProfile = { 
+            ...profile, 
+            selfieUrl: previewUrl || base64Image,
+            selfieFileName: versionedSelfieName,
+            selfieVersion: nextSelfieVersion,
+            modificationLogs: [selfieAuditLog, ...(profile.modificationLogs || [])],
+          };
           setProfile(updatedSelfieProfile);
           if (onUpdateProfile) onUpdateProfile(updatedSelfieProfile);
           setCameraModalOpen(false);
@@ -3395,6 +3456,14 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
           )}
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-6">
+            {/* Indikator Waktu Reservasi Kamar (48-Hour Expiration Banner) */}
+            <ReservationCountdownBanner 
+              invoice={invoice} 
+              room={room} 
+              onAutoRelease={onAutoReleaseRoom} 
+              onRebook={onRebookRoom} 
+            />
+
             {/* KUNCI PERMANEN KAMAR DI DATABASE STAGING (BOOKED_STAGING) */}
             <div className="bg-white p-4 sm:p-5 rounded-xl border border-teal-200/80 shadow-xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -3419,7 +3488,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 <div className="text-right self-start sm:self-center">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kuota Ranjang Terkunci</div>
                   <div className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 mt-0.5 inline-block">
-                    Kapasitas Terisi +1 (Diproteksi 24 Jam)
+                    Kapasitas Terisi +1 (Diproteksi 48 Jam)
                   </div>
                 </div>
               </div>
@@ -3832,11 +3901,19 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
                 <CreditCard className="w-5 h-5 text-teal-600" />
                 <span>Step 3: Pilihan Metode Pembayaran</span>
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Pilih metode transfer bank (Virtual Account atau Manual). Batas waktu pembayaran: 24 Jam.</p>
+              <p className="text-xs text-slate-500 mt-1">Pilih metode transfer bank (Virtual Account atau Manual). Batas waktu pembayaran: 48 Jam (2 Hari Kalender).</p>
             </div>
           </div>
           
-                    <StudentInvoiceSummary invoice={invoice} currentStep={currentStep} />
+          {/* Indikator Waktu Reservasi Kamar (48-Hour Expiration Banner) */}
+          <ReservationCountdownBanner 
+            invoice={invoice} 
+            room={room} 
+            onAutoRelease={onAutoReleaseRoom} 
+            onRebook={onRebookRoom} 
+          />
+
+          <StudentInvoiceSummary invoice={invoice} currentStep={currentStep} />
 
           {/* SIMULASI METODE PEMBAYARAN */}
           <div className="space-y-4">
@@ -4242,8 +4319,28 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
         </div>
       )}
       
-      {/* Audit Log View untuk Transparansi */}
-      <AuditLogView logs={[]} />
+      {/* Audit Trail & Rekam Jejak Modifikasi Dokumen (AGENTS.md Versioning) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-100">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">
+                Rekam Jejak Audit & Riwayat Versi Berkas KYC (Audit Trail)
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Setiap pembaruan atau koreksi berkas disimpan dalam versi berurutan (v1, v2...) tanpa menimpa berkas historis untuk kepatuhan audit.
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono font-bold bg-teal-50 text-teal-800 px-2.5 py-1 rounded-full border border-teal-200 self-start sm:self-auto">
+            {profile.modificationLogs?.length || 0} Riwayat Tercatat
+          </span>
+        </div>
+        <AuditLogView logs={profile.modificationLogs || []} />
+      </div>
 
       {/* SOP Modal */}
       {sopModalOpen && (

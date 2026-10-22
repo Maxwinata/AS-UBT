@@ -121,6 +121,8 @@ export interface BillingInvoice {
   isMigrated?: boolean;
   noRequest?: string;
   officialInvoiceNo?: string;
+  expiresAt?: string; // Batas waktu pembayaran & auto-release kamar (48 jam)
+  createdAt?: string;
 }
 
 export interface RoomPlot {

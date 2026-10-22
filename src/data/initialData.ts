@@ -112,6 +112,8 @@ export const INITIAL_INVOICE: BillingInvoice = {
   cicilanDepositAllowed: false, // Default: OFF (Opsi cicilan deposit dinonaktifkan secara default)
   status: 'UNPAID',
   noRequest: 'REQ-202610-0142',
+  createdAt: new Date(Date.now() - 3600000).toISOString(),
+  expiresAt: new Date(Date.now() + 47 * 3600 * 1000).toISOString(),
 };
 
 export const INITIAL_ROOMS: RoomPlot[] = [

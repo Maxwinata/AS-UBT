@@ -270,7 +270,9 @@ function AppContent() {
         status: 'UNPAID',
         totalBayar: isKip ? 1600000 : 3600142,
         durasiBulan: 6,
-        isCicilanDeposit: false
+        isCicilanDeposit: false,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
       }]);
       const studentRoom = studentGender === 'Perempuan' 
         ? {
@@ -397,6 +399,52 @@ function AppContent() {
       setSsoNoticeBanner(null);
     });
   }, []);
+
+  const handleAutoReleaseRoom = React.useCallback((invoiceId: string) => {
+    setInvoices(prev => prev.map(inv => inv.invoiceId === invoiceId ? { ...inv, status: 'EXPIRED' } : inv));
+    // Release occupant in room
+    setRooms(prev => prev.map(r => r.terisi > 0 ? { ...r, terisi: r.terisi - 1 } : r));
+    setModificationLogs(prev => [
+      {
+        id: `log-release-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'System',
+        action: `Auto-Release 48 Jam: Reservasi kamar untuk Invoice ${invoiceId} telah kedaluwarsa. Kamar dikembalikan ke pool ketersediaan umum.`,
+      },
+      ...prev,
+    ]);
+    toast.error('Batas waktu reservasi 48 jam telah berakhir. Kamar telah dilepas kembali ke pool umum.');
+  }, []);
+
+  const handleRebookRoom = React.useCallback(() => {
+    const freshExpiresAt = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+    const freshInvoiceId = 'INV-UBT-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+    const freshNoReq = 'REQ-' + new Date().getFullYear() + '10-' + Math.floor(100 + Math.random() * 900);
+    
+    setInvoices(prev => [{
+      ...prev[0],
+      invoiceId: freshInvoiceId,
+      noRequest: freshNoReq,
+      status: 'UNPAID',
+      createdAt: new Date().toISOString(),
+      expiresAt: freshExpiresAt,
+      paidAt: undefined,
+      isMigrated: false
+    }]);
+
+    setRooms(prev => prev.map((r, idx) => idx === 1 ? { ...r, terisi: Math.min(r.kapasitas, r.terisi + 1) } : r));
+
+    setModificationLogs(prev => [
+      {
+        id: `log-rebook-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'User',
+        action: `Pemesanan Ulang (Re-booking): Mahasiswa ${mabaProfile.nama} memperbarui reservasi kamar dengan tenggat baru 48 jam (${freshNoReq}).`,
+      },
+      ...prev,
+    ]);
+    toast.success('Reservasi diperbarui! Anda memiliki waktu 48 jam baru untuk menyelesaikan pembayaran.');
+  }, [mabaProfile.nama]);
 
   const handleVerifyInvoiceFromAdmin = (invoiceId: string, action: 'APPROVE_AND_MIGRATE' | 'APPROVE_BOOKING' | 'REJECT' | 'MIGRATE_ONLY') => {
     const target = invoices.find(inv => inv.invoiceId === invoiceId);
@@ -541,6 +589,8 @@ function AppContent() {
                 onUpdateContract={handleUpdateContract}
                 onUpdateTicket={handleUpdateTicket}
                 onUpdateProfile={handleUpdateProfile}
+                onAutoReleaseRoom={handleAutoReleaseRoom}
+                onRebookRoom={handleRebookRoom}
               />
             )}
 
@@ -648,6 +698,8 @@ function AppContent() {
                 onUpdateContract={handleUpdateContract}
                 onUpdateTicket={handleUpdateTicket}
                 onUpdateProfile={handleUpdateProfile}
+                onAutoReleaseRoom={handleAutoReleaseRoom}
+                onRebookRoom={handleRebookRoom}
               />
             )}
 

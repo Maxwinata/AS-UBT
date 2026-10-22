@@ -74,6 +74,11 @@ export const StudentInvoiceSummary: React.FC<StudentInvoiceSummaryProps> = ({ in
                 Jalur KIP-Kuliah (Subsidi)
               </span>
             )}
+            {invoice.expiresAt && invoice.status !== 'PAID' && (
+              <span className="text-[10px] font-mono font-bold text-amber-200 bg-amber-500/20 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                Tenggat 48 Jam: {new Date(invoice.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} WIB
+              </span>
+            )}
           </div>
         </div>
 

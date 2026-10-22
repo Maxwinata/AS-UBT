@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana implementasi sinkronisasi penuh data akademik calon mahasiswa (SIMABA & SIDARA) dari halaman login ke formulir Validasi Identitas (Tahap 1), penanganan NIM resmi, dan isolasi penyimpanan draf per akun pendaftar.",
-  "updatedAt":  "2026-10-21T08:09:27.857621876Z",
+  "summary":  "Pembaruan rencana arsitektur kesiapan produksi asrama UBT di Hostinger sesuai permintaan pengguna:\n1. Penyesuaian batas waktu auto-release kamar dan masa berlaku invoice pembayaran dari 24 jam menjadi 48 jam (2 hari kalender).\n2. Mekanisme countdown timer dan status penahanan kamar (BOOKED_STAGING) aktif selama 48 jam dengan notifikasi pengingat H-12 jam sebelum kamar dikembalikan ke pool umum.\n3. Penyesuaian query transaksi database MySQL (INTERVAL 48 HOUR) dan worker cron job pelepasan kuota.\n4. Mempertahankan arsitektur penyimpanan berkas KYC non-public di Hostinger dengan versioning audit trail.",
+  "updatedAt":  "2026-10-21T08:46:47.159833904Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
