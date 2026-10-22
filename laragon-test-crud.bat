@@ -24,7 +24,7 @@ where mysql >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     echo     [MYSQL]   : Terdeteksi siap di PATH system
 ) else (
-    echo     [MYSQL]   : Periksa status Laragon MySQL (Port 3306)
+    echo     [MYSQL]   : Periksa status Laragon MySQL - Port 3306
 )
 echo.
 echo ===============================================================================
@@ -130,11 +130,11 @@ if exist "node_modules\esbuild\install.js" (
     echo   [1/3] Memverifikasi biner native esbuild...
     call node node_modules\esbuild\install.js >nul 2>nul
 )
-if not exist "public\build\manifest.json" (
-    echo   [2/3] Manifest build Vite belum terdeteksi, mengompilasi aset pertama kali...
+if not exist "dist\index.html" (
+    echo   [2/3] Bundle build Vite belum terdeteksi, mengompilasi aset pertama kali...
     call npm run build
 ) else (
-    echo   [2/3] Manifest build Vite terdeteksi siap.
+    echo   [2/3] Bundle build Vite terdeteksi siap.
 )
 echo   [3/3] Menjalankan Laravel API Server & Vite Dev Server di jendela terpisah...
 start "Laravel API Server (Port 8000)" cmd /k "php artisan serve --port=8000"

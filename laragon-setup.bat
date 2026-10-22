@@ -37,23 +37,29 @@ echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, d
 echo       [2] Mode Simulasi Pengujian - Menyertakan 1 akun sampel mahasiswa untuk QA
 echo.
 set /p seederchoice="Pilih mode seeder [1 atau 2, default: 1]: "
-if "%seederchoice%"=="2" (
-    echo       + Menjalankan migrasi dengan DatabaseSeeder (Mode Simulasi)...
-    call php artisan migrate --seed
-) else (
-    echo       + Menjalankan migrasi dengan ProductionSeeder (Mode Produksi Riil Tanpa Dummy)...
-    call php artisan migrate --seed --seeder=ProductionSeeder
-)
+if "%seederchoice%"=="2" goto SEED_SIMULASI
+
+:SEED_PRODUKSI
+echo       + Menjalankan migrasi dengan ProductionSeeder - Mode Produksi Riil Tanpa Dummy...
+call php artisan migrate --seed --seeder=ProductionSeeder
+goto SEED_SELESAI
+
+:SEED_SIMULASI
+echo       + Menjalankan migrasi dengan DatabaseSeeder - Mode Simulasi Pengujian...
+call php artisan migrate --seed
+goto SEED_SELESAI
+
+:SEED_SELESAI
+echo       + Penyiapan database MySQL selesai!
+echo.
 
 echo [6/7] Menginstal dan menyelaraskan dependensi Node.js / NPM...
 call npm install --legacy-peer-deps
-echo       + Memastikan laravel-vite-plugin@^1.2.0 terpasang (kompatibel Vite 6)...
-call npm install -D laravel-vite-plugin@^1.2.0 --legacy-peer-deps
 if exist "node_modules\esbuild\install.js" (
-    echo       + Memasang binary native esbuild untuk Windows...
+    echo       + Memasang dan meregistrasi binary native esbuild Windows...
     call node node_modules\esbuild\install.js
 )
-echo       + Memverifikasi build aset Vite untuk Laravel Blade...
+echo       + Memverifikasi build aset Vite untuk portal...
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
     echo       [PERINGATAN] Build awal Vite mengalami kendala. Periksa pesan di atas.
@@ -65,21 +71,23 @@ echo.
 echo =====================================================================
 echo  SETUP SELESAI DENGAN SUKSES!
 echo.
-echo  [FITUR BARU] UJI LIVE CRUD LANGSUNG KE MYSQL:
+echo  [FITUR UTAMA] UJI LIVE CRUD LANGSUNG KE MYSQL:
 echo  Jalankan file: laragon-test-crud.bat
 echo  Untuk menguji Create, Read, Update, Delete nyata pada tabel master!
 echo.
 echo  Untuk menjalankan server operasional:
 echo  1. Backend API:  php artisan serve --port=8000
-echo  2. Frontend:     npm run dev
-echo  Buka browser Anda di: http://asrama-ubt.test atau http://127.0.0.1:8000
+echo  2. Frontend:     npm run dev (Port 3000)
+echo  Buka browser Anda di: http://localhost:3000 atau http://127.0.0.1:8000
 echo =====================================================================
 echo.
 set /p runtest="Apakah Anda ingin langsung menjalankan Uji Live CRUD sekarang? [Y/N]: "
-if /i "%runtest%"=="Y" (
-    call laragon-test-crud.bat
-) else (
-    echo Selesai. Anda dapat menjalankan laragon-test-crud.bat kapan saja.
-    pause
-)
+if /i "%runtest%"=="Y" goto RUN_CRUD_DIRECT
+echo Selesai. Anda dapat menjalankan laragon-test-crud.bat kapan saja.
+pause
+exit /b 0
+
+:RUN_CRUD_DIRECT
+call laragon-test-crud.bat
+exit /b 0
 
