@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title "PORTAL SI-GABUNG 54 - LIVE CRUD & 4-STAGE REGISTRATION TEST RUNNER (LARAGON)"
+title "PORTAL SI-GABUNG 54 - LIVE CRUD dan 4-STAGE REGISTRATION TEST RUNNER (LARAGON)"
 color 0A
 
 :MENU
@@ -136,12 +136,12 @@ if not exist "public\build\manifest.json" (
 ) else (
     echo   [2/3] Manifest build Vite terdeteksi siap di public\build.
 )
-echo   [3/3] Menjalankan Laravel API Server & Vite Dev Server di jendela terpisah...
+echo   [3/3] Menjalankan Laravel API Server dan Vite Dev Server di jendela terpisah...
 start "Laravel API Server (Port 8000)" cmd /k "php artisan serve --port=8000"
 start "Vite Dev Server" cmd /k "npm run dev"
 echo   Kedua server telah dijalankan! Silakan buka peramban Anda:
 echo     - Portal Utama Asrama UBT (Roemah 54) : http://localhost:3000
-echo     - Backend Laravel API & Staging DB    : http://127.0.0.1:8000/login
+echo     - Backend Laravel API dan Staging DB    : http://127.0.0.1:8000/login
 pause
 goto MENU
 

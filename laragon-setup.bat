@@ -54,7 +54,7 @@ call php artisan db:seed --class=ProductionSeeder --force
 if %ERRORLEVEL% NEQ 0 (
     echo       [PERINGATAN] Eksekusi ProductionSeeder mengalami kendala. Periksa pesan error di atas.
 ) else (
-    echo       + ProductionSeeder berhasil dieksekusi! (64 Kamar Fisik & Tarif SK Rektor terpasang)
+    echo       + ProductionSeeder berhasil dieksekusi! (64 Kamar Fisik dan Tarif SK Rektor terpasang)
 )
 goto SEED_SELESAI
 
@@ -78,14 +78,14 @@ if exist "node_modules\esbuild\install.js" (
     echo       + Memasang dan meregistrasi binary native esbuild Windows...
     call node node_modules\esbuild\install.js
 )
-echo       + Mengompilasi bundle aset Vite untuk Laravel Blade & Portal SPA...
+echo       + Mengompilasi bundle aset Vite untuk Laravel Blade dan Portal SPA...
 call npm run build
 if exist "public\build\manifest.json" (
     echo       + File public\build\manifest.json berhasil dibuat dan diverifikasi!
 ) else (
     echo       [PERINGATAN] File manifest.json belum terbentuk di public\build. Periksa log build di atas.
 )
-echo       + Membersihkan cache konfigurasi & rute Laravel (optimize:clear)...
+echo       + Membersihkan cache konfigurasi dan rute Laravel (optimize:clear)...
 call php artisan optimize:clear
 echo       + Lingkungan frontend dan backend siap digunakan!
 

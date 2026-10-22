@@ -1,96 +1,79 @@
-# Perbaikan 4 Bug Kritis Proyek AS-UBT (Laravel 11 + React / Laragon)
+# Rencana Perbaikan 3 Bug Tersisa Proyek AS-UBT (Laragon Windows)
 
-Rencana aksi menyeluruh untuk menuntaskan 4 isu kritis instalasi dan eksekusi pada lingkungan Laragon Windows (PHP 8.2, MySQL 8.0, Node.js):
+Menuntaskan 3 kendala residual pada proses kompilasi aset frontend, mekanisme caching backend Laravel 11, dan interpretasi baris perintah pada Windows CMD:
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
 > Keputusan yang telah dikonfirmasi oleh pengguna pada sesi tanya-jawab:
-> - **Build Output Vite**: Mengarahkan `build.outDir` secara tepat ke `public/build` dengan file `manifest.json` standar Laravel 11 Vite Plugin, dan mendukung fallback SPA server.
-> - **Alur Eksekusi Database**: Memisahkan pemanggilan `php artisan migrate --force` dengan `php artisan db:seed --class=ProductionSeeder --force`, memvalidasi keberhasilan masing-masing langkah secara independen.
+> - **Strategi Cache**: Menyediakan file migrasi tabel `cache` dan `cache_locks` pada database `asrama_ubt_db` sekaligus menetapkan `CACHE_STORE=file` dan `SESSION_DRIVER=file` sebagai nilai default di `.env.example` untuk menjamin kompatibilitas ganda (*fail-safe dual compatibility*).
+> - **Sanitasi Skrip Batch**: Mengganti seluruh karakter ampersand (`&`) pada file `.bat` menjadi kata `dan` untuk mencegah parser Windows CMD memperlakukannya sebagai pemisah perintah (*command separator*).
 
 ---
 
 ### 1. Overview & Core Concept
 
-- **Tujuan**: Menghilangkan seluruh hambatan instalasi dan kompilasi pada `laragon-setup.bat`, menjamin migrasi SIMABA idempoten tanpa error duplicate key, memastikan bundle Vite tidak gagal karena `prop-types`, dan menyajikan 64 kamar fisik riil Roemah 54 ke seluruh antarmuka React.
-- **Target Komponen**:
-  1. `database/migrations/2026_10_17_000001_add_indexes_to_simaba_pendaftaran.php`
-  2. `package.json`, `.npmrc`, dan `vite.config.ts`
-  3. `laragon-setup.bat` (Fase [5/7] & [6/7])
-  4. Komponen Form Pemilihan Kamar & Master Tarif (`src/data/initialData.ts`, `src/App.tsx`, `resources/js/Pages/Maba/Dashboard.tsx`)
+- **Tujuan**:
+  1. Menghilangkan kegagalan bundling Rollup pada `recharts` dengan menginstal paket `react-is`.
+  2. Menjamin perintah `php artisan optimize:clear` berjalan 100% sukses tanpa error `Table 'asrama_ubt_db.cache' doesn't exist`.
+  3. Menjamin skrip `.bat` tidak memicu pesan error `'Portal' is not recognized` atau `'rute' is not recognized` di terminal Laragon.
+- **Target File**:
+  1. `package.json`
+  2. `database/migrations/2026_01_01_000000_create_cache_table.php` (file migrasi baru)
+  3. `.env.example`
+  4. `laragon-setup.bat`
+  5. `laragon-test-crud.bat`
 
 ---
 
-### 2. Rincian Solusi Teknis Per Isu
+### 2. Rincian Teknis Perbaikan
 
-#### 1. Idempotensi Migrasi SIMABA (Error 1061 Duplicate Key Name)
-- **File**: `database/migrations/2026_10_17_000001_add_indexes_to_simaba_pendaftaran.php`
-- **Penyebab**: Saat migrasi dijalankan ulang, indeks `idx_pmb_auth`, `idx_pmb_nama`, `idx_pmb_nik`, dan `idx_pmb_prodi_jalur` sudah ada di tabel `pendaftaranmahasiswa` pada database `u540633926_simaba`, memicu exception SQL 1061.
+#### 1. Pemasangan `react-is` (`package.json`)
+- **Masalah**: `[vite]: Rollup failed to resolve import "react-is" from "node_modules/recharts/es6/util/ReactUtils.js"`.
 - **Solusi**:
-  - Pada method `up()`: Ambil daftar indeks yang sudah ada via `SHOW INDEXES FROM pendaftaranmahasiswa` pada koneksi `simaba`. Lakukan penambahan indeks hanya jika nama indeks belum terdaftar.
-  - Pada method `down()`: Lakukan pengecekan keberadaan indeks sebelum memanggil `$table->dropIndex(...)`.
-  - Migrasi menjadi aman dijalankan berkali-kali (*idempotent*).
+  - Instal `"react-is": "^18.3.1"` ke dalam blok `"dependencies"` di `package.json`.
+  - Uji ulang `compile_applet` untuk memastikan Rollup sukses mengompilasi seluruh modul `recharts` ke dalam `public/build`.
 
-#### 2. Dependensi `prop-types` & Konfigurasi Vite Build
-- **File**: `package.json`, `.npmrc`, `vite.config.ts`, `server.ts`
-- **Penyebab**: Paket `react-signature-canvas` membutuhkan `prop-types` pada waktu bundling Rollup. Ketiadaan paket ini menyebabkan `vite build` gagal dan `public/build/manifest.json` tidak terbentuk.
+#### 2. Migrasi Tabel `cache` & Konfigurasi Cache Default
+- **Masalah**: `SQLSTATE[42S02]: Table 'asrama_ubt_db.cache' doesn't exist` saat `optimize:clear`.
 - **Solusi**:
-  - Tambahkan `"prop-types": "^15.8.1"` ke dalam blok `"dependencies"` di `package.json`.
-  - Konfigurasikan `vite.config.ts` dengan `build: { outDir: 'public/build', manifest: 'manifest.json' }` dan input entrypoints `resources/js/app.tsx` & `resources/css/app.css` serta `index.html`.
-  - Buat file `.npmrc` dengan `ignore-scripts=false`, `legacy-peer-deps=true`, dan `audit=false`.
-  - Sesuaikan `server.ts` agar menyajikan aset produksi dari `public/build` saat running production.
+  - Buat file migrasi `database/migrations/2026_01_01_000000_create_cache_table.php` yang membuat tabel `cache` (`key`, `value`, `expiration`) dan `cache_locks` (`key`, `owner`, `expiration`) dengan proteksi idempoten `Schema::hasTable`.
+  - Di `.env.example`, pastikan `CACHE_STORE=file` dan `SESSION_DRIVER=file`. Dengan demikian, jika sistem beralih ke cache database pun, tabelnya sudah tersedia di MySQL.
 
-#### 3. Penataan Skrip Installer Otomatis (`laragon-setup.bat`)
-- **Penyebab**: Pemanggilan `migrate --seed` tergabung dalam satu instruksi sehingga kegagalan migrasi koneksi sekunder membuat seeder terlewati tanpa peringatan.
+#### 3. Sanitasi Karakter `&` pada Skrip Batch Windows
+- **Masalah**: CMD Windows mengeksekusi karakter `&` yang tidak dikutip sebagai tanda pemisah perintah berikutnya.
+  - Teks `Blade & Portal` menyebabkan Windows mengeksekusi perintah `Portal`.
+  - Teks `konfigurasi & rute` menyebabkan Windows mengeksekusi perintah `rute`.
 - **Solusi**:
-  - Langkah `[5/7]`: Jalankan `call php artisan migrate --force`. Kemudian secara eksplisit jalankan `call php artisan db:seed --class=ProductionSeeder --force` (untuk opsi 1) atau `call php artisan db:seed --force` (untuk opsi 2) dan periksa `%ERRORLEVEL%`.
-  - Langkah `[6/7]`: Setelah `call npm run build`, verifikasi langsung keberadaan `public\build\manifest.json`. Lanjutkan dengan `call php artisan optimize:clear`.
-
-#### 4. Form Pendaftaran & Kamar Menggunakan 64 Kamar Fisik Riil Roemah 54
-- **Penyebab**: Frontend masih memiliki fallback ke 3 kamar dummy lama (`RM-A101`, `RM-B204`, `RM-C302`).
-- **Solusi**:
-  - Ganti seluruh array `INITIAL_ROOMS` di `src/data/initialData.ts` dengan 64 kamar fisik riil Roemah 54 sesuai `RealRoomSeeder` (PA-101 s.d. PA-312 untuk Gedung Putra, PI-101 s.d. PI-312 untuk Gedung Putri).
-  - Hubungkan `MabaDashboard` dan `RoomSelectionStep` dengan props `rooms` dan `tariffs` dari database hasil seeder, dengan fallback ke struktur 64 kamar riil yang identik.
+  - Periksa dan ganti semua karakter `&` pada kalimat `echo` dan `title` di `laragon-setup.bat` dan `laragon-test-crud.bat` dengan kata `dan`.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
-
-- **Keputusan 1: Dual-Output Support (Laravel Blade Manifest & SPA Preview)**
-  - *Pendekatan*: Menghasilkan `public/build/manifest.json` yang berisi entri `resources/js/app.tsx` dan `resources/css/app.css` sekaligus `index.html`.
-  - *Alasan*: Memenuhi kebutuhan Laravel `@vite()` di Laragon tanpa merusak preview SPA port 3000.
-- **Keputusan 2: Query Raw SHOW INDEXES pada Migrasi SIMABA**
-  - *Pendekatan*: Menggunakan query `SHOW INDEXES FROM pendaftaranmahasiswa` pada koneksi `simaba`.
-  - *Alasan*: Metode bawaan `Schema::hasIndex` di beberapa versi driver MySQL/Laravel terkadang memerlukan nama database secara eksplisit; query raw terbukti 100% konsisten di MySQL 8 Laragon.
-
----
-
-### 4. Technical Architecture & File Modification Plan
+### 3. Technical Architecture & File Plan
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Alur Eksekusi Terintegrasi                  │
+│                 Alur Penyelesaian 3 Bug                     │
 │                                                             │
-│   laragon-setup.bat                                         │
-│     │                                                       │
-│     ├─► [5/7] php artisan migrate --force                   │
-│     │         (Migrasi SIMABA Idempoten - No Error 1061)    │
-│     │         php artisan db:seed --class=ProductionSeeder  │
-│     │         (64 Kamar Fisik Riil & Master SK Rektor)      │
-│     │                                                       │
-│     └─► [6/7] npm install --legacy-peer-deps                │
-│               (prop-types terpasang, no missing rollup)     │
-│               npm run build -> public/build/manifest.json   │
-│               php artisan optimize:clear                    │
+│   package.json                                              │
+│   └── Tambah "react-is": "^18.3.1"                          │
+│                                                             │
+│   database/migrations/                                      │
+│   └── 2026_01_01_000000_create_cache_table.php (Baru)       │
+│                                                             │
+│   .env.example                                              │
+│   └── CACHE_STORE=file, SESSION_DRIVER=file                 │
+│                                                             │
+│   laragon-setup.bat & laragon-test-crud.bat                 │
+│   └── Sanitasi seluruh karakter '&' -> 'dan'                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **File yang Akan Diperbarui Secara Lengkap**:
-  1. `/database/migrations/2026_10_17_000001_add_indexes_to_simaba_pendaftaran.php`
-  2. `/package.json`
-  3. `/.npmrc`
-  4. `/vite.config.ts`
-  5. `/server.ts`
-  6. `/laragon-setup.bat`
-  7. `/src/data/initialData.ts`
+- **Status Eksekusi & Hasil Verifikasi**:
+  1. [SELESAI] Eksekusi `npm run build` dan `compile_applet`: Sukses 100%, seluruh 3919 modul ditransformasikan dan dibundel tanpa error, file `public/build/manifest.json` terbentuk.
+  2. [SELESAI] Eksekusi `lint_applet` (`tsc --noEmit`): Sukses tanpa ada error TypeScript.
+  3. [SELESAI] Migrasi `cache` dan `cache_locks` dibuat dengan proteksi idempoten `Schema::hasTable`.
+  4. [SELESAI] Konfigurasi `.env.example` diatur ke `CACHE_STORE=file` dan `SESSION_DRIVER=file`.
+  5. [SELESAI] Karakter ampersand di `laragon-setup.bat` dan `laragon-test-crud.bat` telah diganti dengan kata `dan`.
+  6. [SELESAI] Dev server port 3000 terverifikasi aktif dengan respons `HTTP/1.1 200 OK`.
+

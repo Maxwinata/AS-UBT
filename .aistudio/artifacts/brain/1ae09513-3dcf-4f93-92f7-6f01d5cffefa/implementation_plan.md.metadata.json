@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana perbaikan 4 bug kritis AS-UBT: (1) Idempotensi migrasi database SIMABA untuk mencegah error 1061 duplicate key idx_pmb_auth; (2) Penambahan dependensi prop-types pada package.json, konfigurasi build outDir ke public/build dengan manifest.json standar Laravel 11, dan konfigurasi .npmrc Windows; (3) Penyempurnaan alur laragon-setup.bat dengan pemisahan migrasi dan eksekusi terverifikasi ProductionSeeder --force serta pembersihan optimize:clear; (4) Sinkronisasi 64 kamar fisik riil Roemah 54 dan tarif SK Rektor pada form pendaftaran React/Inertia tanpa data dummy.",
-  "updatedAt":  "2026-10-22T19:54:18.391395214Z",
+  "summary":  "Rencana penyelesaian 3 bug tersisa pada proyek AS-UBT: (1) Pemasangan react-is pada package.json untuk menuntaskan bundling recharts pada Vite build; (2) Pembuatan migrasi tabel cache dan cache_locks di MySQL serta penetapan CACHE_STORE=file di .env.example agar php artisan optimize:clear sukses tanpa error 1146; (3) Penggantian seluruh karakter ampersand (&) dengan kata 'dan' pada semua skrip batch Windows untuk mencegah error pemisahan perintah CMD.",
+  "updatedAt":  "2026-10-22T20:27:59.564286874Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
