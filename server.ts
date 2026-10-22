@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import Tesseract from 'tesseract.js';
 
@@ -170,7 +171,8 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const publicBuildPath = path.join(process.cwd(), 'public', 'build');
+    const distPath = fs.existsSync(publicBuildPath) ? publicBuildPath : path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

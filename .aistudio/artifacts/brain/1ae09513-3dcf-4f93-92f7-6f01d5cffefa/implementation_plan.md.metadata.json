@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana perbaikan sintaks batch script pada laragon-setup.bat untuk mengatasi error 'was unexpected at this time' dengan mengganti blok if-else ke label goto, serta penanganan otomatis eksekusi esbuild install.js untuk membypass pemblokiran install-scripts npm pada Windows Laragon.",
-  "updatedAt":  "2026-10-22T19:25:30.218775331Z",
+  "summary":  "Rencana perbaikan 4 bug kritis AS-UBT: (1) Idempotensi migrasi database SIMABA untuk mencegah error 1061 duplicate key idx_pmb_auth; (2) Penambahan dependensi prop-types pada package.json, konfigurasi build outDir ke public/build dengan manifest.json standar Laravel 11, dan konfigurasi .npmrc Windows; (3) Penyempurnaan alur laragon-setup.bat dengan pemisahan migrasi dan eksekusi terverifikasi ProductionSeeder --force serta pembersihan optimize:clear; (4) Sinkronisasi 64 kamar fisik riil Roemah 54 dan tarif SK Rektor pada form pendaftaran React/Inertia tanpa data dummy.",
+  "updatedAt":  "2026-10-22T19:54:18.391395214Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

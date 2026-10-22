@@ -116,35 +116,95 @@ export const INITIAL_INVOICE: BillingInvoice = {
   expiresAt: new Date(Date.now() + 47 * 3600 * 1000).toISOString(),
 };
 
-export const INITIAL_ROOMS: RoomPlot[] = [
-  {
-    roomId: 'RM-A101',
-    gedung: 'Gedung A (Thamrin Utara)',
-    lantai: 1,
-    nomorKamar: '101',
-    kapasitas: 2,
-    terisi: 1,
-    fasilitas: ['2 Kasur Busa Single', '2 Meja Belajar', 'AC 1PK', 'Kamar Mandi Dalam', 'Lemari 2 Pintu'],
-  },
-  {
-    roomId: 'RM-B204',
-    gedung: 'Gedung B (Roemah 54)',
-    lantai: 2,
-    nomorKamar: '204',
-    kapasitas: 2,
-    terisi: 0,
-    fasilitas: ['2 Bed Springbed', '2 Study Desk + Ergonomic Chair', 'AC 1.5PK', 'Kamar Mandi Dalam + Water Heater', 'Wi-Fi 100Mbps'],
-  },
-  {
-    roomId: 'RM-C302',
-    gedung: 'Gedung C (Angsana)',
-    lantai: 3,
-    nomorKamar: '302',
-    kapasitas: 2,
-    terisi: 2,
-    fasilitas: ['2 Bed Busa Super', '2 Desk Belajar', 'Kipas Angin Dinding', 'Kamar Mandi Luar', 'Balcon View'],
-  },
-];
+const generate64RealRooms = (): RoomPlot[] => {
+  const rooms: RoomPlot[] = [];
+  
+  // 1. Gedung Roemah 54 Putra (PA) - 32 Kamar Fisik Riil
+  // Lantai 1: PA-101 s.d. PA-108 (AC 1PK, Kamar Mandi Luar)
+  for (let i = 1; i <= 8; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PA-1${num}`,
+      gedung: 'Gedung Roemah 54 Putra',
+      lantai: 1,
+      nomorKamar: `1${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Busa Single (Bed A & B)', '2 Meja Belajar + Kursi', 'AC 1PK', 'Kamar Mandi Luar', 'Lemari 2 Pintu', 'Wi-Fi Kampus'],
+    });
+  }
+  // Lantai 2: PA-201 s.d. PA-212 (AC 1PK, Kamar Mandi Dalam)
+  for (let i = 1; i <= 12; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PA-2${num}`,
+      gedung: 'Gedung Roemah 54 Putra',
+      lantai: 2,
+      nomorKamar: `2${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Springbed Single (Bed A & B)', '2 Meja Belajar + Kursi Ergonomis', 'AC 1PK', 'Kamar Mandi Dalam', 'Lemari 2 Pintu', 'Wi-Fi Kampus'],
+    });
+  }
+  // Lantai 3: PA-301 s.d. PA-312 (AC 1.5PK, Kamar Mandi Dalam, Balkon)
+  for (let i = 1; i <= 12; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PA-3${num}`,
+      gedung: 'Gedung Roemah 54 Putra',
+      lantai: 3,
+      nomorKamar: `3${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Springbed Single (Bed A & B)', '2 Meja Belajar + Kursi Ergonomis', 'AC 1.5PK', 'Kamar Mandi Dalam', 'Balkon Ventilasi Alami', 'Lemari 2 Pintu', 'Wi-Fi Kampus'],
+    });
+  }
+
+  // 2. Gedung Roemah 54 Putri (PI) - 32 Kamar Fisik Riil
+  // Lantai 1: PI-101 s.d. PI-108 (AC 1PK, Kamar Mandi Luar, Cermin Rias)
+  for (let i = 1; i <= 8; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PI-1${num}`,
+      gedung: 'Gedung Roemah 54 Putri',
+      lantai: 1,
+      nomorKamar: `1${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Busa Single (Bed A & B)', '2 Meja Belajar + Cermin Rias', 'AC 1PK', 'Kamar Mandi Luar', 'Lemari 2 Pintu + Kunci Pengaman', 'Wi-Fi Kampus'],
+    });
+  }
+  // Lantai 2: PI-201 s.d. PI-212 (AC 1PK, Kamar Mandi Dalam + Water Heater)
+  for (let i = 1; i <= 12; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PI-2${num}`,
+      gedung: 'Gedung Roemah 54 Putri',
+      lantai: 2,
+      nomorKamar: `2${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Springbed Single (Bed A & B)', '2 Meja Belajar + Kursi Ergonomis', 'AC 1PK', 'Kamar Mandi Dalam + Water Heater', 'Lemari 2 Pintu', 'Wi-Fi Kampus'],
+    });
+  }
+  // Lantai 3: PI-301 s.d. PI-312 (AC 1.5PK, Kamar Mandi Dalam + Water Heater, Balkon)
+  for (let i = 1; i <= 12; i++) {
+    const num = i < 10 ? `0${i}` : `${i}`;
+    rooms.push({
+      roomId: `PI-3${num}`,
+      gedung: 'Gedung Roemah 54 Putri',
+      lantai: 3,
+      nomorKamar: `3${num}`,
+      kapasitas: 2,
+      terisi: 0,
+      fasilitas: ['2 Ranjang Springbed Single (Bed A & B)', '2 Meja Belajar + Kursi Ergonomis', 'AC 1.5PK', 'Kamar Mandi Dalam + Water Heater', 'Balkon Ventilasi Alami', 'Lemari 2 Pintu', 'Wi-Fi Kampus'],
+    });
+  }
+
+  return rooms;
+};
+
+export const INITIAL_ROOMS: RoomPlot[] = generate64RealRooms();
 
 export const INITIAL_CONTRACT: DigitalContract = {
   contractId: 'KONTRAK-UBT-54-098',
@@ -152,7 +212,7 @@ export const INITIAL_CONTRACT: DigitalContract = {
   nim: 'PMB2026-08942',
   nama: 'Bagus Pratama Putra',
   nomorKamar: '204',
-  gedung: 'Gedung B (Roemah 54)',
+  gedung: 'Gedung Roemah 54 Putra',
   depositAmount: 1000000,
   otpVerified: false,
   waNumber: '081254992011',
@@ -174,9 +234,9 @@ export const INITIAL_TICKET: ETicket = {
   ticketId: 'TCK-UBT-2026-778',
   nim: 'PMB2026-08942',
   nama: 'Bagus Pratama Putra',
-  gedung: 'Gedung B (Roemah 54)',
+  gedung: 'Gedung Roemah 54 Putra',
   kamar: '204',
-  qrData: 'UBT-ROEMAH54-CHECKIN|PMB2026-08942|RM-B204|BASTK-VALID|2026-08-15',
+  qrData: 'UBT-ROEMAH54-CHECKIN|PMB2026-08942|PA-204|BASTK-VALID|2026-08-15',
   barcode: '988273641092',
   validUntil: '15 Agustus 2026 (23:59 WIB)',
   status: 'PENDING',

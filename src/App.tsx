@@ -550,9 +550,9 @@ function AppContent() {
   const activeStudentRoom = React.useMemo(() => {
     const isFemale = mabaProfile.jenisKelamin === 'Perempuan' || mabaProfile.jenisKelamin === 'P';
     if (isFemale) {
-      return rooms.find(r => r.gedung.includes('Gedung B') || r.gedung.includes('Roemah 54')) || rooms[1] || rooms[0];
+      return rooms.find(r => r.gedung.includes('Putri')) || rooms[32] || rooms[0];
     } else {
-      return rooms.find(r => r.gedung.includes('Gedung A') || r.gedung.includes('Thamrin Utara')) || rooms[0];
+      return rooms.find(r => r.gedung.includes('Putra')) || rooms[0];
     }
   }, [rooms, mabaProfile.jenisKelamin]);
 

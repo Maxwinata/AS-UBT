@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -10,24 +11,44 @@ return new class extends Migration
      * Run the migrations.
      * Menambahkan indeks komposit dan indeks kolom performa tinggi (B-Tree)
      * pada tabel 'pendaftaranmahasiswa' di basis data sekunder SIMABA ('simaba' / u540633926_simaba)
-     * untuk mempercepat eksekusi query jutaan/ribuan data PMB menjadi sub-5 milidetik.
+     * secara IDEMPOTEN (tidak crash jika indeks sudah ada sebelumnya - mencegah MySQL Error 1061).
      */
     public function up(): void
     {
         if (Schema::connection('simaba')->hasTable('pendaftaranmahasiswa')) {
-            Schema::connection('simaba')->table('pendaftaranmahasiswa', function (Blueprint $table) {
+            $existingIndexes = [];
+            try {
+                $rawIndexes = DB::connection('simaba')->select("SHOW INDEXES FROM pendaftaranmahasiswa");
+                foreach ($rawIndexes as $idx) {
+                    $keyName = $idx->Key_name ?? $idx->key_name ?? null;
+                    if ($keyName) {
+                        $existingIndexes[$keyName] = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $existingIndexes = [];
+            }
+
+            Schema::connection('simaba')->table('pendaftaranmahasiswa', function (Blueprint $table) use ($existingIndexes) {
                 // 1. Indeks Komposit Autentikasi (Nomor Pendaftaran + Tanggal Lahir)
-                // Mengubah pencocokan login Maba menjadi O(1) B-Tree index lookup
-                $table->index(['nomor_pendaftaran', 'tanggal_lahir'], 'idx_pmb_auth');
+                if (empty($existingIndexes['idx_pmb_auth'])) {
+                    $table->index(['nomor_pendaftaran', 'tanggal_lahir'], 'idx_pmb_auth');
+                }
 
                 // 2. Indeks Nama Mahasiswa untuk Live Search Auto-Suggest
-                $table->index('nama_mahasiswa', 'idx_pmb_nama');
+                if (empty($existingIndexes['idx_pmb_nama'])) {
+                    $table->index('nama_mahasiswa', 'idx_pmb_nama');
+                }
 
                 // 3. Indeks NIK Calon Mahasiswa untuk Verifikasi Silang SIAKAD
-                $table->index('nik', 'idx_pmb_nik');
+                if (empty($existingIndexes['idx_pmb_nik'])) {
+                    $table->index('nik', 'idx_pmb_nik');
+                }
 
                 // 4. Indeks Komposit Program Studi & Jalur Pendaftaran (KIP / Reguler)
-                $table->index(['program_studi', 'jenis_mahasiswa'], 'idx_pmb_prodi_jalur');
+                if (empty($existingIndexes['idx_pmb_prodi_jalur'])) {
+                    $table->index(['program_studi', 'jenis_mahasiswa'], 'idx_pmb_prodi_jalur');
+                }
             });
         }
     }
@@ -38,11 +59,32 @@ return new class extends Migration
     public function down(): void
     {
         if (Schema::connection('simaba')->hasTable('pendaftaranmahasiswa')) {
-            Schema::connection('simaba')->table('pendaftaranmahasiswa', function (Blueprint $table) {
-                $table->dropIndex('idx_pmb_auth');
-                $table->dropIndex('idx_pmb_nama');
-                $table->dropIndex('idx_pmb_nik');
-                $table->dropIndex('idx_pmb_prodi_jalur');
+            $existingIndexes = [];
+            try {
+                $rawIndexes = DB::connection('simaba')->select("SHOW INDEXES FROM pendaftaranmahasiswa");
+                foreach ($rawIndexes as $idx) {
+                    $keyName = $idx->Key_name ?? $idx->key_name ?? null;
+                    if ($keyName) {
+                        $existingIndexes[$keyName] = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $existingIndexes = [];
+            }
+
+            Schema::connection('simaba')->table('pendaftaranmahasiswa', function (Blueprint $table) use ($existingIndexes) {
+                if (!empty($existingIndexes['idx_pmb_auth'])) {
+                    $table->dropIndex('idx_pmb_auth');
+                }
+                if (!empty($existingIndexes['idx_pmb_nama'])) {
+                    $table->dropIndex('idx_pmb_nama');
+                }
+                if (!empty($existingIndexes['idx_pmb_nik'])) {
+                    $table->dropIndex('idx_pmb_nik');
+                }
+                if (!empty($existingIndexes['idx_pmb_prodi_jalur'])) {
+                    $table->dropIndex('idx_pmb_prodi_jalur');
+                }
             });
         }
     }

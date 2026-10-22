@@ -37,16 +37,35 @@ echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, d
 echo       [2] Mode Simulasi Pengujian - Menyertakan 1 akun sampel mahasiswa untuk QA
 echo.
 set /p seederchoice="Pilih mode seeder [1 atau 2, default: 1]: "
+echo       + Menjalankan migrasi struktur database (migrate --force)...
+call php artisan migrate --force
+if %ERRORLEVEL% NEQ 0 (
+    echo       [PERINGATAN] Migrasi menemukan kendala pada skema basis data.
+) else (
+    echo       + Migrasi struktur tabel berhasil!
+)
+echo.
+
 if "%seederchoice%"=="2" goto SEED_SIMULASI
 
 :SEED_PRODUKSI
-echo       + Menjalankan migrasi dengan ProductionSeeder - Mode Produksi Riil Tanpa Dummy...
-call php artisan migrate --seed --seeder=ProductionSeeder
+echo       + Menjalankan ProductionSeeder (Master Tarif SK Rektor, 64 Kamar Fisik Riil, Akun Staf)...
+call php artisan db:seed --class=ProductionSeeder --force
+if %ERRORLEVEL% NEQ 0 (
+    echo       [PERINGATAN] Eksekusi ProductionSeeder mengalami kendala. Periksa pesan error di atas.
+) else (
+    echo       + ProductionSeeder berhasil dieksekusi! (64 Kamar Fisik & Tarif SK Rektor terpasang)
+)
 goto SEED_SELESAI
 
 :SEED_SIMULASI
-echo       + Menjalankan migrasi dengan DatabaseSeeder - Mode Simulasi Pengujian...
-call php artisan migrate --seed
+echo       + Menjalankan DatabaseSeeder - Mode Simulasi Pengujian...
+call php artisan db:seed --force
+if %ERRORLEVEL% NEQ 0 (
+    echo       [PERINGATAN] Eksekusi DatabaseSeeder mengalami kendala. Periksa pesan error di atas.
+) else (
+    echo       + DatabaseSeeder berhasil dieksekusi!
+)
 goto SEED_SELESAI
 
 :SEED_SELESAI
@@ -59,13 +78,16 @@ if exist "node_modules\esbuild\install.js" (
     echo       + Memasang dan meregistrasi binary native esbuild Windows...
     call node node_modules\esbuild\install.js
 )
-echo       + Memverifikasi build aset Vite untuk portal...
+echo       + Mengompilasi bundle aset Vite untuk Laravel Blade & Portal SPA...
 call npm run build
-if %ERRORLEVEL% NEQ 0 (
-    echo       [PERINGATAN] Build awal Vite mengalami kendala. Periksa pesan di atas.
+if exist "public\build\manifest.json" (
+    echo       + File public\build\manifest.json berhasil dibuat dan diverifikasi!
 ) else (
-    echo       + Kompilasi aset Vite sukses siap pakai!
+    echo       [PERINGATAN] File manifest.json belum terbentuk di public\build. Periksa log build di atas.
 )
+echo       + Membersihkan cache konfigurasi & rute Laravel (optimize:clear)...
+call php artisan optimize:clear
+echo       + Lingkungan frontend dan backend siap digunakan!
 
 echo.
 echo =====================================================================
