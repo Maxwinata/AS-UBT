@@ -46,7 +46,11 @@ if "%seederchoice%"=="2" (
 )
 
 echo [6/7] Menginstal dependensi Node.js / NPM...
-call npm install
+call npm install --legacy-peer-deps
+if exist "node_modules\esbuild\install.js" (
+    echo       + Memasang binary native esbuild untuk Windows...
+    call node node_modules\esbuild\install.js
+)
 
 echo.
 echo =====================================================================

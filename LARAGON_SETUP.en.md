@@ -101,3 +101,28 @@ The codebase strictly adheres to standard Laravel 11 + Inertia conventions:
   ```bash
   php artisan optimize:clear
   ```
+
+---
+
+## 🛠️ Troubleshooting Guide
+
+### Issue: `npm warn install-scripts` or `npm run dev` Fails with Missing esbuild Native Binary
+**Root Cause:**
+Modern versions of npm on Windows often block automatic lifecycle scripts (`postinstall`) under security policies (`allowScripts`). As a result, the `esbuild` package is prevented from executing `node install.js` to download or link the native Windows binary (`esbuild.exe`). When running `npm run dev`, `tsx` / `vite` fails because the esbuild binary is missing.
+
+**Instant Fix (Single Command):**
+Run this command in your Laragon terminal inside the project root folder:
+```bash
+node node_modules/esbuild/install.js
+```
+Then start the dev server:
+```bash
+npm run dev
+```
+
+**Alternative Fix (via npm install-scripts):**
+```bash
+npm install-scripts approve esbuild
+npm rebuild esbuild
+```
+*Note: Warnings for other packages like `@google/genai`, `core-js`, `protobufjs`, and `tesseract.js` are merely cosmetic/donation messages and do not affect server execution.*

@@ -37,7 +37,11 @@ echo "      + Menjalankan migrasi dengan ProductionSeeder (Mode Produksi Riil - 
 php artisan migrate --seed --seeder=ProductionSeeder
 
 echo "[6/7] Menginstal dependensi Node.js / NPM..."
-npm install
+npm install --legacy-peer-deps
+if [ -f "node_modules/esbuild/install.js" ]; then
+    echo "      + Memasang binary native esbuild..."
+    node node_modules/esbuild/install.js
+fi
 
 echo ""
 echo "====================================================================="

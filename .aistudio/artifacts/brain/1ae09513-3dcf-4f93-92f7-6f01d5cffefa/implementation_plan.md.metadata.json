@@ -1,6 +1,6 @@
 {
-  "summary":  "Pembaruan rencana arsitektur kesiapan produksi asrama UBT di Hostinger sesuai permintaan pengguna:\n1. Penyesuaian batas waktu auto-release kamar dan masa berlaku invoice pembayaran dari 24 jam menjadi 48 jam (2 hari kalender).\n2. Mekanisme countdown timer dan status penahanan kamar (BOOKED_STAGING) aktif selama 48 jam dengan notifikasi pengingat H-12 jam sebelum kamar dikembalikan ke pool umum.\n3. Penyesuaian query transaksi database MySQL (INTERVAL 48 HOUR) dan worker cron job pelepasan kuota.\n4. Mempertahankan arsitektur penyimpanan berkas KYC non-public di Hostinger dengan versioning audit trail.",
-  "updatedAt":  "2026-10-21T08:46:47.159833904Z",
+  "summary":  "Rencana komprehensif penanganan peringatan npm install-scripts, aktivasi binary esbuild, dan pemulihan dev server (npm run dev) pada lingkungan Laragon Windows. Termasuk pembaruan otomatis pada laragon-setup.bat dan panduan pemulihan instan 1-baris.",
+  "updatedAt":  "2026-10-22T11:55:05.106119037Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

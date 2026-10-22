@@ -101,3 +101,28 @@ Alur 3 tingkat otomatis:
 * **Hari 1–5**: Toleransi sewa kalender (tanpa denda).
 * **Hari 6–10**: Pemotongan sewa dari deposit jaminan & masa tenggang 5 hari isi ulang (*top-up*) deposit.
 * **Hari 11+**: Wanprestasi akut (Denda Rp 500.000, pengakhiran sewa kamar & sisa deposit dinyatakan hangus).
+
+---
+
+## 🛠️ Panduan Solusi Kendala (Troubleshooting)
+
+### Kendala: `npm warn install-scripts` atau `npm run dev` Error esbuild Native Binary
+**Penyebab:**
+Versi npm modern pada lingkungan Windows sering memblokir skrip lifecycle otomatis (`postinstall`) demi alasan keamanan sistem (`allowScripts`). Akibatnya, paket `esbuild` belum sempat mengunduh atau menautkan berkas *native executable* Windows (`esbuild.exe`). Ketika `npm run dev` dijalankan, server `tsx` / `vite` gagal memanggil esbuild.
+
+**Solusi Cepat (Cukup 1 Baris Perintah):**
+Jalankan perintah ini di terminal Laragon pada folder proyek:
+```bash
+node node_modules/esbuild/install.js
+```
+Setelah proses selesai dalam 1-2 detik, langsung jalankan server:
+```bash
+npm run dev
+```
+
+**Solusi Alternatif (Jika Menggunakan Fitur npm install-scripts):**
+```bash
+npm install-scripts approve esbuild
+npm rebuild esbuild
+```
+*Catatan: Paket lain seperti `@google/genai`, `core-js`, `protobufjs`, dan `tesseract.js` yang muncul di log peringatan hanyalah skrip donasi/telemetri opsional, sehingga TIDAK mempengaruhi jalannya server sama sekali.*
