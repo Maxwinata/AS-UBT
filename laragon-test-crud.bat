@@ -57,14 +57,10 @@ echo   [7] Impor dan Sinkronisasi Lengkap API SIDARA ke Tabel Staging (siakad_ma
 echo       * Menarik data lengkap dari endpoint API SIDARA (BTT-006 dan BTT-002) / fallback.
 echo       * Menyimpan 100%% field ke tabel SQL siakad_mahasiswa_stg dan kolom payload_raw JSON.
 echo.
-echo   [8] Perbaikan Cepat Dependensi, esbuild, dan Build Vite (Quick Repair Wizard)
-echo       * Mengatasi ERESOLVE, memasang laravel-vite-plugin@^1.2.0, biner native esbuild,
-echo       * serta memvalidasi bundle public/build tanpa perlu ketik manual.
-echo.
 echo   [0] Keluar
 echo.
 echo ===============================================================================
-set /p opt="Masukkan pilihan Anda [1-8, atau 0]: "
+set /p opt="Masukkan pilihan Anda [1-7, atau 0]: "
 
 if "%opt%"=="1" goto RUN_CRUD_LIVE
 if "%opt%"=="2" goto RUN_CRUD_CLEANUP
@@ -73,7 +69,6 @@ if "%opt%"=="4" goto RUN_SERVERS
 if "%opt%"=="5" goto RUN_TINKER
 if "%opt%"=="6" goto SHOW_DOCS
 if "%opt%"=="7" goto RUN_IMPORT_SIDARA
-if "%opt%"=="8" goto RUN_QUICK_REPAIR
 if "%opt%"=="0" goto EXIT_SCRIPT
 
 echo.
@@ -144,8 +139,9 @@ if not exist "public\build\manifest.json" (
 echo   [3/3] Menjalankan Laravel API Server & Vite Dev Server di jendela terpisah...
 start "Laravel API Server (Port 8000)" cmd /k "php artisan serve --port=8000"
 start "Vite Dev Server" cmd /k "npm run dev"
-echo.
-echo   Kedua server telah dijalankan! Silakan buka peramban Anda: http://127.0.0.1:8000/login
+echo   Kedua server telah dijalankan! Silakan buka peramban Anda:
+echo     - Portal Utama Asrama UBT (Roemah 54) : http://localhost:3000
+echo     - Backend Laravel API & Staging DB    : http://127.0.0.1:8000/login
 pause
 goto MENU
 
@@ -190,16 +186,6 @@ echo   Anda dapat memverifikasinya di phpMyAdmin: http://localhost/phpmyadmin
 echo ===============================================================================
 echo.
 pause
-goto MENU
-
-:RUN_QUICK_REPAIR
-cls
-if exist "laragon-quick-repair.bat" (
-    call laragon-quick-repair.bat
-) else (
-    echo [ERROR] File laragon-quick-repair.bat tidak ditemukan di direktori root!
-    pause
-)
 goto MENU
 
 :EXIT_SCRIPT
