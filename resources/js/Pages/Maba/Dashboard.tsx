@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MabaProfile, BillingInvoice, RoomPlot, DigitalContract, ETicket, TariffItem, PaymentScheme } from '../../../src/types/asrama';
-import { INITIAL_MABA, INITIAL_INVOICE, INITIAL_ROOMS, initialTariffs, initialPaymentSchemes } from '../../../src/data/initialData';
-import { MabaDashboard } from '../../../src/components/maba/MabaDashboard';
-import { Header } from '../../../src/components/Header';
+import { MabaProfile, BillingInvoice, RoomPlot, DigitalContract, ETicket, TariffItem, PaymentScheme } from '@/src/types/asrama';
+import { INITIAL_MABA, INITIAL_INVOICE, INITIAL_ROOMS, initialTariffs, initialPaymentSchemes } from '@/src/data/initialData';
+import { MabaDashboard } from '@/src/components/maba/MabaDashboard';
+import { Header } from '@/src/components/Header';
 import { Head, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 

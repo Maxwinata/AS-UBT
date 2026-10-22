@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana komprehensif penanganan peringatan npm install-scripts, aktivasi binary esbuild, dan pemulihan dev server (npm run dev) pada lingkungan Laragon Windows. Termasuk pembaruan otomatis pada laragon-setup.bat dan panduan pemulihan instan 1-baris.",
-  "updatedAt":  "2026-10-22T11:55:05.106119037Z",
+  "summary":  "Rencana penyusunan otomasi skrip batch (.bat) untuk Laragon: memperbarui laragon-setup.bat, menambahkan opsi perbaikan di laragon-test-crud.bat, serta membuat file terpadu laragon-quick-repair.bat untuk instalasi dependensi, esbuild, kompilasi build aset, dan tes koneksi database tanpa perlu mengetik manual di terminal.",
+  "updatedAt":  "2026-10-22T12:49:59.987890379Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

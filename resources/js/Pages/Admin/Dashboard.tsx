@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { BillingInvoice, RoomPlot, DelinquencyRecord, TariffItem, PaymentScheme, ModificationLog } from '../../../src/types/asrama';
-import { INITIAL_INVOICE, INITIAL_ROOMS, initialTariffs, initialPaymentSchemes } from '../../../src/data/initialData';
-import { AdminAsrama } from '../../../src/components/admin/AdminAsrama';
-import { Header } from '../../../src/components/Header';
+import { BillingInvoice, RoomPlot, DelinquencyRecord, TariffItem, PaymentScheme, ModificationLog } from '@/src/types/asrama';
+import { INITIAL_INVOICE, INITIAL_ROOMS, initialTariffs, initialPaymentSchemes } from '@/src/data/initialData';
+import { AdminAsrama } from '@/src/components/admin/AdminAsrama';
+import { Header } from '@/src/components/Header';
 import { Head, router } from '@inertiajs/react';
 
 interface AdminPageProps {

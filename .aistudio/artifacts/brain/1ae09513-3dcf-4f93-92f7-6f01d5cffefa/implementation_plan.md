@@ -1,125 +1,76 @@
-# Solusi Pemulihan Script esbuild & Stabilisasi Dev Server Laragon (npm run dev)
+# Otomasi Penuh Batch Script (.BAT) untuk Laragon & Asrama UBT
 
-Panduan implementasi dan langkah perbaikan menyeluruh untuk mengatasi pemblokiran script instalasi `esbuild` oleh kebijakan `allowScripts` pada NPM, sehingga `npm run dev` (Vite & TSX) dapat berjalan normal dan lancar di lingkungan Laragon Windows.
+Mengintegrasikan seluruh proses instalasi dependensi npm, perbaikan plugin Vite, registrasi native binary esbuild, build aset produksi, dan verifikasi koneksi database ke dalam skrip `.bat` otomatis sekali-klik tanpa perlu mengetik perintah secara manual di terminal.
 
----
-
-## Tinjauan Pengguna & Keputusan Kunci
+### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Berdasarkan konfirmasi Anda bahwa **`npm run dev` mengalami error** di terminal Laragon akibat pemblokiran script instalasi, fokus utama adalah:
-> 1. **Penyebab Utama Error**: Paket `esbuild` membutuhkan script instalasi (`postinstall: node install.js`) untuk memasang binary native executable (`esbuild.exe` / `@esbuild/win32-x64`) pada Windows. Karena NPM memblokirnya atas kebijakan proteksi `allowScripts`, binary tersebut tidak terbentuk, menyebabkan perintah `tsx server.ts` atau `vite` gagal dengan pesan *esbuild binary not found* atau *spawn esbuild.exe ENOENT*.
-> 2. **Metode Penyelesaian Terpilih**: Menerapkan solusi 3 lapis yang menjamin dev server langsung berjalan seketika di terminal Laragon, serta memperbarui skrip otomatisasi `laragon-setup.bat` agar instalasi berikutnya tidak lagi mengalami kendala yang sama.
-
-- **Keputusan Terkonfirmasi 1**: Memprioritaskan perbaikan binary native `esbuild` agar dev server `npm run dev` dapat langsung dijalankan tanpa hambatan.
-- **Keputusan Terkonfirmasi 2**: Menambahkan penanganan otomatis pada skrip `laragon-setup.bat` dan dokumentasi panduan Laragon (`LARAGON_SETUP.md`) untuk pengembang lain.
-- **Keputusan Terkonfirmasi 3**: Menjaga integritas paket lain (`@google/genai`, `core-js`, `tesseract.js`) yang tidak memerlukan persetujuan script karena bersifat opsional/telemetri.
+> Keputusan yang telah dikonfirmasi oleh pengguna pada sesi tanya-jawab:
+> - **Struktur Skrip**: Memperbarui skrip yang sudah ada (`laragon-setup.bat` & `laragon-test-crud.bat`) dan membuat file batch perbaikan terpadu (`laragon-quick-repair.bat`).
+> - **Verifikasi Otomatis**: Skrip batch akan secara otomatis memverifikasi binary esbuild, mengeksekusi kompilasi `npm run build`, dan menguji koneksi basis data MySQL via Laravel Artisan.
 
 ---
 
-## 1. Ikhtisar Masalah & Solusi Arsitektural
+### 1. Overview & Core Concept
 
-### Alur Ketergantungan Eksekusi Dev Server
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                     ALUR EKSEKUSI DEV SERVER DI LINGKUNGAN LARAGON                     │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-
- [Terminal Laragon (Cmder / Command Prompt)]
-                     │
-                     ▼
-         $ npm run dev (tsx server.ts)
-                     │
-                     ├──────────────────────────────┐
-                     ▼                              ▼
-             [Node.js Runtime]              [TSX TypeScript Engine]
-                     │                              │
-                     ▼                              ▼
-             Express Server (:3000)         [esbuild Compiler]
-                     │                              │
-                     ▼                              ▼
-             Vite Middleware                Membutuhkan: esbuild.exe
-                                            (Gagal jika script instalasi diblokir!)
-```
-
-### 3 Opsi Eksekusi Langsung di Terminal Laragon Anda
-Pengguna dapat langsung menjalankan salah satu dari 3 perintah berikut di terminal Laragon (`C:\laragon\www\asrama-ubt`):
-
-1. **Opsi 1 (Paling Cepat & Pasti - Eksekusi Manual Script Installer esbuild)**:
-   ```bash
-   node node_modules/esbuild/install.js
-   ```
-   *Perintah ini langsung mengunduh/mengekstrak `esbuild.exe` ke direktori lokal tanpa perlu izin manual dari npm.*
-
-2. **Opsi 2 (Mengikuti Mekanisme Resmi NPM `install-scripts`)**:
-   ```bash
-   npm install-scripts approve esbuild
-   npm rebuild esbuild
-   ```
-
-3. **Opsi 3 (Instalasi Langsung Paket Native Windows x64)**:
-   ```bash
-   npm install @esbuild/win32-x64 --save-optional --legacy-peer-deps
-   ```
+- **Apa yang Dikerjakan**: Menghilangkan kebutuhan bagi pengguna untuk mengingat atau mengetik perintah CLI yang kompleks (`npm install -D laravel-vite-plugin@^1.2.0 --legacy-peer-deps`, `node node_modules\esbuild\install.js`, dll.). Seluruh konfigurasi dijalankan melalui file batch Windows dengan penanganan error interaktif.
+- **Target Pengguna**: Pengembang atau staf IT Asrama UBT yang mengelola aplikasi pada Windows Laragon.
+- **Nilai Utama**: Menjamin lingkungan Laragon selalu konsisten dan siap pakai (*zero-friction execution*), mencegah *human-error* pada flag peer-dependency, dan memberikan status keberhasilan yang jelas secara visual.
 
 ---
 
-## 2. Pengalaman Pengembang & Rencana Perubahan Kode
+### 2. User Experience & Visual Design
 
-Untuk memastikan proyek ini siap pakai 1-klik (*zero-friction*) bagi semua pengembang yang meng-clone repositori di Laragon, berikut rencana penyesuaian berkas:
-
-### A. Pembaruan Skrip Otomatisasi `laragon-setup.bat`
-Menambahkan baris pemulihan otomatis pasca-eksekusi `npm install`:
-```bat
-echo [6/7] Menginstal dependensi Node.js / NPM...
-call npm install --legacy-peer-deps
-
-echo       + Memastikan binary native esbuild terpasang...
-if exist "node_modules\esbuild\install.js" (
-    call node node_modules\esbuild\install.js
-)
-```
-
-### B. Pembaruan Skrip Shell `laragon-setup.sh` (Untuk Git Bash / WSL)
-Menambahkan logika penjaminan yang identik:
-```bash
-npm install --legacy-peer-deps
-if [ -f "node_modules/esbuild/install.js" ]; then
-    node node_modules/esbuild/install.js
-fi
-```
-
-### C. Pembaruan Dokumentasi `LARAGON_SETUP.md` & `LARAGON_SETUP.en.md`
-Menambahkan sub-bab khusus *"Troubleshooting: Mengatasi Peringatan install-scripts & Error esbuild"* yang memuat panduan perintah 1-baris jika pengguna mengalami pemblokiran script oleh npm.
+- **Alur Penggunaan Berbasis Batch (.bat)**:
+  1. Pengguna cukup mengklik ganda file `laragon-quick-repair.bat` di File Explorer Laragon atau memilih menu di `laragon-test-crud.bat`.
+  2. Layar konsol menampilkan progres berurutan dengan indikator status:
+     - `[1/5]` Pemeriksaan lingkungan Laragon (PHP, MySQL, Node.js).
+     - `[2/5]` Pemasangan dependensi npm + `laravel-vite-plugin@^1.2.0` (`--legacy-peer-deps`).
+     - `[3/5]` Pemasangan & verifikasi binary native `esbuild` Windows.
+     - `[4/5]` Kompilasi aset Vite produksi (`npm run build`) untuk Blade.
+     - `[5/5]` Uji koneksi database MySQL (`php artisan db:show` / query test).
+  3. Di akhir proses, pengguna disajikan pilihan langsung untuk menyalakan server (Port 8000 + Vite) atau kembali ke menu pengujian.
 
 ---
 
-## 3. Rencana Kerja Implementasi Bertahap
+### 3. Key Product Decisions & Trade-Offs
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 TAHAPAN IMPLEMENTASI                                   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+- **Keputusan 1: Skrip Mandiri `laragon-quick-repair.bat` vs Hanya Memperbarui Skrip Setup**
+  - *Pendekatan*: Menyediakan `laragon-quick-repair.bat` sebagai skrip mandiri, sekaligus memperbarui `laragon-setup.bat` dan menu di `laragon-test-crud.bat`.
+  - *Alasan*: Pengguna tidak perlu mengulang proses migrasi database atau seeding yang memakan waktu hanya untuk memperbaiki aset frontend atau dependensi npm.
+  - *Alternatif yang Ditolak*: Mengharuskan pengguna menjalankan ulang `laragon-setup.bat` dari awal setiap kali ada masalah pada node_modules.
 
-  [1. Dokumentasi Solusi Cepat] ──▶ [2. Patch laragon-setup.bat] ──▶ [3. Verifikasi Build]
-  Menyediakan perintah 1-baris      Menyisipkan fallback eksekusi    Menjalankan compile_applet
-  untuk dijalankan user sekarang.   esbuild install.js otomatis.     & lint_applet di sistem.
-```
-
-1. **Tahap 1: Verifikasi dan Penyusunan Skrip Setup Windows**:
-   - Memperbarui `laragon-setup.bat` agar secara proaktif mengeksekusi `node node_modules/esbuild/install.js` jika file tersebut ada, mencegah kegagalan dev server pada instalasi baru.
-2. **Tahap 2: Dokumentasi Troubleshooting di Panduan Laragon**:
-   - Menambahkan petunjuk resmi di `LARAGON_SETUP.md` mengenai penanganan kebijakan script NPM di Windows.
-3. **Tahap 3: Verifikasi Integritas Build**:
-   - Menguji kompilasi proyek dengan `compile_applet` dan `lint_applet` untuk menjamin tidak ada regresi pada kode TypeScript maupun konfigurasi server.
+- **Keputusan 2: Penanganan Otomatis Kasus Gagal Kompilasi**
+  - *Pendekatan*: Setiap tahapan di batch mengecek `%ERRORLEVEL%`. Jika terjadi error, skrip memberikan pesan diagnosis dalam bahasa Indonesia dan tidak langsung menutup jendela konsol (`pause`).
 
 ---
 
-## 4. Rencana Pengujian & Verifikasi
+### 4. Technical Architecture & Data Strategy
 
-1. **Uji Eksekusi Installer esbuild**:
-   - Memastikan berkas `node_modules/esbuild/install.js` dapat diakses dan dieksekusi secara idempotent tanpa merusak dependensi lain.
-2. **Uji Validasi TypeScript**:
-   - Menjalankan `tsc --noEmit` untuk memastikan seluruh tipe data tetap valid (0 errors).
-3. **Uji Kompilasi Vite**:
-   - Menjalankan `compile_applet` untuk memastikan Vite bundle dan Express server siap dijalankan pada mode dev maupun production.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 Alur Otomasi Batch Script                   │
+│                                                             │
+│   laragon-quick-repair.bat                                  │
+│     │                                                       │
+│     ├─► [1] Cek Lingkungan (PHP 8.2+, MySQL 3306, Node.js)   │
+│     ├─► [2] npm install --legacy-peer-deps                  │
+│     │       + laravel-vite-plugin@^1.2.0                    │
+│     ├─► [3] node node_modules\esbuild\install.js            │
+│     ├─► [4] npm run build (verifikasi public/build manifest)│
+│     └─► [5] php artisan asrama:test-live-crud               │
+│                                                             │
+│   Terintegrasi ke dalam:                                    │
+│   - laragon-setup.bat (Langkah 6)                           │
+│   - laragon-test-crud.bat (Menu [8] & Pra-syarat Menu [4])   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **File yang Akan Dibuat/Diperbarui**:
+  1. `laragon-quick-repair.bat`: File batch terpadu untuk instalasi, perbaikan esbuild, build aset, dan tes koneksi.
+  2. `laragon-setup.bat`: Penambahan langkah instalasi `laravel-vite-plugin@^1.2.0` dan verifikasi build.
+  3. `laragon-test-crud.bat`: Penambahan opsi menu `[8]` untuk perbaikan dependensi & kompilasi cepat, serta validasi otomatis pada menu `[4]` sebelum menyalakan server.
+
+- **Langkah Verifikasi**:
+  1. Pengujian sintaks skrip batch untuk kompatibilitas Windows cmd.
+  2. Verifikasi status `compile_applet` dan `lint_applet`.

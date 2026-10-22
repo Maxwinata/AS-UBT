@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title PORTAL SI-GABUNG 54 - LIVE CRUD & 4-STAGE REGISTRATION TEST RUNNER (LARAGON)
+title "PORTAL SI-GABUNG 54 - LIVE CRUD & 4-STAGE REGISTRATION TEST RUNNER (LARAGON)"
 color 0A
 
 :MENU
@@ -31,19 +31,19 @@ echo ===========================================================================
 echo   PILIH MENU PENGUJIAN LIVE CRUD KE BASIS DATA PRODUKSI / LARAGON:
 echo ===============================================================================
 echo.
-echo   [1] Jalankan Uji Live CRUD Nyata 4 Tahap Pendaftaran & Tabel Master
-echo       * Menguji alur hybrid draft & staged CRUD end-to-end:
-echo         - Tahap 1: Biodata Hybrid Auto-Save & e-KYC Private Storage Berversi (v1)
+echo   [1] Jalankan Uji Live CRUD Nyata 4 Tahap Pendaftaran dan Tabel Master
+echo       * Menguji alur hybrid draft dan staged CRUD end-to-end:
+echo         - Tahap 1: Biodata Hybrid Auto-Save dan e-KYC Private Storage Berversi (v1)
 echo         - Tahap 2: Reservasi Kunci Kamar Permanen di Database Staging (BOOKED_STAGING)
-echo         - Tahap 3: Tagihan Staging, Struk Bank & Pengesahan Admin ke Master Pembayaran
-echo         - Tahap 4: Pengesahan Kontrak Digital & Dual-Factor OTP WhatsApp
-echo         - Validasi: Eager Loading Eloquent & Query Builder Join 4 Tabel Master
+echo         - Tahap 3: Tagihan Staging, Struk Bank dan Pengesahan Admin ke Master Pembayaran
+echo         - Tahap 4: Pengesahan Kontrak Digital dan Dual-Factor OTP WhatsApp
+echo         - Validasi: Eager Loading Eloquent dan Query Builder Join 4 Tabel Master
 echo.
 echo   [2] Jalankan Uji Live CRUD 4 Tahap + Pembersihan Data Otomatis (--cleanup)
 echo       * Menguji CRUD penuh 4 tahap lalu membersihkan record pengujian kembali bersih.
 echo.
-echo   [3] Eksekusi Migrasi & Database Seeder Bersih (Fresh Seed)
-echo       * Reset database asrama_ubt_db dan isi master tarif & kamar awal.
+echo   [3] Eksekusi Migrasi dan Database Seeder Bersih (Fresh Seed)
+echo       * Reset database asrama_ubt_db dan isi master tarif dan kamar awal.
 echo.
 echo   [4] Jalankan Server Lengkap (Backend Laravel 8000 + Frontend Vite)
 echo       * Membuka http://127.0.0.1:8000/login untuk pengujian peramban langsung.
@@ -53,14 +53,18 @@ echo       * Eksekusi query model Eloquent secara langsung baris per baris.
 echo.
 echo   [6] Tampilkan Panduan Database Interaction Flow di Layar
 echo.
-echo   [7] Impor & Sinkronisasi Lengkap API SIDARA ke Tabel Staging (siakad_mahasiswa_stg)
-echo       * Menarik data lengkap dari endpoint API SIDARA (BTT-006 & BTT-002) / fallback.
-echo       * Menyimpan 100% field ke tabel SQL siakad_mahasiswa_stg & kolom payload_raw JSON.
+echo   [7] Impor dan Sinkronisasi Lengkap API SIDARA ke Tabel Staging (siakad_mahasiswa_stg)
+echo       * Menarik data lengkap dari endpoint API SIDARA (BTT-006 dan BTT-002) / fallback.
+echo       * Menyimpan 100%% field ke tabel SQL siakad_mahasiswa_stg dan kolom payload_raw JSON.
+echo.
+echo   [8] Perbaikan Cepat Dependensi, esbuild, dan Build Vite (Quick Repair Wizard)
+echo       * Mengatasi ERESOLVE, memasang laravel-vite-plugin@^1.2.0, biner native esbuild,
+echo       * serta memvalidasi bundle public/build tanpa perlu ketik manual.
 echo.
 echo   [0] Keluar
 echo.
 echo ===============================================================================
-set /p opt="Masukkan pilihan Anda [1-7, atau 0]: "
+set /p opt="Masukkan pilihan Anda [1-8, atau 0]: "
 
 if "%opt%"=="1" goto RUN_CRUD_LIVE
 if "%opt%"=="2" goto RUN_CRUD_CLEANUP
@@ -69,6 +73,7 @@ if "%opt%"=="4" goto RUN_SERVERS
 if "%opt%"=="5" goto RUN_TINKER
 if "%opt%"=="6" goto SHOW_DOCS
 if "%opt%"=="7" goto RUN_IMPORT_SIDARA
+if "%opt%"=="8" goto RUN_QUICK_REPAIR
 if "%opt%"=="0" goto EXIT_SCRIPT
 
 echo.
@@ -110,7 +115,7 @@ goto MENU
 :RUN_MIGRATE_SEED
 cls
 echo ===============================================================================
-echo   MENJALANKAN FRESH MIGRATION & SEEDER MASTER DATA...
+echo   MENJALANKAN FRESH MIGRATION DAN SEEDER MASTER DATA...
 echo ===============================================================================
 echo.
 call php artisan migrate:fresh --seed
@@ -126,13 +131,21 @@ echo ===========================================================================
 echo.
 echo   Buka browser Anda di: http://127.0.0.1:8000/login
 echo.
-echo   Menjalankan Laravel API Server di jendela terpisah...
+if exist "node_modules\esbuild\install.js" (
+    echo   [1/3] Memverifikasi biner native esbuild...
+    call node node_modules\esbuild\install.js >nul 2>nul
+)
+if not exist "public\build\manifest.json" (
+    echo   [2/3] Manifest build Vite belum terdeteksi, mengompilasi aset pertama kali...
+    call npm run build
+) else (
+    echo   [2/3] Manifest build Vite terdeteksi siap.
+)
+echo   [3/3] Menjalankan Laravel API Server & Vite Dev Server di jendela terpisah...
 start "Laravel API Server (Port 8000)" cmd /k "php artisan serve --port=8000"
-echo.
-echo   Menjalankan Vite Asset Compiler di jendela terpisah...
 start "Vite Dev Server" cmd /k "npm run dev"
 echo.
-echo   Kedua server telah dijalankan! Silakan buka peramban Anda.
+echo   Kedua server telah dijalankan! Silakan buka peramban Anda: http://127.0.0.1:8000/login
 pause
 goto MENU
 
@@ -177,6 +190,16 @@ echo   Anda dapat memverifikasinya di phpMyAdmin: http://localhost/phpmyadmin
 echo ===============================================================================
 echo.
 pause
+goto MENU
+
+:RUN_QUICK_REPAIR
+cls
+if exist "laragon-quick-repair.bat" (
+    call laragon-quick-repair.bat
+) else (
+    echo [ERROR] File laragon-quick-repair.bat tidak ditemukan di direktori root!
+    pause
+)
 goto MENU
 
 :EXIT_SCRIPT

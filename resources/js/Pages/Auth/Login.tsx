@@ -1,5 +1,5 @@
 import React from 'react';
-import { LoginDualTab } from '../../../src/components/auth/LoginDualTab';
+import { LoginDualTab } from '@/src/components/auth/LoginDualTab';
 import { Head, router } from '@inertiajs/react';
 
 export default function Login() {

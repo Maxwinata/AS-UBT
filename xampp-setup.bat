@@ -48,7 +48,7 @@ IF NOT EXIST ".env" (
 
 :: 5. Pastikan Folder bootstrap/cache dan storage Tersedia
 echo.
-echo [2/6] Memeriksa dan membuat direktori penting Laravel (bootstrap/cache & storage)...
+echo [2/6] Memeriksa dan membuat direktori penting Laravel (bootstrap/cache dan storage)...
 IF NOT EXIST "bootstrap\cache" mkdir "bootstrap\cache"
 IF NOT EXIST "storage\app\public" mkdir "storage\app\public"
 IF NOT EXIST "storage\app\private_kyc" mkdir "storage\app\private_kyc"
@@ -70,7 +70,7 @@ call php artisan key:generate
 
 echo       PILIHAN SEEDER BASIS DATA:
 echo       [1] Mode Produksi Riil (Default / Disarankan) - 100%% Bebas Akun Dummy Mahasiswa
-echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, & Akun Staf Resmi)
+echo           (Mengisi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, dan Akun Staf Resmi)
 echo       [2] Mode Simulasi Pengujian - Menyertakan 1 akun sampel mahasiswa untuk QA
 echo.
 set /p seederchoice="Pilih mode seeder [1 atau 2, default: 1]: "
@@ -85,7 +85,11 @@ if "%seederchoice%"=="2" (
 :: 9. Install NPM Dependencies
 echo.
 echo [6/6] Menginstal dependensi Node.js / NPM...
-call npm install
+call npm install --legacy-peer-deps
+if exist "node_modules\esbuild\install.js" (
+    echo       + Memasang binary native esbuild untuk Windows...
+    call node node_modules\esbuild\install.js
+)
 
 echo.
 echo =====================================================================

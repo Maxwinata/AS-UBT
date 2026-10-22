@@ -1,6 +1,6 @@
 import React from 'react';
-import { CronEngineMonitor } from '../../../src/components/sop/CronEngineMonitor';
-import { Header } from '../../../src/components/Header';
+import { CronEngineMonitor } from '@/src/components/sop/CronEngineMonitor';
+import { Header } from '@/src/components/Header';
 import { Head } from '@inertiajs/react';
 
 export default function CronMonitor() {

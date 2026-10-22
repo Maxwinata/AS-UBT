@@ -1,6 +1,6 @@
 import React from 'react';
-import { EksistingDashboard } from '../../../src/components/eksisting/EksistingDashboard';
-import { Header } from '../../../src/components/Header';
+import { EksistingDashboard } from '@/src/components/eksisting/EksistingDashboard';
+import { Header } from '@/src/components/Header';
 import { Head } from '@inertiajs/react';
 
 interface EksistingPageProps {
