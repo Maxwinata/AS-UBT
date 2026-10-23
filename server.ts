@@ -167,9 +167,23 @@ async function startServer() {
         hmr: false,
         watch: null,
       },
-      appType: 'spa',
+      appType: 'custom',
     });
     app.use(vite.middlewares);
+
+    app.get('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api')) {
+        return next();
+      }
+      try {
+        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        return res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        return next(e);
+      }
+    });
   } else {
     const publicBuildPath = path.join(process.cwd(), 'public', 'build');
     const distPath = fs.existsSync(publicBuildPath) ? publicBuildPath : path.join(process.cwd(), 'dist');

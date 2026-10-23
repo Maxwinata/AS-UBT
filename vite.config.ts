@@ -1,34 +1,42 @@
-import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
-import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
-  return {
-    plugins: [react(), tailwindcss()],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
+export default defineConfig({
+  publicDir: false,
+  plugins: [
+    laravel({
+      input: [
+        'resources/css/app.css',
+        'resources/js/app.tsx',
+      ],
+      refresh: true,
+    }),
+    react(),
+    tailwindcss(),
+  ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    },
+  },
+  build: {
+    manifest: 'manifest.json',
+    outDir: 'public/build',
+    emptyOutDir: false,
+    rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, 'index.html'),
+        'resources/js/app': path.resolve(__dirname, 'resources/js/app.tsx'),
+        'resources/css/app': path.resolve(__dirname, 'resources/css/app.css'),
       },
     },
-    build: {
-      outDir: 'public/build',
-      manifest: 'manifest.json',
-      emptyOutDir: false,
-      rollupOptions: {
-        input: {
-          app: path.resolve(__dirname, 'index.html'),
-          'resources/js/app': path.resolve(__dirname, 'resources/js/app.tsx'),
-          'resources/css/app': path.resolve(__dirname, 'resources/css/app.css'),
-        },
-      },
-    },
-    server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
-    },
-  };
+  },
+  server: {
+    // HMR is disabled in AI Studio via DISABLE_HMR env var.
+    hmr: process.env.DISABLE_HMR !== 'true',
+    watch: process.env.DISABLE_HMR === 'true' ? null : {},
+  },
 });
