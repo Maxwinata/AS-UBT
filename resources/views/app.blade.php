@@ -22,6 +22,9 @@
         {{-- Inertia Root Container --}}
         @inertia
 
+        {{-- Dual Compatibility JSON Script Tag untuk Inertia v2 / v3 Core --}}
+        <script data-page="app" type="application/json">{!! json_encode($page ?? ['component' => 'Auth/Login', 'props' => []]) !!}</script>
+
         {{-- Fallback SPA Container --}}
         <div id="root"></div>
 

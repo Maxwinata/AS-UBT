@@ -9,20 +9,61 @@ import { Toaster } from 'sonner';
 
 const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'Sistem Informasi Asrama UBT (Roemah 54)';
 
-// Periksa keberadaan kontainer Inertia (#app) dengan data-page
+/**
+ * Ekstraksi metadata initialPage secara aman dari dokumen DOM.
+ * Mendukung pembacaan dari:
+ * 1. Tag script JSON bawaan: <script data-page="app" type="application/json">...</script>
+ * 2. Atribut dataset kontainer Inertia: <div id="app" data-page="..."></div>
+ */
+function getInitialInertiaPage(): any {
+    // 1. Periksa script tag JSON
+    const scriptEl = document.querySelector('script[data-page="app"][type="application/json"]');
+    if (scriptEl?.textContent) {
+        try {
+            const parsed = JSON.parse(scriptEl.textContent);
+            if (parsed && typeof parsed === 'object' && parsed.component) {
+                return parsed;
+            }
+        } catch (e) {
+            console.warn('[Inertia] Gagal mengurai script data-page JSON:', e);
+        }
+    }
+
+    // 2. Periksa atribut dataset pada kontainer #app
+    const el = document.getElementById('app');
+    if (el?.dataset?.page) {
+        try {
+            const parsed = JSON.parse(el.dataset.page);
+            if (parsed && typeof parsed === 'object' && parsed.component) {
+                return parsed;
+            }
+        } catch (e) {
+            console.warn('[Inertia] Gagal mengurai el.dataset.page:', e);
+        }
+    }
+
+    return null;
+}
+
+const initialPage = getInitialInertiaPage();
 const inertiaContainer = document.getElementById('app');
 
-if (inertiaContainer && inertiaContainer.dataset.page) {
+// Dynamic lazy import resolver untuk pemisahan chunk (code splitting)
+const pages = import.meta.glob('./Pages/**/*.{tsx,jsx}');
+
+if (initialPage && initialPage.component && inertiaContainer) {
     createInertiaApp({
+        id: 'app',
+        page: initialPage,
         title: (title) => `${title} - ${appName}`,
-        resolve: (name) => {
-            const pages = import.meta.glob('./Pages/**/*.{tsx,jsx}', { eager: true });
-            const page = (pages[`./Pages/${name}.tsx`] || pages[`./Pages/${name}.jsx`]) as any;
-            if (!page) {
+        resolve: async (name: string) => {
+            const importPage = pages[`./Pages/${name}.tsx`] || pages[`./Pages/${name}.jsx`];
+            if (!importPage) {
                 console.error(`[Inertia] Halaman tidak ditemukan: ./Pages/${name}.tsx`);
                 throw new Error(`Halaman Inertia tidak ditemukan: ./Pages/${name}.tsx`);
             }
-            return page.default ?? page;
+            const module: any = await importPage();
+            return module.default ?? module;
         },
         setup({ el, App, props }) {
             const root = createRoot(el);
@@ -38,7 +79,7 @@ if (inertiaContainer && inertiaContainer.dataset.page) {
         },
     });
 } else {
-    // Jalur Fallback: Jika dibuka di luar payload Inertia (misalnya kontainer SPA #root)
+    // Jalur Fallback: Jika dibuka di luar payload Inertia (misalnya kontainer SPA #root atau data-page kosong)
     const fallbackContainer = document.getElementById('root') || inertiaContainer;
     if (fallbackContainer) {
         import('./Pages/Auth/Login').then(({ default: Login }) => {
@@ -54,4 +95,3 @@ if (inertiaContainer && inertiaContainer.dataset.page) {
         });
     }
 }
-

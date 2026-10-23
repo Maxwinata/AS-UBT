@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { LoginDualTab } from '@/src/components/auth/LoginDualTab';
 import { Head, router } from '@inertiajs/react';
 import { ErrorBoundary } from '@/resources/js/Components/ErrorBoundary';
+import { TestingModeProvider } from '@/src/context/TestingModeContext';
 import { Toaster } from 'sonner';
 
 export default function Login() {
@@ -41,14 +42,15 @@ export default function Login() {
       fallbackTitle="Kendala Memuat Gerbang Login"
       fallbackMessage="Gagal merender formulir autentikasi PMB/SSO. Silakan muat ulang halaman atau periksa koneksi backend Laragon."
     >
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-        <Head title="Gerbang SSO Masuk SI-GABUNG 54" />
-        <div className="w-full max-w-4xl">
-          <LoginDualTab onLoginSuccess={handleLoginSuccess} />
+      <TestingModeProvider>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+          <Head title="Gerbang SSO Masuk SI-GABUNG 54" />
+          <div className="w-full max-w-4xl">
+            <LoginDualTab onLoginSuccess={handleLoginSuccess} />
+          </div>
+          <Toaster richColors position="top-right" />
         </div>
-        <Toaster richColors position="top-right" />
-      </div>
+      </TestingModeProvider>
     </ErrorBoundary>
   );
 }
-
