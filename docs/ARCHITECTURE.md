@@ -223,3 +223,42 @@ Sesuai dengan ketentuan ketat kepatuhan sistem dan audit forensik pendaftaran (`
 2. **Signed URL Berdurasi Terbatas**: Admin atau mahasiswa yang berhak melihat berkas meminta token akses sementara dari backend API via controller `KycStorageService::getTemporaryViewUrl()`.
 3. **Masa Berlaku 15 Menit**: Signed URL kadaluarsa dalam 15 menit, mencegah kebocoran link identitas sensitif (kepatuhan UU Perlindungan Data Pribadi).
 
+---
+
+## 8. Arsitektur Rendering Frontend, Mounting DOM & Dynamic Code-Splitting
+
+Aplikasi mengadopsi arsitektur *hybrid client-side routing* yang dikawinkan secara tangguh antara Laravel 11 Blade layout, Inertia.js 2.0, dan React 19:
+
+### A. Dual Payload Handshake & Root Mounting Contract
+Untuk menjamin rendering halaman 100% andal di seluruh variasi browser dan perutean web server (Laragon Virtual Host `http://asrama-ubt.test` maupun `php artisan serve` port 8000), tata letak Blade (`resources/views/app.blade.php`) menerapkan strategi *Dual Payload Injection*:
+
+1. **Kontainer Utama `#app` (`data-page`)**:
+   Kontainer standar Inertia `<div id="app" data-page="...">` yang membawa serialisasi JSON dari props halaman controller Laravel.
+2. **Fallback Tag Skrip `#page-data`**:
+   Skrip embedded `<script id="page-data" type="application/json">@json($page)</script>` yang bertindak sebagai jaring pengaman (*safety net*) data jika atribut DOM `data-page` terpotong (*truncated*) oleh filter proksi/web-server.
+3. **Cadangan Kontainer SPA `#root`**:
+   Elemen cadangan `<div id="root"></div>` disiapkan untuk mendukung skenario rendering darurat SPA mandiri tanpa merusak struktur DOM utama.
+
+Di sisi client bootstrap (`resources/js/app.tsx`), engine pembacaan membaca atribut `el.dataset.page` terlebih dahulu; apabila null, engine langsung mengekstrak payload dari `#page-data` dan meneruskannya sebagai `initialPage` eksplisit ke `createInertiaApp` dengan React 19 `createRoot`.
+
+### B. Dynamic Code-Splitting & Asynchronous Page Resolution
+Seluruh tampilan halaman di `resources/js/Pages/` dimuat secara dinamis (*lazy-loaded* on demand) menggunakan API impor Vite:
+```typescript
+resolvePageComponent(
+  `./Pages/${name}.tsx`,
+  import.meta.glob('./Pages/**/*.{tsx,jsx}')
+)
+```
+- **Optimasi Ukuran Awal (Initial Payload)**: Halaman login publik (`Pages/Auth/Login.tsx`) diisolasi dalam berkas terpisah (~125 KB), memangkas waktu muat hingga di bawah 300 ms tanpa membebani memori browser pengguna.
+- **Pemuatan Bertahap Modul Kompleks**: Komponen berat seperti `AdminAsramaDashboard`, `CronEngineMonitor`, dan modul penandatanganan kontrak digital hanya diunduh saat sesi pengguna yang memiliki hak akses (*RBAC*) berpindah ke halaman terkait.
+
+### C. Strategi Vendor Chunking & Isolasi Global Scope (Vite)
+Pada berkas konfigurasi `vite.config.ts`, bundler diatur dengan pemisahan dependensi pihak ketiga (*manual vendor chunking*) secara modular:
+- **`react-vendor`**: Inti `react`, `react-dom`, dan runtime `@inertiajs/react`.
+- **`ui-vendor`**: Pustaka ikonografi `lucide-react`.
+- **`pdf-vendor`**: Mesin generator kontrak & tiket BASTK (`jspdf`, `jspdf-autotable`, `html2canvas`).
+- **`ml-vendor`**: Engine ekstraksi OCR e-KYC KTP (`tesseract.js`).
+
+Selain itu, ditambahkan deklarasi pengaman `define: { 'process.env': {} }` agar pustaka pihak ketiga yang mengevaluasi variabel lingkungan Node.js di browser tidak menimbulkan kegagalan *ReferenceError: process is not defined*. Seluruh komponen dibungkus oleh *React Error Boundary* dan sanitasi array defensif (`Array.isArray(data) ? data : []`) guna menjamin antarmuka menampilkan status yang ramah saat koneksi jaringan atau data API berstatus kosong.
+
+

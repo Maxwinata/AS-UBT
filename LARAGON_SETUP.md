@@ -25,9 +25,13 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
        * **[1] Mode Produksi Riil (Default / Disarankan)**: Menjalankan `ProductionSeeder` (100% bebas akun dummy mahasiswa; hanya menginisialisasi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, dan akun staf resmi).
        * **[2] Mode Simulasi**: Menjalankan `DatabaseSeeder` (menyertakan akun sampel mahasiswa untuk keperluan QA).
      - Menjalankan `npm install`
-4. Jalankan Vite frontend di terminal:
+4. Jalankan Vite frontend di terminal untuk mode pengembangan:
    ```bash
    npm run dev
+   ```
+   *Catatan Produksi*: Jika ingin menguji bundel produksi tanpa menjalankan dev server Vite, kompilasi aset dengan:
+   ```bash
+   npm run build
    ```
 5. Buka browser:
    * **Domain otomatis Laragon**: `http://asrama-ubt.test`
@@ -44,7 +48,7 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
 
 ## 📁 Struktur Berkas Terkondisi (Laravel + Inertia)
 
-Struktur kode telah terorganisir rapi mengikuti konvensi resmi Laravel + Inertia:
+Struktur kode telah terorganisir rapi mengikuti konvensi resmi Laravel 11 + Inertia.js 2.0 + React 19:
 
 ```
 ├── app/
@@ -67,14 +71,15 @@ Struktur kode telah terorganisir rapi mengikuti konvensi resmi Laravel + Inertia
 ├── resources/
 │   ├── js/
 │   │   ├── Pages/                                      # Inertia Page Views (Maba/Dashboard, Admin/Dashboard, Eksisting/Dashboard, Auth/Login, Sop/CronMonitor)
-│   │   ├── app.tsx                                     # Inisialisasi createInertiaApp
+│   │   ├── app.tsx                                     # Single Entry Point React 19, createInertiaApp, Error Boundary & Dynamic Lazy Loading
 │   │   └── bootstrap.ts                                # Axios & CSRF Setup
 │   └── views/
-│       └── app.blade.php                               # Root Blade Layout Inertia (@inertia, @vite)
+│       └── app.blade.php                               # Root Blade Layout Inertia (#app dual payload data-page/script + fallback #root)
 ├── routes/
 │   ├── web.php                                         # Rute Halaman Web Inertia.js
 │   ├── api.php                                         # Rute Webhook BSI & Virtual Account
 │   └── console.php                                     # Jadwal CRON Eksekusi Otomatis Harian Pukul 00:01 WIB
+├── vite.config.ts                                      # Konfigurasi Single-Entry Vite, manualChunks dynamic splitting & process.env shim
 ├── laragon-setup.bat                                   # Skrip Otomatisasi 1-Klik Setup Laragon
 ├── laragon-test-crud.bat                              # Skrip Pengujian Live CRUD Dual Database MySQL
 ├── composer.json                                       # Dependensi PHP Laravel 11 & Inertia

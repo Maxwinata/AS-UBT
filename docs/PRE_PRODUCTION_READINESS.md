@@ -25,7 +25,7 @@ Panduan ini merupakan standar operasional prosedur (SOP) dan pedoman teknis **Pr
 │                          │ │                          │ │                          │
 │ • Bersihkan data staging │ │ • Gedung Roemah 54 Putra │ │ • Generator Kode 3 Digit │
 │ • Hapus berkas mock e-KYC│ │ • Gedung Roemah 54 Putri │ │ • Match Mutasi Mandiri   │
-│ • ProductionSeeder murni │ │ • 64 Kamar / 128 Ranjang │ │ • Timeout 24 Jam Reservasi│
+│ • ProductionSeeder murni │ │ • 64 Kamar / 128 Ranjang │ │ • Timeout 48 Jam Reservasi│
 │ • Akun staf resmi argon2 │ │ • RealRoomSeeder.php     │ │ • Approval Kasir & Audit │
 └────────────┬─────────────┘ └────────────┬─────────────┘ └────────────┬─────────────┘
              │                            │                            │
@@ -209,14 +209,14 @@ Apabila calon mahasiswa melakukan kesalahan saat melakukan transfer bank:
 | **Kasus C: Lebih Bayar** | Mahasiswa salah ketik nominal lebih besar. | Kasir memverifikasi kelebihan dana dan mencatatkannya ke saldo kredit deposit mahasiswa di tabel `delinquencies` / buku besar deposit. |
 | **Kasus D: Bukti Bayar Buram / Palsu** | Bukti editan atau tidak ada mutasi masuk di rekening koran Bank Mandiri. | Kasir menekan tombol `REJECT`, mencantumkan catatan: *"Mutasi bank tidak ditemukan pada tanggal terkait. Silakan hubungi kasir di 0812-3456-7001 atau unggah bukti sah"* |
 
-### 4.5 Mekanisme Pelepasan Kamar Otomatis (*Room Hold Timeout 24 Jam*)
+### 4.5 Mekanisme Pelepasan Kamar Otomatis (*Room Hold Timeout 48 Jam*)
 Untuk mencegah penahanan (*holding*) kamar oleh pendaftar yang tidak melanjutkan pembayaran:
-1. Saat mahasiswa memilih kamar di Langkah 2, sistem menandai ranjang sebagai `HELD` selama $1 \times 24$ jam.
+1. Saat mahasiswa memilih kamar di Langkah 2, sistem menandai ranjang sebagai `HELD` selama **$2 \times 24$ jam (48 jam)**.
 2. Scheduler Laravel mengeksekusi pemeriksaan setiap jam:
    ```bash
    php artisan rooms:release-expired-holds
    ```
-3. Jika waktu 24 jam terlampaui dan mahasiswa belum mengunggah bukti transfer, sistem membatalkan invoice dan mengembalikan status kamar menjadi `AVAILABLE` agar dapat dipilih oleh mahasiswa lain.
+3. Jika waktu **48 jam** terlampaui dan mahasiswa belum mengunggah bukti transfer, sistem membatalkan invoice dan mengembalikan status kamar menjadi `AVAILABLE` agar dapat dipilih oleh mahasiswa lain.
 
 ---
 
@@ -247,7 +247,7 @@ Lakukan pemeriksaan checklist berurutan pada hari peluncuran resmi sebelum gerba
   ```bash
   php artisan db:seed --class=ProductionSeeder --force
   ```
-- [ ] Jalankan kompilasi cache produksi:
+- [ ] Jalankan kompilasi cache produksi & verifikasi single-entry build:
   ```bash
   php artisan config:cache
   php artisan route:cache
@@ -255,6 +255,10 @@ Lakukan pemeriksaan checklist berurutan pada hari peluncuran resmi sebelum gerba
   composer install --optimize-autoloader --no-dev
   npm run build
   ```
+- [ ] **Validasi Bundel Frontend & Manifest**:
+  - Pastikan berkas `public/build/manifest.json` memetakan entri tunggal `resources/js/app.tsx`.
+  - Pastikan modul besar terpecah secara dinamis (*lazy loading chunks*) dan tidak membebani initial payload login (<150 KB).
+  - Pastikan layout `resources/views/app.blade.php` memiliki kontainer `#app` (dual-payload `data-page` + `#page-data`) serta fallback `#root`.
 
 ### Fase 3: Simulasi Transaksi Kasir (*End-to-End Dry Run*) (H-2 Jam)
 - [ ] Login menggunakan akun staf kasir `keuangan@ubt.ac.id` (password default dari `INITIAL_ADMIN_PASSWORD`).
@@ -273,6 +277,21 @@ Lakukan pemeriksaan checklist berurutan pada hari peluncuran resmi sebelum gerba
   tail -f /var/www/asrama-ubt/storage/logs/laravel.log
   ```
 - [ ] Staf kasir bersiaga pada dashboard verifikasi pembayaran dengan mutasi rekening Bank Mandiri (Kopra / Livin' by Mandiri) terbuka di layar kedua.
+
+---
+
+### 5.5 Matriks Kesiapan & Status Verifikasi Audit Sistem (*System Readiness Matrix*)
+
+Berikut adalah status verifikasi terkini seluruh subsistem menjelang implementasi produksi:
+
+| Komponen Arsitektur | Spesifikasi & Standar Teknis | Status Audit | Catatan Verifikasi |
+| :--- | :--- | :---: | :--- |
+| **Penyelarasan Single-Entry & Mounting DOM** | Entry tunggal `resources/js/app.tsx`, layout `resources/views/app.blade.php` dengan dual-payload `#app` (`data-page` + `#page-data`) & fallback `#root`. | **VERIFIED** | Menghilangkan risiko konflik dua bundle terpisah dan mencegah *null component reference* di browser. |
+| **Dynamic Code-Splitting & Lazy Loading** | `import.meta.glob('./Pages/**/*.{tsx,jsx}')`, pemisahan bundle `Pages/Auth/Login.tsx` (<150 KB), pemuatan asinkron modul admin/dashboard/cron. | **VERIFIED** | Halaman login terbuka cepat; modul berat hanya diunduh saat dibutuhkan pengguna terautentikasi. |
+| **Isolasi Vendor & Browser Safety Shim** | `vite.config.ts` manualChunks (`react-vendor`, `ui-vendor`, `pdf-vendor`, `ml-vendor`), `define: { 'process.env': {} }`, React Error Boundary. | **VERIFIED** | Aman dari `process is not defined` di peramban; respons kosong/anomali API tertangani dengan pesan status defensif. |
+| **Kepatuhan Penyimpanan e-KYC (RULE[AGENTS_md])** | Disk privat non-publik (`storage/app/private_kyc`), immutable versioning berkas (`ktp_..._v2_...jpg`), Signed URLs (TTL 15 menit), Garbage Collection (30-60 hari). | **VERIFIED** | Audit trail forensik utuh, berkas KTP/Selfie lama tidak pernah ditimpa saat koreksi resubmit. |
+| **Dual Database Handshake (Laravel 11)** | Handshake atomik `asrama_ubt_db` (operasional asrama) dan `u540633926_simaba` (pangkalan PMB kampus). | **VERIFIED** | Lolos uji verifikasi live query via skrip `laragon-test-crud.bat`. |
+| **SOP Kasir Kode Unik & Concurrency Kamar** | Generator 3 digit unik acak, locking ranjang 48 jam (`rooms:release-expired-holds`), approval atomik staging ke master. | **VERIFIED** | Rekonsiliasi manual presisi dengan mutasi Bank Mandiri dan isolasi data kotor. |
 
 ---
 

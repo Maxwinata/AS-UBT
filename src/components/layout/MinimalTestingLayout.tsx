@@ -127,7 +127,7 @@ export const MinimalTestingLayout: React.FC<MinimalTestingLayoutProps> = ({
       </div>
 
       {/* MAIN VIEWPORT */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6">
+      <main className={`flex-1 w-full mx-auto ${!isLoggedIn ? 'max-w-[1360px] px-2 sm:px-4 py-4 sm:py-6' : 'max-w-5xl px-4 sm:px-6 py-6'}`}>
         {children}
       </main>
 

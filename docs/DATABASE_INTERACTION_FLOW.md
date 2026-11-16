@@ -74,7 +74,7 @@ Sistem pendaftaran mahasiswa baru di Portal SI-GABUNG 54 menerapkan arsitektur *
    - Jika sesi mahasiswa terputus atau beralih perangkat (dari ponsel ke laptop), sistem secara otomatis memulihkan isian draf (*auto-resume*) tanpa mengulang dari awal.
 2. **Kunci Permanen Kamar di Database Staging**:
    - Ketika mahasiswa memilih kamar dan ranjang pada Tahap 2, kamar langsung dikunci dengan status `BOOKED_STAGING` pada tabel `request_pembayaran` dan kuota `kapasitas_terisi` bertambah pada tabel master `rooms`.
-   - Hal ini menjamin perlindungan 24 jam dari *double-booking* atau perebutan kamar antar pendaftar lain selama menunggu proses transfer perbankan.
+   - Hal ini menjamin perlindungan **48 jam ($2 \times 24$ jam)** dari *double-booking* atau perebutan kamar antar pendaftar lain selama menunggu proses transfer perbankan.
 3. **Penyimpanan Berkas e-KYC Berversi & Private Storage Bucket**:
    - Berkas fisik KTP dan pasfoto selfie disimpan langsung di private storage bucket (`storage/app/private_kyc`) dengan penamaan unik berbasis timestamp dan UUID (misal: `ktp_260108001_v1_1713504000_abc123.jpg`).
    - Sesuai `RULE[AGENTS_md]`, sistem **DILARANG MENIMPA (OVERWRITE)** berkas koreksi lama agar histori audit forensik admin tetap utuh. Setiap versi berkas dicatat di tabel `kyc_documents` dan `modification_logs`.

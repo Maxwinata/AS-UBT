@@ -5,7 +5,7 @@ export const INITIAL_ANNOUNCEMENTS: BoardAnnouncement[] = [
     id: 'ann-001',
     title: '⚠️ Pemeliharaan Berkala Pompa Distribusi Air Bersih & Jaringan WiFi',
     summary: 'Pekerjaan teknis pembersihan tandon utama dan upgrade router koridor lantai 2 & 3 Gedung A dan B.',
-    content: `Diberitahukan kepada seluruh warga asrama Roemah 54 Universitas Borneo Tarakan:
+    content: `Diberitahukan kepada seluruh warga asrama Roemah 54 Universitas Bunda Thamrin:
 
 Sehubungan dengan pemeliharaan rutin infrastruktur utilitas, Unit Pengelola Asrama akan melaksanakan:
 1. Pengurasan tandon utama air bersih pada Sabtu, 26 September 2026 pukul 08.00 - 12.00 WITA. Aliran air akan mengalami penurunan debit sementara.

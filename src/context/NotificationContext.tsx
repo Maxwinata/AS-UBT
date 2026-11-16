@@ -145,7 +145,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       title: '🚨 Inspeksi Kelayakan Jalur Evakuasi Kebakaran Lantai 1 s.d. 3',
       summary: 'Tim K3 Kampus akan melakukan pengecekan sensor asap dan tabung APAR di seluruh lorong asrama.',
       content: `Diberitahukan kepada seluruh warga asrama:
-Siang ini mulai pukul 14.00 WITA, Tim Keselamatan dan Kesehatan Kerja (K3) Universitas Borneo Tarakan akan melakukan uji coba sistem alarm dan inspeksi visual kelengkapan pemadam api (APAR).
+Siang ini mulai pukul 14.00 WITA, Tim Keselamatan dan Kesehatan Kerja (K3) Universitas Bunda Thamrin akan melakukan uji coba sistem alarm dan inspeksi visual kelengkapan pemadam api (APAR).
 
 Harap tidak meletakkan barang pribadi (sepatu, rak piring, kardus) di jalur lorong utama koridor. Bunyi sirine pendek mungkin terdengar selama pengetesan. Terima kasih atas kerjasamanya.`,
       category: 'security' as AnnouncementCategory,
@@ -184,15 +184,15 @@ Penghuni yang merasa memesan paket dapat mengambilnya di Meja Front Desk Lobby U
     },
     {
       title: '🩺 Pemeriksaan Kesehatan Gratis & Donor Darah di Klinik Kampus',
-      summary: 'Program pengabdian F-Kedokteran UBT bersama PMI Tarakan terbuka khusus mahasiswa asrama.',
-      content: `Dalam rangka Dies Natalis Universitas Borneo Tarakan, Korps Sukarela (KSR) PMI dan Fakultas Kedokteran menyelenggarakan pemeriksaan tensi, gula darah, dan donor darah gratis.
+      summary: 'Program pengabdian F-Kedokteran UBT bersama PMI terbuka khusus mahasiswa asrama.',
+      content: `Dalam rangka Dies Natalis Universitas Bunda Thamrin, Korps Sukarela (KSR) PMI dan Fakultas Kedokteran menyelenggarakan pemeriksaan tensi, gula darah, dan donor darah gratis.
 
 Waktu: Besok Pagi, 08.30 - 12.00 WITA
 Tempat: Selasar Klinik Kampus (Samping Asrama Gedung B)
 Disediakan suplemen dan sertifikat pengabdian bagi para pendonor.`,
       category: 'general' as AnnouncementCategory,
       priority: 'normal' as AnnouncementPriority,
-      author: 'KSR PMI Unit Universitas Borneo Tarakan',
+      author: 'KSR PMI Unit Universitas Bunda Thamrin',
       authorRole: 'Kesehatan & Relawan',
       targetAudience: 'Semua Mahasiswa Asrama',
       actionTag: 'Kesehatan'

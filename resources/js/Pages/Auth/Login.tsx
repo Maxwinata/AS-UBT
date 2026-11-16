@@ -43,11 +43,9 @@ export default function Login() {
       fallbackMessage="Gagal merender formulir autentikasi PMB/SSO. Silakan muat ulang halaman atau periksa koneksi backend Laragon."
     >
       <TestingModeProvider>
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-          <Head title="Gerbang SSO Masuk SI-GABUNG 54" />
-          <div className="w-full max-w-4xl">
-            <LoginDualTab onLoginSuccess={handleLoginSuccess} />
-          </div>
+        <div className="min-h-screen bg-slate-100 font-sans">
+          <Head title="Gerbang Masuk SI-GABUNG 54 · Universitas Bunda Thamrin" />
+          <LoginDualTab onLoginSuccess={handleLoginSuccess} />
           <Toaster richColors position="top-right" />
         </div>
       </TestingModeProvider>

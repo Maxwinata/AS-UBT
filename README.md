@@ -24,6 +24,7 @@ Seluruh dokumentasi teknis dan operasional disediakan dalam **Bahasa Indonesia (
 | **Panduan Testing Data Real** | [docs/TESTING_DATA_REAL_LARAGON.md](docs/TESTING_DATA_REAL_LARAGON.md) | [docs/TESTING_DATA_REAL_LARAGON.en.md](docs/TESTING_DATA_REAL_LARAGON.en.md) | Langkah praktis transisi dari web simulasi ke database MySQL riil di Laragon (uji pendaftaran & promosi master). |
 | **Manual CRUD Database Nyata** | [docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md](docs/MANUAL_IMPLEMENTASI_CRUD_DATABASE_REAL.md) | - | Manual teknis pengkabelan HTTP, eksekusi CRUD database nyata ke port 8000 & verifikasi MySQL. |
 | **Kesiapan Pra-Produksi & Sanitasi** | [docs/PRE_PRODUCTION_READINESS.md](docs/PRE_PRODUCTION_READINESS.md) | [docs/PRE_PRODUCTION_READINESS.en.md](docs/PRE_PRODUCTION_READINESS.en.md) | Protokol sanitasi data dummy, inisialisasi master kamar riil, SOP kasir kode unik 3 digit, & go-live checklist. |
+| **Panduan Kode Unik Transaksi** | [docs/KODE_UNIK_TRANSAKSI.md](docs/KODE_UNIK_TRANSAKSI.md) | - | Penjelasan paripurna kode unik 3 digit: analogi orang awam, sistematika fungsi, tujuan bisnis, alur kerja, SOP kasir, & FAQ. |
 | **Arsitektur Mode Bersih & Pengujian** | [docs/CLEAN_UI_TESTING_MODE.md](docs/CLEAN_UI_TESTING_MODE.md) | - | Desain Clean UI (Mode Produksi Riil Non-Dummy default) dan switch mode simulasi QA bebas distraksi. |
 | **Panduan XAMPP (Otomatis)** | [XAMPP_SETUP.md](XAMPP_SETUP.md) | [XAMPP_SETUP.en.md](XAMPP_SETUP.en.md) | Langkah instalasi di XAMPP Windows via `xampp-setup.bat`. |
 | **Arsitektur & Diagram Logika** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md) | Alur *staging* vs *master*, *concurrency lock* kamar, dan logika transaksi. |
@@ -35,19 +36,27 @@ Seluruh dokumentasi teknis dan operasional disediakan dalam **Bahasa Indonesia (
 
 ---
 
-## ⚡ Quick Start (Menjalankan Sistem)
+## ⚡ Quick Start & Alur Kompilasi Aset
 
 ### Lingkungan Lokal (Windows - Laragon / XAMPP)
 
-1. Pastikan modul MySQL dan Apache/Nginx sudah berjalan.
+1. Pastikan modul MySQL dan Apache/Nginx sudah berjalan di kontrol panel Laragon/XAMPP.
 2. Jalankan skrip setup otomatis sesuai stack Anda:
    - **Laragon**: Klik 2x file `laragon-setup.bat`
    - **XAMPP**: Jalankan `xampp-setup.bat` di terminal XAMPP Shell
-3. Buka dua terminal untuk menjalankan dev server:
-   - **Terminal 1 (Frontend Vite):** `npm run dev`
-   - **Terminal 2 (Backend Laravel):** `php artisan serve`
+3. Menjalankan Server Pengembangan (Development):
+   - **Terminal 1 (Frontend Vite HMR):** `npm run dev`
+   - **Terminal 2 (Backend Laravel):** `php artisan serve` (atau akses langsung virtual host Laragon)
 4. Akses melalui peramban: `http://127.0.0.1:8000` atau `http://asrama-ubt.test`
-5. **Uji Live CRUD Langsung**: Jalankan `laragon-test-crud.bat` untuk verifikasi instan baca-tulis ke database MySQL `asrama_ubt_db` tanpa harus melalui browser.
+5. **Kompilasi Aset Produksi (Production Build)**:
+   - Jalankan `npm run build` untuk mengompilasi bundel `resources/js/app.tsx` menjadi aset siap rilis di `public/build/` dengan *manifest.json* resmi Laravel.
+6. **Uji Live CRUD Langsung**: Jalankan `laragon-test-crud.bat` untuk verifikasi instan baca-tulis ke database MySQL `asrama_ubt_db` tanpa harus melalui browser.
+
+### 🧩 Kontrak Arsitektur Mounting Frontend
+Aplikasi menggunakan jalur tunggal (*single-entry*) terpadu:
+- **Root Layout (`resources/views/app.blade.php`)**: Menginjeksi kontainer `#app` dengan atribut `data-page` serta skrip fallback `#page-data`, didukung cadangan `#root` untuk stabilitas SPA.
+- **Client Entry (`resources/js/app.tsx`)**: Inisialisasi `createInertiaApp` dengan React 19, *defensive error boundary*, dan pemuatan halaman dinamis (*dynamic code-splitting*) via `import.meta.glob('./Pages/**/*.{tsx,jsx}')`.
+- **Isolasi Bundel (`vite.config.ts`)**: Pembagian *manualChunks* (`react-vendor`, `ui-vendor`, `pdf-vendor`, `ml-vendor`) dan definisi aman `process.env` untuk performa buka halaman cepat (<150 KB awal).
 
 ---
 

@@ -1,6 +1,0 @@
-{
-  "summary":  "Rencana implementasi perbaikan layar blank putih (Cannot read properties of null reading component) pada Laravel 11 + Inertia + React di Laragon Windows. Rencana mencakup injeksi eksplisit initialPage ke createInertiaApp, penerapan dynamic lazy loading pada halaman Inertia agar login terbuka cepat tanpa memuat modul AI/OCR/PDF berat, penyelarasan Blade view dengan dual-compatibility payload (div data-page + JSON script), serta chunk splitting vendor pada Vite.",
-  "updatedAt":  "2026-10-23T08:30:24.205906145Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}
