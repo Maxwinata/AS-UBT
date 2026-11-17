@@ -1,8 +1,7 @@
 
-const CACHE_NAME = 'maba-ekyc-cache-v1';
+const CACHE_NAME = 'maba-ekyc-cache-v3';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html'
+  '/'
 ];
 
 // --- IndexedDB Queue Logic ---
@@ -208,14 +207,22 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache first, fallback to network untuk aset statis (JS, CSS, Gambar dari Vite)
-  if (requestUrl.pathname.startsWith('/assets/') || requestUrl.pathname.match(/.(png|jpg|jpeg|svg|ico|woff2?)$/)) {
+  if (
+    requestUrl.pathname.startsWith('/assets/') ||
+    requestUrl.pathname.startsWith('/build/assets/') ||
+    requestUrl.pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2?)$/)
+  ) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
-          return cachedResponse;
+          const cachedType = cachedResponse.headers.get('content-type') || '';
+          if (!cachedType.includes('text/html')) {
+            return cachedResponse;
+          }
         }
         return fetch(event.request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+          const contentType = networkResponse ? (networkResponse.headers.get('content-type') || '') : '';
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' || contentType.includes('text/html')) {
             return networkResponse;
           }
           const responseToCache = networkResponse.clone();

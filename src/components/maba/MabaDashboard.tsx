@@ -17,7 +17,6 @@ import {
 } from '../../types/asrama';
 import { AutoResumeBanner } from '../common/AutoResumeBanner';
 import { StudentInvoiceSummary } from './StudentInvoiceSummary';
-import { VisualProgressIndicator } from './VisualProgressIndicator';
 import { AuditLogView } from '../shared/AuditLogView';
 import { ReservationCountdownBanner } from './ReservationCountdownBanner';
 import { DigitalContractView } from './DigitalContractView';
@@ -78,10 +77,8 @@ import {
   GraduationCap,
 } from 'lucide-react';
 
-import { AddressForm } from './AddressForm';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { CaptureComponent } from '../shared/CaptureComponent';
-import { VerifikasiTrail, VerificationAttempt } from './VerifikasiTrail';
 
 import { TariffItem, PaymentScheme, SiakadMahasiswaStgRecord } from '../../types/asrama';
 import { INITIAL_SIAKAD_STAGING } from '../../data/initialData';
@@ -558,7 +555,7 @@ export const MabaDashboard: React.FC<MabaDashboardProps> = ({
       setIsAcademicExpanded(true);
     }
   }, []);
-  const [verificationHistory, setVerificationHistory] = useState<VerificationAttempt[]>([]);
+  const [verificationHistory, setVerificationHistory] = useState<any[]>([]);
 
   const applyPreset = (type: 'REGULER' | 'KIP' | 'LUAR_DAERAH' | 'CLEAR') => {
     if (type === 'CLEAR') {

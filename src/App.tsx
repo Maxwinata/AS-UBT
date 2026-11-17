@@ -22,8 +22,6 @@ import { AdminKeuangan } from './components/admin/AdminKeuangan';
 import { AdminAsrama } from './components/admin/AdminAsrama';
 import { CronEngineMonitor } from './components/sop/CronEngineMonitor';
 import { DFDViewer } from './components/architecture/DFDViewer';
-import { LaravelBlueprint } from './components/architecture/LaravelBlueprint';
-import { SqlImporter } from './components/architecture/SqlImporter';
 import { SchemaDiagram } from './components/architecture/SchemaDiagram';
 import { NotificationProvider } from './context/NotificationContext';
 import { MaintenanceTicketing } from './components/maintenance/MaintenanceTicketing';

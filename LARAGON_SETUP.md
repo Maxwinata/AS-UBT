@@ -6,39 +6,36 @@ Proyek ini telah dikondisikan secara penuh (**turnkey full-stack ready**) agar d
 
 ---
 
-## 🚀 Cara Menjalankan di Laragon (Paling Cepat - 1 Klik)
+## 🚀 Cara Menjalankan di Laragon (Mode Stabil 1-Klik untuk Pengguna Awam)
 
-1. Clone repositori ini langsung ke dalam folder root Laragon:
-   ```bash
-   cd C:\laragon\www
-   git clone <URL_REPO_GITHUB_ANDA> asrama-ubt
-   cd asrama-ubt
-   ```
-2. Pastikan servis **MySQL** & **Apache/Nginx** di aplikasi Laragon sudah dalam keadaan **Start All**.
-3. Di dalam folder `asrama-ubt`, cukup **klik 2x file `laragon-setup.bat`** (atau jalankan via Terminal Laragon).
-   * Script otomatis:
-     - Meng-copy `.env.example` ke `.env`
-     - Menjalankan `composer install`
-     - Men-generate `APP_KEY`
-     - Menyiapkan dual database MySQL (`asrama_ubt_db` & `u540633926_simaba`)
-     - **Pilihan Seeder Terkalibrasi**:
-       * **[1] Mode Produksi Riil (Default / Disarankan)**: Menjalankan `ProductionSeeder` (100% bebas akun dummy mahasiswa; hanya menginisialisasi Master Tarif SK Rektor, 64 Kamar Fisik Riil Roemah 54, dan akun staf resmi).
-       * **[2] Mode Simulasi**: Menjalankan `DatabaseSeeder` (menyertakan akun sampel mahasiswa untuk keperluan QA).
-     - Menjalankan `npm install`
-4. Jalankan Vite frontend di terminal untuk mode pengembangan:
-   ```bash
-   npm run dev
-   ```
-   *Catatan Produksi*: Jika ingin menguji bundel produksi tanpa menjalankan dev server Vite, kompilasi aset dengan:
-   ```bash
-   npm run build
-   ```
-5. Buka browser:
-   * **Domain otomatis Laragon**: `http://asrama-ubt.test`
-   * Atau via server lokal: `http://127.0.0.1:8000` (jika menggunakan `php artisan serve`).
+Anda **tidak perlu** membuka terminal atau membiarkan perintah `npm run dev` terus menyala. Kedua file `.bat` di dalam folder proyek sudah dilengkapi **Auto-Detect PATH Laragon** sehingga dapat langsung **diklik 2x dari Windows File Explorer**:
 
-> ⚡ **Uji Live CRUD MySQL (1-Klik Tanpa Browser)**:  
-> Jalankan file **`laragon-test-crud.bat`** di root folder untuk menguji operasi Create, Read, Update, Delete nyata langsung ke tabel MySQL `asrama_ubt_db` dan memverifikasi koneksi handshake dual-database.
+### A. Persiapan Pertama Kali (Cukup Sekali Saja)
+1. Letakkan atau *clone* folder proyek ini di dalam `C:\laragon\www\asrama-ubt`.
+2. Buka aplikasi **Laragon** dan klik tombol **Start All** (agar MySQL & Apache aktif).
+3. Di Windows Explorer, buka folder proyek lalu **klik 2x file `laragon-setup.bat`**.
+   * Skrip ini bekerja otomatis dari awal sampai akhir:
+     - Mendeteksi otomatis lokasi PHP, MySQL, Composer, dan Node.js di `C:\laragon\bin`.
+     - Menyalin `.env` dan menghapus file pengganggu `public\hot` (pencegah layar putih).
+     - Memasang paket PHP (`composer install`) & membuat kunci keamanan (`key:generate`).
+     - Membuat database `asrama_ubt_db` dan `u540633926_simaba` di MySQL Laragon.
+     - Mengisi **64 Kamar Fisik Roemah 54**, Tarif Resmi SK Rektor, dan Akun Staf (cukup tekan **Enter** saat ditanya pilihan seeder).
+     - Mengompilasi tampilan permanen (`npm run build`) ke `public\build\manifest.json` sehingga aplikasi selalu aktif tanpa perlu `npm run dev`.
+     - Langsung membuka aplikasi di Browser Anda!
+
+---
+
+### B. Penggunaan Harian & Pengujian Database (Klik 2x `laragon-test-crud.bat`)
+Untuk penggunaan sehari-hari, Anda cukup **klik 2x file `laragon-test-crud.bat`**. Akan muncul **Pusat Kendali Harian** berbahasa awam dengan pilihan:
+
+| Nomor Menu | Fungsi Utama (Cukup Ketik Angka lalu Enter) |
+| :---: | :--- |
+| **`[1]`** | **BUKA APLIKASI MODE STABIL (Disarankan untuk Harian)**<br>Otomatis mencegah layar putih (menghapus `public\hot`), membersihkan cache, dan langsung membuka aplikasi di Browser (`http://127.0.0.1:8000/login` atau `http://asrama-ubt.test/login`) tanpa perlu menyalakan `npm run dev`. |
+| **`[2]`** | **PERBARUI TAMPILAN PERMANEN**<br>Pilih menu ini jika Anda baru saja menarik update kode baru agar perubahan tampilan disimpan permanen (`npm run build`). |
+| **`[3]`** | **RESET & ISI ULANG DATABASE AWAL**<br>Mengembalikan database MySQL ke kondisi awal yang bersih beserta 64 kamar fisik Roemah 54 dan tarif SK Rektor. |
+| **`[4]`** | **TES OTOMATIS 4 TAHAP PENDAFTARAN KE MYSQL**<br>Menjalankan pengujian otomatis alur Biodata e-KYC, Kunci Kamar, Tagihan, hingga Kontrak langsung ke MySQL (hasilnya bisa dilihat di phpMyAdmin). |
+| **`[5]`** | **TES OTOMATIS 4 TAHAP + BERSIHKAN KEMBALI (`--cleanup`)**<br>Memastikan seluruh fungsi database sehat 100%, lalu menghapus kembali data tesnya. |
+| **`[6]`** | **TARIK DATA MAHASISWA DARI SERVER KAMPUS (API SIDARA)**<br>Menyinkronkan data calon mahasiswa terbaru ke tabel staging `siakad_mahasiswa_stg`. |
 
 > 🧪 **Langkah Pengujian Logika Program (Data Real)**:  
 > Untuk panduan rinci langkah-demi-langkah menguji alur pendaftaran mahasiswa baru dari formulir hingga migrasi otomatis ke tabel master di MySQL Laragon, silakan baca:  

@@ -1,17 +1,18 @@
+import { ASRAMA_TARIFFS } from '../config/asramaBusinessRules';
 
 export const initialTariffs: any[] = [
-  { id: 't1', name: 'Sewa Kamar Standar (Per Bulan)', amount: 500000, category: 'SEWA', target: 'ALL' },
-  { id: 't2', name: 'Deposit Jaminan (Non-KIP)', amount: 1000000, category: 'DEPOSIT', target: 'REGULER' },
-  { id: 't3', name: 'Deposit Jaminan KIP (Lunas 1x)', amount: 500000, category: 'DEPOSIT', target: 'KIP' },
-  { id: 't4', name: 'Biaya Administrasi (Non-KIP)', amount: 100000, category: 'PERLENGKAPAN', target: 'REGULER' },
-  { id: 't5', name: 'Biaya Administrasi (KIP)', amount: 100000, category: 'PERLENGKAPAN', target: 'KIP' },
-  { id: 't6', name: 'Biaya Admin Cicilan 2x (Deposit KIP)', amount: 125000, category: 'CICILAN', target: 'KIP' },
-  { id: 't8', name: 'Deposit Jaminan KIP (Dicicil 1,5x)', amount: 750000, category: 'DEPOSIT', target: 'KIP' },
-  { id: 't7', name: 'Biaya Admin Cicilan 3x (Deposit KIP)', amount: 250000, category: 'CICILAN', target: 'KIP' },
-  { id: 't9', name: 'Maksimal Tenor Cicilan Deposit KIP (Bulan)', amount: 3, category: 'PENGATURAN', target: 'KIP' },
+  { id: 't1', name: 'Sewa Kamar Standar (Per Bulan)', amount: ASRAMA_TARIFFS.SEWA_BULANAN, category: 'SEWA', target: 'ALL' },
+  { id: 't2', name: 'Deposit Jaminan (Non-KIP)', amount: ASRAMA_TARIFFS.DEPOSIT_REGULER, category: 'DEPOSIT', target: 'REGULER' },
+  { id: 't3', name: 'Deposit Jaminan KIP (Lunas 1x)', amount: ASRAMA_TARIFFS.DEPOSIT_KIP_LUNAS_1X, category: 'DEPOSIT', target: 'KIP' },
+  { id: 't4', name: 'Biaya Administrasi (Non-KIP)', amount: ASRAMA_TARIFFS.BIAYA_ADMINISTRASI, category: 'PERLENGKAPAN', target: 'REGULER' },
+  { id: 't5', name: 'Biaya Administrasi (KIP)', amount: ASRAMA_TARIFFS.BIAYA_ADMINISTRASI, category: 'PERLENGKAPAN', target: 'KIP' },
+  { id: 't6', name: 'Biaya Admin Cicilan 2x (Deposit KIP)', amount: ASRAMA_TARIFFS.BIAYA_ADMIN_CICILAN_2X, category: 'CICILAN', target: 'KIP' },
+  { id: 't8', name: 'Deposit Jaminan KIP (Dicicil 1,5x)', amount: ASRAMA_TARIFFS.DEPOSIT_KIP_CICILAN, category: 'DEPOSIT', target: 'KIP' },
+  { id: 't7', name: 'Biaya Admin Cicilan 3x (Deposit KIP)', amount: ASRAMA_TARIFFS.BIAYA_ADMIN_CICILAN_3X, category: 'CICILAN', target: 'KIP' },
+  { id: 't9', name: 'Maksimal Tenor Cicilan Deposit KIP (Bulan)', amount: ASRAMA_TARIFFS.MAX_TENOR_CICILAN_KIP, category: 'PENGATURAN', target: 'KIP' },
 ];
 
-import { 
+import type { 
   MabaProfile,
   BillingInvoice,
   RoomPlot,

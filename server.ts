@@ -6,7 +6,7 @@ import Tesseract from 'tesseract.js';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
   // API routes FIRST
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -136,7 +136,7 @@ async function startServer() {
         return res.json([]);
       }
 
-      const { INITIAL_SIMABA_STUDENTS } = await import('./src/data/initialData');
+      const { INITIAL_SIMABA_STUDENTS } = await import('./src/data/initialData.ts');
       const results = INITIAL_SIMABA_STUDENTS.filter(s => 
         s.nama_mahasiswa.toLowerCase().includes(q) ||
         s.nomor_pendaftaran.toLowerCase().includes(q) ||
@@ -159,8 +159,26 @@ async function startServer() {
     }
   });
 
+  const publicDirPath = path.join(process.cwd(), 'public');
+  const publicBuildPath = path.join(process.cwd(), 'public', 'build');
+  const distDirPath = path.join(process.cwd(), 'dist');
+
+  // Serve static public assets (e.g. /sw.js, /robots.txt, /assets/*)
+  if (fs.existsSync(publicDirPath)) {
+    app.use(express.static(publicDirPath, { index: false }));
+  }
+
+  // Always serve /build/* from public/build if available so /build/assets/* never falls through to HTML
+  if (fs.existsSync(publicBuildPath)) {
+    app.use('/build', express.static(publicBuildPath, { index: false }));
+  }
+
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    process.env.npm_lifecycle_event === 'start';
+
   // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProduction) {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -185,11 +203,22 @@ async function startServer() {
       }
     });
   } else {
-    const publicBuildPath = path.join(process.cwd(), 'public', 'build');
-    const distPath = fs.existsSync(publicBuildPath) ? publicBuildPath : path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    const activeDistPath = fs.existsSync(publicBuildPath) ? publicBuildPath : distDirPath;
+    app.use('/build', express.static(activeDistPath));
+    app.use(express.static(activeDistPath));
+    if (fs.existsSync(distDirPath) && activeDistPath !== distDirPath) {
+      app.use(express.static(distDirPath));
+    }
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      // Prevent missing JS/CSS chunks from returning index.html with text/html MIME type
+      if (
+        req.path.startsWith('/assets/') ||
+        req.path.startsWith('/build/') ||
+        /\.(js|css|map|json|wasm|png|jpg|jpeg|svg|ico|woff2?)$/i.test(req.path)
+      ) {
+        return res.status(404).end();
+      }
+      res.sendFile(path.join(activeDistPath, 'index.html'));
     });
   }
 

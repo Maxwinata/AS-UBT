@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, AlertTriangle, RefreshCw, ShieldAlert, CheckCircle2, Zap } from 'lucide-react';
 import { BillingInvoice, RoomPlot } from '../../types/asrama';
+import { ASRAMA_SLA_TIMERS } from '../../config/asramaBusinessRules';
 import { toast } from 'sonner';
 
 interface ReservationCountdownBannerProps {
@@ -23,10 +24,10 @@ export const ReservationCountdownBanner: React.FC<ReservationCountdownBannerProp
     totalSeconds: number;
     isExpired: boolean;
   }>({
-    hours: 48,
+    hours: ASRAMA_SLA_TIMERS.INVOICE_EXPIRY_HOURS,
     minutes: 0,
     seconds: 0,
-    totalSeconds: 48 * 3600,
+    totalSeconds: ASRAMA_SLA_TIMERS.INVOICE_EXPIRY_SECONDS,
     isExpired: invoice.status === 'EXPIRED',
   });
 
@@ -47,7 +48,7 @@ export const ReservationCountdownBanner: React.FC<ReservationCountdownBannerProp
       // Calculate target expiration time: invoice.expiresAt or fallback to 48 hours from createdAt/now
       const baseExpiresAt = invoice.expiresAt 
         ? new Date(invoice.expiresAt).getTime()
-        : Date.now() + 48 * 3600 * 1000;
+        : Date.now() + ASRAMA_SLA_TIMERS.INVOICE_EXPIRY_MS;
 
       const targetTime = baseExpiresAt - simulatedOffsetMs;
       const now = Date.now();
